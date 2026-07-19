@@ -20,3 +20,6 @@ docs/_build/
 .rlsbl/lock
 
 .rlsbl-monorepo/lock
+
+build/
+target/
