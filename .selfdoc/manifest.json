@@ -8,6 +8,11 @@
   "base_url": "https://go-toml-edit.smmh.dev",
   "pages": [
     {
+      "path": "design.md",
+      "title": "Design Guide",
+      "type": "doc"
+    },
+    {
       "path": "gen-index.md",
       "title": "API Reference",
       "type": "doc"
@@ -21,8 +26,13 @@
       "path": "index.md",
       "title": "go-toml-edit",
       "type": "doc"
+    },
+    {
+      "path": "usage-guide.md",
+      "title": "Usage Guide",
+      "type": "doc"
     }
   ],
   "posts": [],
-  "last_gen": "2026-07-29T15:33:14.967799+00:00"
+  "last_gen": "2026-07-29T15:45:16.666095+00:00"
 }
