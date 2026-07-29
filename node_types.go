@@ -28,8 +28,11 @@ type DocumentNode struct {
 	Children []Node
 }
 
+// Type returns NodeDocument.
 func (n *DocumentNode) Type() NodeType { return NodeDocument }
-func (n *DocumentNode) Value() any     { return n.Children }
+
+// Value returns the document's child nodes.
+func (n *DocumentNode) Value() any { return n.Children }
 
 // TableNode represents a [table] header and its children.
 type TableNode struct {
@@ -38,8 +41,11 @@ type TableNode struct {
 	Children []Node
 }
 
+// Type returns NodeTable.
 func (n *TableNode) Type() NodeType { return NodeTable }
-func (n *TableNode) Value() any     { return n.Children }
+
+// Value returns the table's child nodes.
+func (n *TableNode) Value() any { return n.Children }
 
 // ArrayTableNode represents an [[array-table]] header and its children.
 type ArrayTableNode struct {
@@ -48,8 +54,11 @@ type ArrayTableNode struct {
 	Children []Node
 }
 
+// Type returns NodeArrayTable.
 func (n *ArrayTableNode) Type() NodeType { return NodeArrayTable }
-func (n *ArrayTableNode) Value() any     { return n.Children }
+
+// Value returns the array table's child nodes.
+func (n *ArrayTableNode) Value() any { return n.Children }
 
 // KeyValueNode represents a key = value pair.
 type KeyValueNode struct {
@@ -58,8 +67,11 @@ type KeyValueNode struct {
 	Val   Node
 }
 
+// Type returns NodeKeyValue.
 func (n *KeyValueNode) Type() NodeType { return NodeKeyValue }
-func (n *KeyValueNode) Value() any     { return n.Val }
+
+// Value returns the value node of this key-value pair.
+func (n *KeyValueNode) Value() any { return n.Val }
 
 // KeyNode represents a (possibly dotted) key.
 type KeyNode struct {
@@ -69,8 +81,11 @@ type KeyNode struct {
 	Styles   []StringStyle // quoting style per part
 }
 
+// Type returns NodeKey.
 func (n *KeyNode) Type() NodeType { return NodeKey }
-func (n *KeyNode) Value() any     { return n.Parts }
+
+// Value returns the key's decoded parts.
+func (n *KeyNode) Value() any { return n.Parts }
 
 // StringNode represents a string value.
 type StringNode struct {
@@ -79,8 +94,11 @@ type StringNode struct {
 	Style StringStyle
 }
 
+// Type returns NodeString.
 func (n *StringNode) Type() NodeType { return NodeString }
-func (n *StringNode) Value() any     { return n.Val }
+
+// Value returns the decoded string.
+func (n *StringNode) Value() any { return n.Val }
 
 // IntegerNode represents an integer value.
 type IntegerNode struct {
@@ -89,8 +107,11 @@ type IntegerNode struct {
 	Base IntegerBase
 }
 
+// Type returns NodeInteger.
 func (n *IntegerNode) Type() NodeType { return NodeInteger }
-func (n *IntegerNode) Value() any     { return n.Val }
+
+// Value returns the integer value as int64.
+func (n *IntegerNode) Value() any { return n.Val }
 
 // FloatNode represents a float value.
 type FloatNode struct {
@@ -98,8 +119,11 @@ type FloatNode struct {
 	Val float64
 }
 
+// Type returns NodeFloat.
 func (n *FloatNode) Type() NodeType { return NodeFloat }
-func (n *FloatNode) Value() any     { return n.Val }
+
+// Value returns the float value as float64.
+func (n *FloatNode) Value() any { return n.Val }
 
 // BooleanNode represents a boolean value.
 type BooleanNode struct {
@@ -107,8 +131,11 @@ type BooleanNode struct {
 	Val bool
 }
 
+// Type returns NodeBoolean.
 func (n *BooleanNode) Type() NodeType { return NodeBoolean }
-func (n *BooleanNode) Value() any     { return n.Val }
+
+// Value returns the boolean value.
+func (n *BooleanNode) Value() any { return n.Val }
 
 // DateTimeNode represents an offset date-time value.
 type DateTimeNode struct {
@@ -116,8 +143,11 @@ type DateTimeNode struct {
 	Val time.Time
 }
 
+// Type returns NodeDateTime.
 func (n *DateTimeNode) Type() NodeType { return NodeDateTime }
-func (n *DateTimeNode) Value() any     { return n.Val }
+
+// Value returns the time.Time value.
+func (n *DateTimeNode) Value() any { return n.Val }
 
 // LocalDateTimeNode represents a local date-time value (no timezone).
 type LocalDateTimeNode struct {
@@ -125,8 +155,11 @@ type LocalDateTimeNode struct {
 	Val LocalDateTime
 }
 
+// Type returns NodeLocalDateTime.
 func (n *LocalDateTimeNode) Type() NodeType { return NodeLocalDateTime }
-func (n *LocalDateTimeNode) Value() any     { return n.Val }
+
+// Value returns the LocalDateTime value.
+func (n *LocalDateTimeNode) Value() any { return n.Val }
 
 // LocalDateNode represents a local date value.
 type LocalDateNode struct {
@@ -134,8 +167,11 @@ type LocalDateNode struct {
 	Val LocalDate
 }
 
+// Type returns NodeLocalDate.
 func (n *LocalDateNode) Type() NodeType { return NodeLocalDate }
-func (n *LocalDateNode) Value() any     { return n.Val }
+
+// Value returns the LocalDate value.
+func (n *LocalDateNode) Value() any { return n.Val }
 
 // LocalTimeNode represents a local time value.
 type LocalTimeNode struct {
@@ -143,8 +179,11 @@ type LocalTimeNode struct {
 	Val LocalTime
 }
 
+// Type returns NodeLocalTime.
 func (n *LocalTimeNode) Type() NodeType { return NodeLocalTime }
-func (n *LocalTimeNode) Value() any     { return n.Val }
+
+// Value returns the LocalTime value.
+func (n *LocalTimeNode) Value() any { return n.Val }
 
 // ArrayNode represents an array value.
 type ArrayNode struct {
@@ -153,8 +192,11 @@ type ArrayNode struct {
 	TrailingComments [][]byte // comments after the last element, before ']'
 }
 
+// Type returns NodeArray.
 func (n *ArrayNode) Type() NodeType { return NodeArray }
-func (n *ArrayNode) Value() any     { return n.Elements }
+
+// Value returns the array's elements.
+func (n *ArrayNode) Value() any { return n.Elements }
 
 // InlineTableNode represents an inline table value.
 type InlineTableNode struct {
@@ -162,8 +204,11 @@ type InlineTableNode struct {
 	Children []Node // KeyValueNode entries
 }
 
+// Type returns NodeInlineTable.
 func (n *InlineTableNode) Type() NodeType { return NodeInlineTable }
-func (n *InlineTableNode) Value() any     { return n.Children }
+
+// Value returns the inline table's child nodes.
+func (n *InlineTableNode) Value() any { return n.Children }
 
 // CommentNode represents a standalone comment line.
 type CommentNode struct {
@@ -171,5 +216,8 @@ type CommentNode struct {
 	Text string
 }
 
+// Type returns NodeComment.
 func (n *CommentNode) Type() NodeType { return NodeComment }
-func (n *CommentNode) Value() any     { return n.Text }
+
+// Value returns the comment text.
+func (n *CommentNode) Value() any { return n.Text }

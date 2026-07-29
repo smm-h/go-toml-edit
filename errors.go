@@ -13,6 +13,7 @@ type ParseError struct {
 	Message string
 }
 
+// Error returns the formatted error message with line and column information.
 func (e *ParseError) Error() string {
 	return fmt.Sprintf("line %d, column %d: %s", e.Line, e.Column, e.Message)
 }
