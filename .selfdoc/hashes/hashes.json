@@ -1,5 +1,9 @@
 {
   "_hash_version": 3,
+  "en/design.md": {
+    "content": "972e4d15aee036fc6cc3287fd8a80d92b7cab575dc416ba1457aabb5a208ff1d",
+    "description": "e74f400db70e4863cdc76c1fe4071c51a06ca1f282ff2477d165ff0723caeee1"
+  },
   "en/gen-index.md": {
     "content": "47fb2bef6c47aae02b3739c7ed4facd41672ee38da5103346e348783c56b6de0",
     "description": "576e72b5ee8acc176cebe57c20c08cea7cae6c43bfa4424d5c1b052411ec5813",
@@ -14,5 +18,9 @@
     "content": "571b78161938139db0a79a2cc005156a62c77b0b0e445eba94fc43a221db2983",
     "description": "9b2cfc8fb2cdef184ce3cc02a8463aa859e1c4063a5182a7d9686a0be4a09ef8",
     "source_docstring": "e585086b6e7d754a297277cedeeaf6bef74e48b31df775957ce206f1b9e86efe"
+  },
+  "en/usage-guide.md": {
+    "content": "cc363748ac2a11e872584a2b57751990e015c8fc1cc15e66921b97036c26be30",
+    "description": "a7e9811a1e7be9d45cddd95e3a922bc79f20e7035756a1c2cefa93b6b2a3a82c"
   }
 }
