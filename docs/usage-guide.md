@@ -1,6 +1,6 @@
 ---
 title: Usage Guide
-description: "Comprehensive guide to parsing, querying, editing, and serializing TOML documents with go-toml-edit."
+description: "Comprehensive guide to parsing, querying, editing, and serializing TOML documents with go-toml-edit, including comments, merging, diffing, and marshaling."
 nav_group: "Guides"
 nav_order: 1
 ---
@@ -25,7 +25,7 @@ import "github.com/smm-h/go-toml-edit"
 
 ### From a byte slice
 
-The primary entry point is `tomledit.Parse`, which takes a `[]byte` and returns a `*DocumentNode` AST:
+The primary entry point is `tomledit.Parse`, which takes a `[]byte` containing TOML source text and returns a `*DocumentNode` AST that preserves every byte of the original input including comments, whitespace, and quoting styles. Parse errors are returned as `*tomledit.ParseError` values with line and column information for precise diagnostics.
 
 ```go
 input := []byte(`
@@ -52,7 +52,7 @@ if pe, ok := err.(*tomledit.ParseError); ok {
 
 ### From a file
 
-Read the file into memory first, then parse:
+There is no dedicated file-reading function; read the file into memory with `os.ReadFile` or similar, then pass the resulting byte slice to `tomledit.Parse`. This keeps the library free of I/O dependencies and gives you full control over file handling, encoding, and error reporting.
 
 ```go
 data, err := os.ReadFile("config.toml")
@@ -69,7 +69,7 @@ if err != nil {
 
 ### Path-based access with Get
 
-The `Get` method resolves a dot-separated path and returns the value node. It returns `nil` if the path is not found or syntactically invalid.
+The `Get` method resolves a dot-separated path through the document's AST and returns the value node at that location. It returns `nil` if the path does not exist or is syntactically invalid, making it safe for simple lookups where you only need to check for a nil result rather than inspect a detailed error.
 
 ```go
 node := doc.Get("server.host")
@@ -86,7 +86,7 @@ Path syntax:
 
 ### Typed getters
 
-Convenience methods extract values with type checking. Each returns a value and a boolean indicating success:
+Convenience methods extract values with type checking, combining path resolution and type assertion in a single call. Each returns a value of the expected Go type and a boolean indicating whether the path existed and the value had the correct type, returning the zero value and false otherwise.
 
 ```go
 host, ok := doc.GetString("server.host")     // (string, bool)
@@ -100,7 +100,7 @@ If the path does not exist or the value is a different type, the zero value and 
 
 ### Resolve with error details
 
-`Resolve` works like `Get` but returns an error instead of `nil`, making it possible to distinguish "not found" from "invalid path":
+`Resolve` works like `Get` but returns an error instead of `nil` when the path cannot be resolved, making it possible to distinguish between a path that does not exist in the document and a path that is syntactically invalid. This is useful when you need to provide detailed diagnostics about why a lookup failed.
 
 ```go
 node, err := doc.Resolve("server.host")
@@ -111,7 +111,7 @@ if err != nil {
 
 ### Cursor API
 
-The cursor provides a fluent, nil-safe API for step-by-step navigation. Errors are deferred until you check `Err()`:
+The cursor provides a fluent, nil-safe API for step-by-step navigation through the document tree, where each method call returns a new cursor positioned at the next node. Errors are captured internally and deferred until you explicitly check `Err()`, so you can chain multiple navigation steps without intermediate error checks.
 
 ```go
 host, ok := doc.Key("server").Key("host").String()
@@ -138,7 +138,7 @@ if cursor.Err() != nil {
 
 ### Iterating over arrays
 
-The `Items` method returns a range-over-func iterator for array elements and array-of-tables entries:
+The `Items` method returns a Go 1.23+ range-over-func iterator that yields index-value pairs for array elements and array-of-tables entries, providing a natural way to loop over ordered collections in the document without manual index tracking or length checks.
 
 ```go
 for i, node := range doc.Items("servers") {
@@ -166,7 +166,7 @@ for i, node := range cursor.Items() {
 
 ### Set
 
-`Set` updates the value at a path. If the final key does not exist in an existing parent, it is created. Intermediate path segments must already exist.
+`Set` updates the value at a path, replacing the existing value node while preserving any comments and trivia attached to the key-value pair. If the final key does not exist in an existing parent table, it is appended as a new key-value pair. Intermediate path segments must already exist; use `SetCreate` if you need automatic table creation.
 
 ```go
 err := doc.Set("server.port", 9090)
@@ -179,7 +179,7 @@ Supported Go types: `string`, `bool`, `int`/`int8`-`int64`, `uint`/`uint8`-`uint
 
 ### SetCreate
 
-`SetCreate` is like `Set` but auto-creates intermediate `[table]` headers when they do not exist:
+`SetCreate` extends `Set` by automatically creating intermediate `[table]` headers along the path when they do not already exist, making it possible to write deeply nested values in a single call without manually creating each parent table first. The created tables are appended to the document in order.
 
 ```go
 // Even if [database] does not exist yet, this creates it automatically.
@@ -188,7 +188,7 @@ err := doc.SetCreate("database.connection.host", "db.example.com")
 
 ### Setting arrays and inline tables
 
-Pass a `[]any` for arrays or `map[string]any` for inline tables:
+Pass a `[]any` slice to create a TOML array or a `map[string]any` to create an inline table. Go values are automatically converted to the appropriate AST node types, and typed slices such as `[]string` or `[]int` are also accepted for convenience.
 
 ```go
 err := doc.Set("server.ports", []any{8080, 8081, 8082})
@@ -211,7 +211,7 @@ err = doc.Set("server.ports[-1]", 9999)      // replace last element
 
 ### NewTable
 
-Create a new `[table]` header:
+Create a new `[table]` header in the document, which appends a table section that can then be populated with key-value pairs using `Set`. Returns an error if a table with the specified path already exists, preventing accidental duplication of sections.
 
 ```go
 err := doc.NewTable("logging")
@@ -224,7 +224,7 @@ Returns an error if a table with that path already exists.
 
 ### NewArrayTable
 
-Append a new `[[array-table]]` entry. Multiple entries with the same path represent successive elements of the array:
+Append a new `[[array-table]]` entry to the document. Multiple entries with the same path represent successive elements of the array, following the TOML specification's array-of-tables semantics. Use negative indexing (`[-1]`) to set values on the most recently appended entry.
 
 ```go
 err := doc.NewArrayTable("products")
@@ -238,7 +238,7 @@ err = doc.Set("products[-1].price", 19.99)
 
 ## Removing keys
 
-`Delete` removes the node at a path. It is safe to call on paths that do not exist (returns `nil`):
+`Delete` removes the node at a path, handling key-value pairs, entire table sections including their sub-tables, array-of-tables entries, and individual array elements. It is idempotent and safe to call on paths that do not exist, returning nil without error in that case.
 
 ```go
 err := doc.Delete("server.debug")    // remove a key-value pair
@@ -249,7 +249,7 @@ err = doc.Delete("nonexistent.key")  // no-op, no error
 
 ## Renaming keys
 
-`Rename` changes the key name at a path. Returns an error if the target name already exists or the path is not found:
+`Rename` changes the key name of a node at a given path, updating the key's internal parts and raw representation while marking the node as dirty for re-rendering. It returns an error if the target name already exists among sibling keys or the path is not found in the document.
 
 ```go
 err := doc.Rename("server.host", "bind_address")
@@ -258,7 +258,7 @@ err := doc.Rename("server.host", "bind_address")
 
 ## Walking the document
 
-`Walk` visits every key-value pair in document order, calling a function with the path and value node:
+`Walk` visits every key-value pair in document order, calling a callback function with the dot-separated path and the value node at each position. It handles the complex ownership rules of array-of-tables entries and supports two modes for controlling whether container nodes are yielded to the callback.
 
 ```go
 err := doc.Walk(func(path string, node tomledit.Node) error {
@@ -278,11 +278,11 @@ Array-of-tables paths include the index: `"products[0].name"`, `"products[1].nam
 
 ## Comments
 
-go-toml-edit preserves all comments from the original document. You can also read and write comments programmatically.
+go-toml-edit preserves all comments from the original document through its trivia system, which attaches leading comments, inline comments, and standalone comments to their nearest content nodes. You can also read and write comments programmatically using the `Comment()`, `LeadingComments()`, `SetComment()`, and `SetLeadingComments()` methods.
 
 ### Reading comments
 
-Every node exposes `Comment()` for the inline comment and `LeadingComments()` for comment lines above it:
+Every node exposes `Comment()` for the inline comment on the same line after the value and `LeadingComments()` for comment lines that appear above it in the source. Both methods return the comment text as it appears in the original document, preserving the exact wording and formatting.
 
 ```go
 node := doc.Get("server.host")
@@ -294,7 +294,7 @@ if node != nil {
 
 ### Setting inline comments
 
-`SetComment` sets the inline comment on a node. The `"# "` prefix is added automatically:
+`SetComment` sets the inline comment on a node at the specified path, placing the comment text on the same line after the value. The `"# "` prefix is added automatically, and passing an empty string removes the comment entirely without affecting the value or any leading comments.
 
 ```go
 err := doc.SetComment("server.port", "default HTTP port")
@@ -309,7 +309,7 @@ err := doc.SetComment("server.port", "")
 
 ### Setting leading comments
 
-`SetLeadingComments` sets the comment lines above a node. Each string should be the bare comment text without `"# "` prefix:
+`SetLeadingComments` replaces all comment lines above a node at the specified path with the provided strings. Each string should be the bare comment text without the `"# "` prefix, which is added automatically during rendering. This is useful for adding documentation or explanatory notes directly above configuration keys.
 
 ```go
 err := doc.SetLeadingComments("server.host", []string{
@@ -328,11 +328,11 @@ host = "localhost"
 
 ### Comments and inline tables
 
-TOML does not allow comments inside inline tables. Attempting to set a comment on a member of an inline table returns an error.
+The TOML specification does not allow comments inside inline tables, which must fit on a single line. Attempting to set a comment on a member of an inline table returns an error from `SetComment` and `SetLeadingComments`, enforcing this constraint at the API level rather than silently producing invalid TOML.
 
 ## Comment preservation guarantee
 
-The library guarantees that parsing a document and serializing it back produces the exact original bytes, with no changes to comments, whitespace, or formatting:
+The library guarantees that parsing a document and serializing it back with `Bytes()` produces the exact original bytes, with no changes to comments, whitespace, quoting styles, or formatting. When you modify a value, only the changed node is re-rendered while all surrounding comments and formatting are preserved from the original source bytes.
 
 ```go
 original := []byte(`# My config
@@ -375,7 +375,7 @@ The comment on `port` survives the value change. The comment on `host` is untouc
 
 ### Bytes -- round-trip fidelity
 
-`Bytes()` returns the document as TOML bytes. Unmodified nodes emit their original raw bytes; only dirty (edited) nodes are re-rendered:
+`Bytes()` returns the document as TOML bytes with round-trip fidelity, where unmodified nodes emit their original raw bytes directly and only dirty (edited) nodes are re-rendered from their semantic values. This makes the serialization cost proportional to the number of edits rather than the document size.
 
 ```go
 output := doc.Bytes()
@@ -384,7 +384,7 @@ os.WriteFile("config.toml", output, 0644)
 
 ### Format -- canonical style
 
-`Format()` re-renders the entire document with consistent formatting, ignoring the original raw bytes. This is useful for enforcing a canonical style:
+`Format()` re-renders the entire document from semantic values with consistent formatting, ignoring all original raw bytes and quoting choices. This is useful for enforcing a canonical style across TOML files, and it supports configurable options for indentation width, line width for array wrapping, and blank lines before table headers.
 
 ```go
 output := doc.Format()
@@ -404,7 +404,7 @@ output := doc.Format(
 
 ## Diffing two documents
 
-`Diff` compares two documents and returns a list of changes:
+`Diff` compares two parsed documents by collecting all leaf values from each and producing a list of `Change` values that describe what was added, removed, or modified between them. Each change includes the dot-separated path, the old value, the new value, and a kind enum indicating the type of change.
 
 ```go
 a, _ := tomledit.Parse([]byte(`name = "Alice"
@@ -430,7 +430,7 @@ Change kinds: `tomledit.Added`, `tomledit.Removed`, `tomledit.Modified`.
 
 ### MergeDefaults
 
-Apply default values to an existing document. Only missing keys are set; existing values are never overwritten:
+Apply default values from a `map[string]any` to an existing document, recursing into nested tables and only setting keys that are missing in the target. Existing values are never overwritten, making this safe for layering configuration defaults underneath user-specified settings without losing any user customizations.
 
 ```go
 doc, _ := tomledit.Parse([]byte(`[server]
@@ -450,7 +450,7 @@ err := doc.MergeDefaults("", map[string]any{
 
 ### Merge
 
-Merge all values from another parsed document. Same recursive semantics as `MergeDefaults`: only missing keys are set. Comments from the source document are also carried over:
+Merge all values from another parsed `*DocumentNode` into the current document, using the same recursive semantics as `MergeDefaults` where only missing keys are set and existing values are never overwritten. Comments from the source document are also carried over: leading comments are appended to the target's existing comments, and inline comments fill in where the target has none.
 
 ```go
 base, _ := tomledit.Parse([]byte(`[server]
@@ -470,7 +470,7 @@ err := base.Merge(defaults)
 
 ### Unmarshal
 
-Parse TOML data and decode it into a Go struct or map in one step:
+Parse TOML data and decode it into a Go struct or map in a single call, combining parsing and decoding for convenience. Struct fields are matched by `toml` struct tag first, then by exact field name, then by case-insensitive name, and unknown TOML keys are silently ignored to allow forward-compatible configuration files.
 
 ```go
 type Config struct {
@@ -499,7 +499,7 @@ Struct fields are matched by `toml` tag, then by exact field name, then by case-
 
 ### Decode
 
-`Decode` operates on an already-parsed `*DocumentNode`. Use this when you need both the AST (for editing) and the decoded values:
+`Decode` operates on an already-parsed `*DocumentNode`, decoding its values into a Go struct or map without re-parsing the TOML source. Use this when you need both the AST for comment-preserving edits and the decoded Go values for application logic, avoiding the overhead of parsing the source twice.
 
 ```go
 doc, err := tomledit.Parse(data)
@@ -520,7 +520,7 @@ doc.Set("server.port", cfg.Server.Port + 1)
 
 ### Unmarshal into maps
 
-You can unmarshal into `map[string]any` for schema-free access:
+You can unmarshal into `map[string]any` for schema-free access when you do not have a predefined struct type, which is useful for generic TOML processing tools, configuration merging, or inspecting documents with unknown schemas. Nested tables become nested maps, and arrays become slices of their element types.
 
 ```go
 var m map[string]any
@@ -529,7 +529,7 @@ err := tomledit.Unmarshal(data, &m)
 
 ## Marshaling from Go types
 
-`Marshal` encodes a `map[string]any` as formatted TOML bytes:
+`Marshal` encodes a `map[string]any` as formatted TOML bytes, converting top-level keys into key-value pairs and nested maps into `[section]` table headers with alphabetically sorted keys. Only map types are accepted as the root value; struct encoding is not supported.
 
 ```go
 data, err := tomledit.Marshal(map[string]any{
@@ -551,7 +551,7 @@ Top-level keys become key-value pairs. Nested maps become `[section]` table head
 
 ## Node types
 
-Every value in the AST is a `tomledit.Node`. The concrete types are:
+Every value in the AST is a `tomledit.Node`, which provides a uniform interface for accessing the node's type, semantic value, comments, raw bytes, and source span. The concrete types cover all TOML value kinds plus the structural container types for tables, arrays, and array-of-tables headers.
 
 | Node type | Go type | `Value()` returns |
 |---|---|---|
@@ -580,7 +580,7 @@ if intNode, ok := node.(*tomledit.IntegerNode); ok {
 
 ## Source positions
 
-Every node from a parsed document carries a `Span` indicating its position in the source:
+Every node from a parsed document carries a `Span` indicating its half-open byte range and line/column position in the original source, which is useful for error reporting, source mapping, and building editor integrations. Programmatically created nodes carry a zero span where `IsValid()` returns false, and edits do not recompute spans on existing nodes.
 
 ```go
 node := doc.Get("server.host")
@@ -596,7 +596,7 @@ Nodes created programmatically (via `Set`, `Marshal`, etc.) have a zero span whe
 
 ## Complete example
 
-Parse a configuration file, update several values, add a new section, and write it back:
+This example demonstrates a typical workflow: parse a TOML configuration file from disk, update existing values, remove a key, add a new section with auto-created intermediate tables, attach a comment, rename a key, and write the modified document back while preserving all original comments and formatting in untouched regions.
 
 ```go
 package main

@@ -1,6 +1,6 @@
 ---
 title: Design Guide
-description: Internal design of the go-toml-edit library and how comment preservation works.
+description: Internal design of go-toml-edit covering the lex-parse-render pipeline, AST structure, dirty tracking, comment preservation, and round-trip guarantees.
 ---
 
 # Design Guide
@@ -11,7 +11,7 @@ This matters for configuration files. TOML files are often maintained by humans 
 
 ## Pipeline
 
-The library follows a three-stage pipeline: lex, parse, render.
+The library follows a three-stage pipeline -- lex, parse, render -- where the lexer tokenizes every byte of the source (including whitespace and comments), the parser builds a lossless AST with trivia attached to content nodes, and the renderer selectively emits raw bytes for clean nodes or re-renders dirty nodes from their semantic values.
 
 ### Lexing
 
@@ -32,7 +32,7 @@ Each node also stores its `raw` bytes -- the exact slice of the original source 
 
 ### Rendering
 
-The renderer (`render.go`) serializes the AST back to bytes. It checks each node's dirty flag:
+The renderer (`render.go`) serializes the AST back to bytes by walking the node tree and checking each node's dirty flag, which determines whether the node's original raw bytes can be copied directly or whether the node must be re-rendered from its semantic value with standard formatting.
 
 - **Clean nodes** (never modified): the renderer copies `node.Raw()` directly into the output. This is what guarantees byte-for-byte round-trip fidelity.
 - **Dirty nodes** (created or modified by Set, Delete, Rename, etc.): the renderer regenerates the bytes from the node's semantic value (e.g., re-rendering an integer from its `int64`, a string from its `string` with the appropriate quoting style).
@@ -45,7 +45,7 @@ This design means that serialization cost is proportional to the number of edits
 
 ### Node interface
 
-All AST nodes implement the `Node` interface:
+All AST nodes implement the `Node` interface, which provides uniform access to the node's type, semantic value, comments, raw source bytes, and source span regardless of whether the node represents a scalar, a table, an array, or a document root.
 
 ```go
 type Node interface {
@@ -62,7 +62,7 @@ type Node interface {
 
 ### Concrete node types
 
-The document root is a `DocumentNode` whose `Children` slice contains the top-level entries: `KeyValueNode`, `TableNode`, `ArrayTableNode`, and `CommentNode`.
+The document root is a `DocumentNode` whose `Children` slice contains the top-level entries: `KeyValueNode`, `TableNode`, `ArrayTableNode`, and `CommentNode`. Each node type carries its own trivia and raw bytes, and specialized fields capture TOML-specific semantics such as key quoting styles, integer bases, string styles, and array trailing comments.
 
 - **TableNode** represents a `[table]` header. It has a `KeyPath` (e.g., `["server", "database"]` for `[server.database]`) and a `Children` slice of its key-value pairs.
 - **ArrayTableNode** represents an `[[array-table]]` header. Same structure as TableNode, but multiple entries with the same KeyPath form successive elements of the array.
@@ -86,7 +86,7 @@ These virtual types implement the `Node` interface (via `nullNode` embedding) bu
 
 ## Path resolution
 
-Paths use dot-separated keys with bracket indices: `server.host`, `items[0]`, `items[-1]`, `"key.with.dots"`. The path parser (`path.go`) produces a sequence of `pathSegment` values (key lookups or index lookups).
+Paths use dot-separated keys with bracket indices (`server.host`, `items[0]`, `items[-1]`, `"key.with.dots"`), and the path parser in `path.go` produces a sequence of `pathSegment` values representing either key lookups or index lookups that the resolver walks step by step through the AST from the document root.
 
 Resolution (`document.go`) walks the AST from the document root. At each step, it dispatches on the current node type:
 
@@ -122,7 +122,7 @@ Go values are converted to AST nodes by `valueToNode`: strings become `StringNod
 
 ## Comment preservation
 
-Comments are preserved at three levels:
+Comments are preserved at three levels in the AST, ensuring that every comment in the original source survives parsing, editing, and serialization without loss or displacement, regardless of which nodes are modified.
 
 1. **Leading comments**: full comment lines above a node. Stored as `[][]byte` in `Trivia.LeadingComments`. Each entry includes the `#` prefix and trailing newline.
 2. **Inline comments**: a comment on the same line after a value. Stored as `[]byte` in `Trivia.InlineComment`.
@@ -135,7 +135,7 @@ During `Merge`, comments from the source document are preserved: for new keys, c
 
 ## Round-trip guarantee
 
-The round-trip guarantee is: for any valid TOML input `x`, `Parse(x).Bytes()` produces output identical to `x`, byte for byte. This is enforced by the test suite, including fuzz testing.
+The round-trip guarantee states that for any valid TOML input `x`, calling `Parse(x).Bytes()` produces output identical to `x`, byte for byte, with no changes to whitespace, comments, quoting style, key ordering, or blank lines. This property is enforced by the test suite including fuzz testing and the full toml-test compliance suite.
 
 The guarantee holds because:
 
@@ -174,7 +174,7 @@ The `Cursor` API provides fluent, nil-safe navigation: `doc.Key("server").Key("h
 
 ### Items and Len
 
-`Items` returns a Go 1.23+ range-over-func iterator for array elements or array-of-tables entries. `Len` returns the element count.
+`Items` returns a Go 1.23+ range-over-func iterator for array elements or array-of-tables entries, providing index-value pairs that work with Go's range syntax. `Len` returns the element count for arrays and array-of-tables, or negative one if the path is not found or does not point to a countable node.
 
 ### Unmarshal and Marshal
 
