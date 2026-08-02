@@ -17,6 +17,5 @@
       "local": true,
       "target": null
     }
-  },
-  "coverage_unit": "commit"
+  }
 }
