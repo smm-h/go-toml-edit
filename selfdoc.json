@@ -22,10 +22,6 @@
       "default": true
     }
   ],
-  "deploy": {
-    "provider": "cloudflare-pages",
-    "project": "go-toml-edit"
-  },
   "topology": {
     "slug": "go-toml-edit",
     "docs_base": "https://docs.smmh.dev",
