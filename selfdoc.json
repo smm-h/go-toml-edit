@@ -11,8 +11,7 @@
   "output": "docs/_build/",
   "versions": [
     {
-      "version": "0.3.0",
-      "indexed": true
+      "version": "0.3.0"
     }
   ],
   "locales": [
@@ -24,7 +23,7 @@
   ],
   "topology": {
     "slug": "go-toml-edit",
-    "docs_base": "https://docs.smmh.dev",
+    "docs_base": "https://smmh.dev",
     "posts_base": "https://blog.smmh.dev",
     "projects": {
       "pixelweaver": "https://docs.smmh.dev/pixelweaver",
@@ -48,5 +47,13 @@
   "root_files": [
     "docs/_README.md",
     "docs/_CLAUDE.md"
-  ]
+  ],
+  "search_engine": "pagefind",
+  "author": {
+    "name": "SMMH",
+    "url": "https://smmh.dev",
+    "same_as": [
+      "https://github.com/smm-h"
+    ]
+  }
 }
