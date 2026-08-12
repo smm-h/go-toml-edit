@@ -11,4 +11,4 @@ order: 90
 
 # API Reference
 
-- [go-toml-edit](go-toml-edit.html)
+- [go-toml-edit](../go-toml-edit/)
