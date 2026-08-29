@@ -2,6 +2,11 @@
 
 Comment-preserving TOML editing library for Go. The Go equivalent of Python's tomlkit.
 
+> Split from the founding document (todo/original-idea.md). This part records the
+> scope that was built, verified against the code on disk. The unbuilt remainder
+> (error-handling completion, publicity, v2 roadmap) stays active in
+> todo/original-idea-remaining.md.
+
 ## Origin
 
 There is no production-ready Go library for editing TOML files while preserving comments, whitespace, and formatting:
@@ -202,19 +207,6 @@ Format: `toml:"key,options"`
 | Embedded struct | Promote fields (like encoding/json) |
 | `any` / `interface{}` | Decode to `map[string]any`, `[]any`, `string`, `int64`, `float64`, `bool`, `time.Time` |
 
-## Error Handling
-
-Parse errors include:
-- Line and column number
-- Byte offset
-- Snippet of offending source (a few chars of context)
-- Clear description of expected vs found
-
-Edit errors:
-- `Set` with incompatible path (e.g., setting child of a scalar) returns a typed error
-- `Delete` on non-existent path is a silent no-op
-- Type validation on `Set`: reject Go types with no TOML representation
-
 ## Formatter
 
 The `Format()` method normalizes formatting while preserving all comments:
@@ -257,24 +249,6 @@ The `Format()` method normalizes formatting while preserving all comments:
 - Develop under github.com/smm-h/go-toml-edit
 - Release management via rlsbl (`rlsbl release`)
 - Cross-platform binaries not needed (pure library), but tagged releases enable `go install` and module proxy caching
-
-### Publicity
-
-- Submit to awesome-go (https://github.com/avelino/awesome-go) -- the most visible curated Go library list
-- Post announcement to r/golang with a clear problem statement and comparison to existing libraries
-- Submit to Go Weekly newsletter (https://golangweekly.com/) -- reaches ~30k Go developers
-- Write a blog post framing the problem: "Why can't Go edit TOML files without destroying comments?" -- establish the gap, reference tomlkit as proof it's solvable, show go-toml-edit as the Go answer, include before/after examples
-- Post to Hacker News (Show HN) -- TOML tooling and comment preservation are topics that resonate with the HN audience
-- Open an issue or discussion on pelletier/go-toml linking go-toml-edit as the editing solution they explicitly declined to build
-- Submit to TOML's wiki/ecosystem page (https://github.com/toml-lang/toml/wiki) if a Go section exists
-- Tag relevant Go influencers / TOML maintainers on the announcement
-
-## v2 Roadmap
-
-- Marshal: struct-to-TOML serialization with full struct tag support and comment generation
-- TOML 1.1 support when the spec stabilizes
-- Public streaming/event parser for power users (linters, formatters, custom tooling)
-- Performance optimizations (lazy parsing for large files)
 
 ## Standalone Identity
 
