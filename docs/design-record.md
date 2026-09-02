@@ -162,7 +162,7 @@ Vocabulary used throughout, defined once:
   | local date | `LocalDate`; `time.Time` | same as local date-time |
   | local time | `LocalTime` | verbatim |
   | array | slice; `[]any` | elementwise by this table |
-  | array | fixed-size Go array | EXACT length required — both under- and over-length are hard errors naming expected and got (a fixed-size array declares its arity; the any-length spelling is a slice; zero-filling would invent values the document never contained); elementwise by this table. This changes shipped under-fill behavior, red-green | 
+  | array | fixed-size Go array | EXACT length required — both under- and over-length are hard errors naming expected and got (a fixed-size array declares its arity; the any-length spelling is a slice; zero-filling would invent values the document never contained); elementwise by this table. This changes shipped under-fill behavior, red-green |
   | any table form | struct, `map[string]T`, `map[string]any`, `any` | per the descriptor/front end; map values decode elementwise by this table |
   | any value | `any` | the existing native mapping (string, int64, float64, bool, time.Time, the Local types, `[]any`, `map[string]any`) |
 
@@ -311,12 +311,15 @@ Vocabulary used throughout, defined once:
   skips its funnel is unrepresentable, not merely forbidden. Invalidation is
   whole-layer: the next read rebuilds the fold. The pathological cost —
   alternating edits and layer reads rebuild per read — is accepted for this
-  wave and documented; incremental invalidation is deferred work. Until
-  encapsulation makes the funnels airtight, the layer is built eagerly; the
-  switch to lazy is part of the node-model pass in the total order, and
-  lands with a test asserting `Parse` alone does not build the layer (an
-  internal build counter), so a leftover eager build cannot linger
-  invisibly. `[derived]`
+  wave and documented; incremental invalidation is deferred work. Until the
+  node-model pass makes the funnels airtight, the layer is NOT cached at
+  all — every read-layer access rebuilds the fold (correct by construction,
+  merely slow), since an eagerly cached layer would go stale during the
+  structural-operations step that precedes the funnels. The caching switch
+  is part of the node-model pass in the total order, and lands with a test
+  asserting `Parse` alone does not build the layer (an internal build
+  counter), so a leftover unconditional build cannot linger invisibly.
+  `[derived]`
 - Path resolution is re-based on the layer. The internal virtual-view types
   it replaces are retired from resolution immediately and deleted once their
   last dependents (iteration, merge) are ported. **Logical-only paths
@@ -609,7 +612,9 @@ Vocabulary used throughout, defined once:
   read-layer section rules its replacement), the path-based `Items`/`Len` on
   the document (their jobs pass to the read-layer: entry enumeration via
   `Record.Entries`, array-of-tables length via the entry's records, plain
-  array length via the array node's elements accessor), and the map-only
+  array length via the array node's elements accessor; the Cursor's own
+  iteration methods are part of the kept Cursor surface and survive), and
+  the map-only
   `Marshal` (no callers found anywhere in the fleet at verification time;
   its forced alphabetization contradicted the one plausible consumer; a real
   struct-to-TOML Marshal is deferred work). `[approved]`
