@@ -9,7 +9,7 @@ format_version = 1
 bump = "patch"
 include = ["go"]
 exclude = []
-description = "RECOVERY OBLIGATION: no description was recoverable for this version (neither the GitHub Release notes nor the CHANGELOG.md section carried one). Author a real description from this version's changelog entries and regenerate."
+description = "Fidelity fixes: comments between array elements and key quoting styles now survive re-rendering; Walk takes an explicit WalkMode parameter (breaking)."
 candidate_sha = "f6ee7c527fa173c68848436ac5996b94e94a271a"
 
 [tree_hashes]

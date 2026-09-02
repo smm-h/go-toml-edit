@@ -9,7 +9,7 @@ format_version = 1
 bump = "patch"
 include = ["go"]
 exclude = []
-description = "RECOVERY OBLIGATION: no description was recoverable for this version (neither the GitHub Release notes nor the CHANGELOG.md section carried one). Author a real description from this version's changelog entries and regenerate."
+description = "Format() preserves intra-array comments; README Walk example corrected."
 candidate_sha = "660d35cd4c28b8b6c920724dfa657047bbb76dc8"
 
 [tree_hashes]

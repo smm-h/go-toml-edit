@@ -9,7 +9,7 @@ format_version = 1
 bump = "minor"
 include = ["go"]
 exclude = []
-description = "RECOVERY OBLIGATION: no description was recoverable for this version (neither the GitHub Release notes nor the CHANGELOG.md section carried one). Author a real description from this version's changelog entries and regenerate."
+description = "Release-tooling bootstrap: no user-facing changes (version machinery for the rlsbl bump flow)."
 candidate_sha = "6ceebb76ed541b7a35d06c3a6d816f039258892f"
 
 [tree_hashes]

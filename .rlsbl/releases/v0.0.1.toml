@@ -9,7 +9,7 @@ format_version = 1
 bump = "patch"
 include = ["go"]
 exclude = []
-description = "RECOVERY OBLIGATION: no description was recoverable for this version (neither the GitHub Release notes nor the CHANGELOG.md section carried one). Author a real description from this version's changelog entries and regenerate."
+description = "Initial release: full TOML 1.0 parser and comment-preserving editor -- round-trip serialization, editing API, typed getters, fluent cursor, Walk, Diff, Merge, Unmarshal/Decode, and official toml-test suite compliance."
 candidate_sha = "f3045564bef7e2f60419d75cc66571bad524ec84"
 
 [tree_hashes]
