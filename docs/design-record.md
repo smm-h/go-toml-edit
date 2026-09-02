@@ -1,10 +1,11 @@
 # Design record: the strictness-and-fidelity redesign
 
-This file is the decision ledger for the library-wide redesign of go-toml-edit
-(strict-by-default decoding, a public logical read-layer, full AST
-encapsulation, lexeme-preserving rendering, a unified diagnostic contract, and
-the pruning/renaming of the public surface). Every ruling below is binding on
-the implementation. Where a ruling has an origin tag, it means:
+This file is the decision ledger and specification for the library-wide
+redesign of go-toml-edit (strict-by-default decoding, a public logical
+read-layer, full AST encapsulation, lexeme-preserving rendering, a unified
+diagnostic contract, and the pruning/renaming of the public surface). Every
+ruling below is binding on the implementation. Where a ruling has an origin
+tag, it means:
 
 - `[deliberate]` — the user authored or explicitly chose this against or beyond
   a recommendation. Strongly held.
@@ -21,21 +22,31 @@ The standing process rules governing all work under this record:
   claim names the mechanism that fails when the property does not hold (a
   compile error, a test, a count assertion, a derived list) — or is explicitly
   marked `(descriptive)`, meaning it states intent or context rather than a
-  verifiable property. A property claim with neither is a defect in this
-  record.
+  verifiable property. A valid mechanism must quantify over a set a machine
+  can enumerate; a mechanism that cannot is discipline and must be labeled as
+  such. A property claim with neither is a defect in this record.
 - **Every test names its failure mode.** Each new test states, in a one-line
-  comment, what change would make it fail. Mechanism: a test-source check that
-  scans this package's test files added by the redesign for the marker comment
-  and fails on a test function lacking one.
+  comment, what change would make it fail. This is stated auditor discipline,
+  not a machine check: the set "tests added by the redesign" is not
+  mechanically enumerable without noise, so the auditor of each
+  implementor/auditor pair enforces it during review. `(discipline)`
 
 Vocabulary used throughout, defined once:
 
 - **Trivia** — the non-semantic bytes attached to a node: leading whitespace,
-  leading comments, the inline comment, trailing newline.
+  leading blank lines, leading comments, the inline comment, trailing
+  newline. (Blank lines gain an explicit representation in trivia as part of
+  this wave — see the fragment contract — so a re-rendered node no longer
+  loses its blank-line separation.)
 - **Fragments** — the byte ranges a rendered construct decomposes into. For a
-  key-value line: leading trivia, key bytes, separator bytes (whitespace and
-  `=`), value bytes, inline comment, trailing newline. For a table header:
-  leading trivia, bracket-and-key bytes, inline comment, trailing newline.
+  key-value line: leading trivia (blank lines and comments), key bytes,
+  separator bytes (whitespace and `=`), value bytes, inline comment, trailing
+  newline. For a table header: leading trivia, bracket-and-key bytes, inline
+  comment, trailing newline. For an array: open bracket, per-element
+  fragments, separator bytes, close bracket. For an inline table: open brace,
+  per-pair fragments (key bytes, separator, value bytes), separator bytes,
+  close brace. Fragment dirtiness recurses: a clean sub-fragment inside a
+  dirty container still splices its original bytes.
 - **Dirty** — a FRAGMENT whose original bytes are no longer valid because the
   corresponding content was mutated. The serializer re-renders dirty fragments
   and splices the original bytes of clean ones. (A node is "dirty" when any of
@@ -86,14 +97,20 @@ Vocabulary used throughout, defined once:
 
 - Decoding is strict by default and strictness is the only mode. An unknown
   key, a wrong-typed value, or a missing required key is a hard error. There
-  is no lenient mode, no option to skip checks. Mechanism: the flipped
-  leniency tests plus the exclusion/required test set. `[deliberate]`
+  is no lenient mode, no option to skip checks. A map-typed or `any` target
+  is a TOTAL descriptor — every key matches it by construction, so it
+  reports no unknown keys; that is totality, not leniency. Mechanism: the
+  flipped leniency tests plus the exclusion/required test set, plus a
+  map-target test asserting arbitrary keys decode. `[deliberate; the
+  map-totality statement is derived]`
 - One validation engine: the core is descriptor-driven (the expected document
   shape described as data). The reflection-based struct `Unmarshal` is a
   front end that derives a descriptor from the struct and runs the same
   engine. Mechanism: a test decodes one document through the struct front end
   and through an equivalent hand-built descriptor and asserts identical
-  diagnostics (path, kind, order). `[approved]`
+  diagnostics (path and kind; diagnostic ORDER is asserted too, as a
+  forward-looking guard for the deferred multi-violation upgrade, though the
+  list holds one entry under the current first-error ruling). `[approved]`
 - The descriptor surface (contract in the API-contracts section) is exported
   and hand-constructible without reflection: consumers with runtime-known
   schemas build descriptors from their own registries. Mechanism: a test in
@@ -110,11 +127,12 @@ Vocabulary used throughout, defined once:
   unexported field is a hard error, exactly like any unknown key. Exclusion
   means "this name is not part of the document universe", never "present but
   ignored". Mechanism: a test per exclusion category. `[approved]`
-- Unknown struct-tag options are hard errors at field-mapping construction
-  (with the map-only Marshal deleted, `omitempty` no longer means anything; a
-  meaningless tag option must fail loudly, not silently no-op). Mechanism: a
-  test per rejected option, each asserting the error names the offending
-  option. `[derived]`
+- Unknown struct-tag options are hard errors at field-mapping construction —
+  a meaningless tag option must fail loudly, not silently no-op. (Note:
+  `omitempty` is already meaningless today — nothing in the package ever
+  read tag options — so this turns an existing silent no-op into an error.)
+  Mechanism: a test per rejected option, each asserting the error names the
+  offending option. `[derived]`
 - An unknown table (or an unknown array-of-tables) produces one error naming
   it and listing its direct child keys — one actionable error carrying the
   immediate inventory, not one error per contained key and not a recursive
@@ -123,7 +141,9 @@ Vocabulary used throughout, defined once:
   extension are derived]`
 - **The conversion table.** All value conversion — engine, struct front end,
   and every accessor family — is driven by one table, written once in code
-  and reproduced here as the ruling. Mechanism: a table-driven test runs
+  and reproduced here as the ruling. It drives BOTH the type-check stage
+  (which node kinds are acceptable for a target) and the convert stage
+  (whether the specific value passes). Mechanism: a table-driven test runs
   every row (source kind, target kind, boundary values) through the decode
   engine and each accessor family and asserts identical results; the code
   table is the test's input, so a second copy of any rule fails it.
@@ -138,10 +158,11 @@ Vocabulary used throughout, defined once:
   | float | integer targets | never — a hard error even for whole floats |
   | boolean | `bool` | verbatim |
   | offset date-time | `time.Time` | verbatim |
-  | local date-time | `LocalDateTime`; `time.Time` | the `time.Time` conversion is kept from the existing decoder (the declared target expresses intent); flavor information is not invented — the produced `time.Time` has no offset semantics beyond what the existing behavior assigns |
+  | local date-time | `LocalDateTime`; `time.Time` | the `time.Time` conversion is kept from the existing decoder (the declared target expresses intent) |
   | local date | `LocalDate`; `time.Time` | same as local date-time |
   | local time | `LocalTime` | verbatim |
-  | array | slice, fixed-size array (over-length errors), `[]any` | elementwise by this table |
+  | array | slice; `[]any` | elementwise by this table |
+  | array | fixed-size Go array | EXACT length required — both under- and over-length are hard errors naming expected and got (a fixed-size array declares its arity; the any-length spelling is a slice; zero-filling would invent values the document never contained); elementwise by this table. This changes shipped under-fill behavior, red-green | 
   | any table form | struct, `map[string]T`, `map[string]any`, `any` | per the descriptor/front end; map values decode elementwise by this table |
   | any value | `any` | the existing native mapping (string, int64, float64, bool, time.Time, the Local types, `[]any`, `map[string]any`) |
 
@@ -152,24 +173,26 @@ Vocabulary used throughout, defined once:
   and `encoding.TextUnmarshaler` hooks, embedded struct promotion,
   exact-then-case-insensitive field matching, and pointer targets are all
   kept from the existing decoder (mechanism: the existing unmarshal suite,
-  which stays green except the flipped leniency tests). `[approved for the
-  widening row; derived for the rest, which preserves existing tested
-  behavior]`
+  which stays green except the flipped leniency tests and the fixed-array
+  exact-length flip). `[approved for the widening row; deliberate for the
+  fixed-array exact-length row; derived for the rest, which preserves
+  existing tested behavior]`
 
 ## 3. Decode error reporting
 
 - Strict decode stops at the FIRST violation in document order, and returns
   it wrapped in the aggregate error type (carrying a list that, under this
   ruling, always holds one diagnostic). This was re-confirmed on corrected
-  evidence: the one fleet implementation of strict decode (wavescript's
-  strictdecode) deliberately stops at the first violation, and the
-  multi-diagnostic reporting observed in other consumers sits in their
-  post-decode domain-validation layers, which this design keeps app-side.
-  Shipping the aggregate TYPE regardless of behavior makes a later upgrade
-  to collecting independent violations purely additive — no consumer
-  breaks — so that upgrade is deferred work, built when a consumer asks.
-  Mechanism: a multi-violation fixture asserting exactly one diagnostic is
-  returned and it is the first in document order. `[approved]`
+  evidence: every strict decode/validation implementation in the fleet stops
+  at the first violation (wavescript's strictdecode layer, pgdesign's import
+  decoding, strictcli's config-key validation), and the multi-diagnostic
+  reporting observed elsewhere sits in post-decode domain-validation layers,
+  which this design keeps app-side. Shipping the aggregate TYPE regardless
+  of behavior makes a later upgrade to collecting independent violations
+  purely additive — no consumer breaks — so that upgrade is deferred work,
+  built when a consumer asks. Mechanism: a multi-violation fixture asserting
+  exactly one diagnostic is returned and it is the first in document order.
+  `[approved]`
 - The aggregate error's contract: it implements `Unwrap() []error` returning
   the diagnostics in document order; `errors.As` with a single-diagnostic
   target yields the first diagnostic (standard traversal order); `errors.As`
@@ -182,15 +205,15 @@ Vocabulary used throughout, defined once:
 
 ## 4. The unified diagnostic contract
 
-- Parse, decode, edit, and access errors share one structured shape: document
-  path, position, span, message, and an optional filename. Matching via
-  `errors.Is` (kind sentinels) and `errors.As` (structured access) is the
-  documented compatibility contract; the type implements `Unwrap` wherever it
-  wraps. Mechanism: a contract test matching one representative error from
-  each producing surface through both idioms. `[approved]`
-- The complete kind set (exported constants of `ErrorKind`, one sentinel
-  each; the API-snapshot mechanism of the public-surface section holds this
-  closed):
+- Parse, decode, edit, and access errors share one structured shape (the
+  `Error` type of the API-contracts section): document path, position, span,
+  message, and an optional filename. Matching via `errors.Is` (kind
+  sentinels) and `errors.As` (structured access) is the documented
+  compatibility contract; the type implements `Unwrap` wherever it wraps.
+  Mechanism: a contract test matching one representative error from each
+  producing surface through both idioms. `[approved]`
+- The complete kind set (the API-snapshot mechanism of the public-surface
+  section holds this closed):
   - `KindSyntax` — lexing/parsing failure.
   - `KindUnknownKey` — strict decode: a key matching no descriptor field
     (including excluded names).
@@ -199,12 +222,13 @@ Vocabulary used throughout, defined once:
   - `KindMissingKey` — strict decode: a required key absent.
   - `KindTypeMismatch` — a value whose kind the conversion table refuses for
     the target (decode and access type-check stage alike).
-  - `KindInexact` — the conversion-table widening/narrowing rows' range and
-    exactness failures.
+  - `KindInexact` — the conversion-table widening/narrowing rows' range,
+    exactness, and arity failures (including fixed-array length mismatch).
   - `KindNotFound` — access/edit: the path names nothing.
   - `KindBadPath` — path syntax error.
   - `KindWrongContainer` — access/edit: a path step is structurally
-    inapplicable (key on an array, index on a scalar, and the like).
+    inapplicable (key on an array, index on a scalar, a concrete-node read
+    on a logical-only path per the read-layer section, and the like).
   - `KindBadInput` — an invalid input value to an editing operation
     (unsupported Go type, sign-bit NaN, duplicate ordered-input key,
     non-bijective permutation, unsigned overflow).
@@ -231,17 +255,18 @@ Vocabulary used throughout, defined once:
   lexer-stage errors fill them). Mechanism: a test walks this package's own
   source and fails on any composite literal of the diagnostic type outside
   the constructor's file. `[derived]`
-- The array-of-tables collection span is synthesized by the read-layer, which
-  owns the collection concept: from the first entry's header start to the
-  last entry's content end (the end of that entry's last child, not its
-  header). The concrete array-table node's own span (its header brackets) is
+- The array-of-tables collection span is synthesized by the read-layer (an
+  implementation item of the read-layer step in the total order), which owns
+  the collection concept: from the first entry's header start to the last
+  entry's content end (the end of that entry's last child, not its header).
+  The concrete array-table node's own span (its header brackets) is
   unchanged. Mechanism: a span assertion in the read-layer suite. `[derived]`
 - Default path rendering in messages uses the library's own path syntax
   (dotted keys, bracket indices, quoted-when-not-bare segments) — the same
   strings the path API accepts. Mechanism: a test resolves a diagnostic's
-  rendered path via `Get` on the same document. Errors are data; consumers
-  with their own diagnostic vocabularies render the structured fields
-  themselves. `[approved]`
+  rendered path via `Resolve` on the same document. Errors are data;
+  consumers with their own diagnostic vocabularies render the structured
+  fields themselves. `[approved]`
 
 ## 5. The logical read-layer
 
@@ -271,41 +296,54 @@ Vocabulary used throughout, defined once:
   that would silently drop a colliding sub-record, and the finalize default
   branch that fabricates an empty record for an unassigned slot. Mechanism:
   internal-error paths covered by tests with synthetic inputs. `[derived]`
-- Implementation directive: build the layer by retaining and extending the
-  parser's existing definition tracker (which already computes implicit
-  records, dotted expansion, and first-header-wins, then discards the
-  tree). Fall-back criterion, decided now: if the extension would require
-  exporting parser-internal state or weakening the parser's conflict
-  detection, build a separate post-parse fold instead — the exported-behavior
-  suite is identical either way, so the choice is invisible at the API.
-  `[derived]`
+- Implementation directive: the layer is a SEPARATE post-parse fold, with
+  strictspec's `tomldoc` fold as the reference shape. (An earlier directive
+  to extend the parser's definition tracker was reversed on verification:
+  the tracker keeps unordered child maps, retains only the last
+  array-of-tables entry, and anchors last-header-wins — extending it would
+  be a rewrite of its data structures wearing the wrong name.) `[derived]`
 - The layer is built lazily: constructed on first read-layer access,
   invalidated by a document-level generation counter. The counter is bumped
-  by the same single unexported mutator that the node-model section mandates
-  for value writes — a setter that forgets to bump is unrepresentable, not
-  merely forbidden. Until encapsulation makes that airtight, the layer is
-  built eagerly; the switch to lazy is part of the node-model pass in the
-  total order, and lands with a test asserting `Parse` alone does not build
-  the layer (an internal build counter), so a leftover eager build cannot
-  linger invisibly. `[derived]`
+  from exactly two funnels, each structural: the single unexported scalar
+  payload mutator (value writes — the node-model section), and the single
+  unexported child-list mutator through which every structural operation
+  (create, delete, permute, append, remove, rename) routes. A mutation that
+  skips its funnel is unrepresentable, not merely forbidden. Invalidation is
+  whole-layer: the next read rebuilds the fold. The pathological cost —
+  alternating edits and layer reads rebuild per read — is accepted for this
+  wave and documented; incremental invalidation is deferred work. Until
+  encapsulation makes the funnels airtight, the layer is built eagerly; the
+  switch to lazy is part of the node-model pass in the total order, and
+  lands with a test asserting `Parse` alone does not build the layer (an
+  internal build counter), so a leftover eager build cannot linger
+  invisibly. `[derived]`
 - Path resolution is re-based on the layer. The internal virtual-view types
   it replaces are retired from resolution immediately and deleted once their
-  last dependents (iteration, merge) are ported. Getter behavior across the
-  wave: the path-level getters and the Cursor terminals change SIGNATURE per
-  the accessor section; their answers are unchanged except that the float
-  accessors (path-level, the Cursor's float terminal, and the new node-level
-  family) accept an exactly-representable integer, which the previous float
-  getters refused. Mechanism: the existing document/path tests, updated for
-  signatures, with the widening flips as the only behavioral edits.
-  `[derived]`
-- Path helpers are exported: parse, join, and quote, as the single authority
-  for path text. Mechanism: a round-trip test (parse of a joined path yields
-  the original segments, over dotted, quoted, and indexed shapes), plus the
-  diagnostic paste-back test of the diagnostics section. The renderer-side
-  bare-key predicate remains separate and documented as a TOML-syntax rule
-  (it governs how keys are written in TOML, not how paths are spelled).
-  Diagnostics, defaults-seeding, and every other path-producing feature call
-  the exported helpers. `[derived]`
+  last dependents (iteration, merge) are ported. **Logical-only paths
+  refuse:** a concrete-node read (`Resolve`, `Lookup`) on a path naming an
+  array-of-tables collection or a compound table (a logical record with no
+  single concrete node) fails with `KindWrongContainer` — logical structure
+  is read through the layer, and no successor virtual node types exist.
+  `Get` (the error-swallowing, nil-returning read) is DELETED: `Resolve`
+  (error-returning) and `Lookup`/`Has` (comma-ok) are the two concrete-node
+  surfaces. Getter behavior across the wave: the path-level getters and the
+  Cursor terminals change SIGNATURE per the accessor section; their answers
+  are unchanged except that the float accessors (path-level, the Cursor's
+  float terminal, and the new node-level family) accept an
+  exactly-representable integer, which the previous float getters refused.
+  Mechanism: the existing document/path tests, updated for signatures, with
+  the widening flips and the logical-path refusals as the enumerated
+  behavioral edits. `[approved for the refusal and the Get deletion;
+  derived for the rest]`
+- Path helpers are exported: `ParsePath` and `JoinPath`, with `JoinPath` as
+  the single quoting authority for path text (there is no separate
+  segment-quote helper). Mechanism: a round-trip test (parse of a joined
+  path yields the original segments, over dotted, quoted, and indexed
+  shapes), plus the diagnostic paste-back test of the diagnostics section.
+  The renderer-side bare-key predicate remains separate and documented as a
+  TOML-syntax rule (it governs how keys are written in TOML, not how paths
+  are spelled). Diagnostics, defaults-seeding, and every other
+  path-producing feature call the exported helpers. `[derived]`
 
 ## 6. The node model
 
@@ -313,20 +351,20 @@ Vocabulary used throughout, defined once:
   so traversal callbacks and cursor navigation keep their signatures. Value
   access moves to a `Scalar` sub-interface carrying `Value()` and the typed
   accessors. Scalar node types: string, integer, float, boolean, and the
-  four date-time nodes. Container node types (document, table, array-table,
+  date-time family. Container node types (document, table, array-table,
   array, inline table) — interface AND concrete types — lose `Value()`
-  entirely and expose ordered entries/elements; keeping the concrete method
-  would leave the wrong question compilable on any concretely-typed
-  variable. The remaining node types are neither: the key node exposes its
-  parts, the comment node its text, and the key-value node its key and value
-  nodes, each through named accessors, none through `Value()`. This closes a
-  live consumer bug: howmuchleft's profile reading asserts `[]interface{}`
-  on an array node's `Value()` (which returns the node slice), so the read
-  has always silently returned nil. Mechanism: `Value()` absent from every
-  non-scalar type is held by the API-snapshot test. `[approved; the
-  concrete-type removal and the per-type disposition are derived]`
+  entirely and expose ordered children/elements through the accessor block
+  of the API-contracts section. The remaining node types are neither: the
+  key node exposes its parts, the comment node its text, and the key-value
+  node its key and value nodes, each through named accessors, none through
+  `Value()`. This closes a live consumer bug: howmuchleft's profile reading
+  asserts `[]interface{}` on an array node's `Value()` (which returns the
+  node slice), so the read has always silently returned nil. Mechanism:
+  `Value()` absent from every non-scalar type is held by the API-snapshot
+  test. `[approved; the concrete-type removal and the per-type disposition
+  are derived]`
 - Full encapsulation: node struct fields are unexported; reads go through
-  accessor methods; writes go only through setters that mark the affected
+  the accessor block; writes go only through setters that mark the affected
   fragment dirty and distinguish value mutation (which invalidates the
   stored lexeme) from trivia mutation (which preserves it). String style and
   integer base remain readable through accessors (`StringStyle` and
@@ -340,40 +378,45 @@ Vocabulary used throughout, defined once:
   and its raw lexeme live in one small unexported struct whose only mutator
   clears the lexeme and bumps the read-layer generation counter — writing
   the value without either effect is unrepresentable, in-package included.
-  `[approved]`
+  The child-list mutator of the read-layer section is the structural
+  counterpart for shape changes. `[approved]`
 - Setters propagate dirtiness upward (parent references maintained by the
-  structural operations), replacing the per-render recursive subtree-
-  dirtiness walk with a constant-time check. Mechanism: a test asserts the
-  dirtiness check visits the same number of nodes (via an internal counter)
-  for a shallow and a deeply nested document; a deep-nesting benchmark
+  child-list mutator), replacing the per-render recursive subtree-dirtiness
+  walk with a constant-time check. Mechanism: a test asserts the dirtiness
+  check visits the same number of nodes (via an internal counter) for a
+  shallow and a deeply nested document; a deep-nesting benchmark
   additionally tracks the render cost. `[derived]`
 - The document type is renamed from `DocumentNode` to `Document`. The
-  complete rename set is the settled-names section, which is closed.
-  Sequencing of the rename relative to the other mechanical passes is stated
-  once, in the release-and-process section. `[approved]`
+  complete user-ruled name set is the settled-names section. Sequencing of
+  the rename relative to the other mechanical passes is stated once, in the
+  release-and-process section. `[approved]`
 - The exported token vocabulary (token types and the token struct) is
   unexported: it is reachable from no exported API and contradicts the
   parser-is-internal decision. A future streaming parser designs its own
-  token surface additively if ever built. `[approved]`
+  token surface additively if ever built. Mechanism: the API-snapshot test.
+  `[approved]`
 
 ## 7. Fidelity and rendering
 
-- **The fragment contract.** Rendering works per fragment, not per node: a
-  construct's clean fragments splice their original bytes; only dirty
-  fragments re-render. Mutations invalidate exactly their fragment: a value
-  write invalidates the value fragment (the lexeme); a comment or
-  leading-comment write invalidates that trivia fragment; nothing else
-  invalidates anything. Separator bytes, intra-header whitespace, and key
-  bytes are never invalidated by value or trivia writes — they re-render
-  only when the construct itself is created or structurally replaced.
-  Consequences, each covered by the corpus battery of the release-and-
-  process section: editing a value leaves the line's spacing and comment
-  bytes identical; editing a comment leaves the value's spelling identical;
-  editing one element of a container leaves every sibling's bytes
+- **The fragment contract.** Rendering works per fragment, not per node
+  (fragment decomposition in the Vocabulary): a construct's clean fragments
+  splice their original bytes; only dirty fragments re-render. Mutations
+  invalidate exactly their fragment: a value write invalidates the value
+  fragment (the lexeme); a comment or leading-comment write invalidates that
+  trivia fragment; nothing else invalidates anything. Separator bytes,
+  intra-header whitespace, and key bytes are never invalidated by value or
+  trivia writes — they re-render only when the construct itself is created
+  or structurally replaced. Trivia's blank-line representation (Vocabulary)
+  closes the pre-existing hole where a re-rendered node lost its blank-line
+  separation. Consequences, each covered by the corpus battery of the
+  release-and-process section: editing a value leaves the line's spacing and
+  comment bytes identical; editing a comment leaves the value's spelling
+  identical; editing one element of a container leaves every sibling's bytes
   identical. Header key raw parts (computed by the parser today and
   discarded) are wired into both header node types so header re-renders
   preserve key spelling; inline-table key rendering prefers raw parts.
-  `[approved; the fragment decomposition is derived]`
+  `[approved; the fragment decomposition and the blank-line trivia fix are
+  derived]`
 - Constructed and value-mutated scalars render canonically: lowercase hex in
   unicode escapes; the float form is shortest-round-trip decimal digits
   with a float marker always present (a `.` or an exponent), using
@@ -384,9 +427,13 @@ Vocabulary used throughout, defined once:
   origin of the rule; the record's statement here is self-contained so the
   implementor needs no external document, and a conformance test pins the
   behavior locally. Special floats render as `nan`, `inf`, and `-inf`; the
-  library never writes `+nan`, `-nan`, or `+inf`. Mechanism: rendering tests
-  per rule, including a special-float enumeration. `[approved; the inline
-  restatement and the infinity spellings are derived]`
+  library never writes `+nan`, `-nan`, or `+inf`. The exported `FormatFloat`
+  is a total function: it renders the three special spellings for any NaN
+  (including negative NaN) and both infinities — input policing is `Set`'s
+  job, not the renderer's. Mechanism: rendering tests per rule, including a
+  special-float enumeration through both the renderer and `FormatFloat`.
+  `[approved; the inline restatement, the infinity spellings, and the
+  FormatFloat totality are derived]`
 - The correct literal renderers (string quoting, key quoting, float
   formatting) are exported for consumers. This replaces the hand-written
   TOML value renderer in wavescript, whose string quoter is Go's
@@ -397,8 +444,7 @@ Vocabulary used throughout, defined once:
   rendering rule — strictcli's cross-language canonical float, strictspec's
   format-neutral value renderer — is not a replacement target. Mechanism:
   exported-renderer tests covering the invalid-escape and special-float
-  cases. `[approved; the defect description was corrected twice during
-  review — the surviving claims are verified against the consumer tree]`
+  cases. `[approved]`
 - All TOML-valid spellings remain valid INPUT (`+nan`, `-nan`, `+inf`, any
   quoting, any integer base — the compliance suite is non-negotiable) and
   are preserved byte-for-byte while untouched. Canonicalization applies only
@@ -408,7 +454,9 @@ Vocabulary used throughout, defined once:
   controls whether a missing blank line before a table header is inserted,
   never whether existing ones are removed. Mechanism: a test iterates every
   formatting-option combination over a blank-line fixture and asserts no
-  combination removes the grouping. `[approved]`
+  combination removes the grouping (this rework also fixes the formatter's
+  spurious blank line from skipped blank-line nodes, with a pinning
+  regression test). `[approved]`
 - Whole-document canonical form (one true table style, key order,
   indentation) is out of scope: it belongs to a document-level canonical-form
   specification whose authorship is filed as a deliverable in the strictspec
@@ -451,25 +499,36 @@ Vocabulary used throughout, defined once:
   `[approved]`
 - The whole contract lives in the exported doc comments of the value-writing
   entry points, not only in this record: it is user-visible behavior.
-  `[derived]`
+  Mechanism: the documentation pass's exit criterion (every entry point's
+  doc comment states the contract) is checked by its auditor.
+  `(discipline)` `[derived]`
 
 ## 9. The write path
 
 - Structural operations (signatures in the API-contracts section) exist
-  before encapsulation removes direct field access, and their scope is the
-  demonstrated need: arbitrary permutation of a node's children, key
-  reordering within a table, array element append and remove at a path, and
-  an ordered inline-table input type. The permutation is total — a bijection
-  on the child indices; a duplicate, missing, or out-of-range index or a
-  length mismatch is a hard error (`KindBadInput`) naming the offending
-  index, and nothing is reordered. Standalone comments are children and move
-  with their assigned positions. Known tension, probed by the acceptance
-  test below: the driving consumer's reorder also DROPS children absent
-  from its ordering list — under this API that composes as delete-then-
-  permute, and the acceptance test must exercise that composition. The
-  pgdesign document/table reorder scenario is captured as an in-library
-  acceptance test BEFORE the operation signatures freeze. `[approved; the
-  totality rule and the composition note are derived]`
+  before encapsulation removes direct field access. The set, after the
+  key-sorting convenience was walked back (its only ambiguous contract —
+  non-key children under a sort — legislated a case parsed documents cannot
+  exhibit, since the parser folds every interior comment and blank line into
+  the following key's trivia): child PERMUTATION, array element APPEND and
+  REMOVE, and the ordered inline-table INPUT type. Callers wanting sorted
+  keys compute the ordering — the one driving consumer already does, with
+  external ranking data no comparator could express. The permutation is
+  total — a bijection on the child indices; a duplicate, missing, or
+  out-of-range index or a length mismatch is a hard error (`KindBadInput`)
+  naming the offending index, and nothing is reordered. Its doc comment
+  carries the drift note: an ordering computed against a stale child list of
+  the same length permutes the wrong children, so read-then-permute belongs
+  in one editing sequence. Standalone comments (which parsed documents carry
+  only as a trailing run) are children and move with their assigned
+  positions. Known tension, probed by the acceptance test below: the driving
+  consumer's reorder also DROPS children absent from its ordering list —
+  under this API that composes as delete-then-permute, and the acceptance
+  test must exercise that composition. The pgdesign document/table reorder
+  scenario is captured as an in-library acceptance test BEFORE the operation
+  signatures freeze. `[approved; the sorting walk-back is approved on the
+  exploration's grounding; the totality rule and the composition note are
+  derived]`
 - The ordered inline-table input is a slice of key/value pairs (the `Pair`
   type of the API-contracts section). A duplicate key is a hard error
   (consistent with the no-silent-tolerance stance); key syntax is validated
@@ -482,7 +541,8 @@ Vocabulary used throughout, defined once:
   path/value pairs — a map input would make the appended-key order and
   therefore the output bytes nondeterministic — seeding only missing paths,
   returning the list of paths it added, delegating to the create-if-missing
-  set operation internally. Mechanism: the seeding scenario test plus a
+  set operation internally. The old form's sub-path parameter is gone: each
+  pair carries its full path. Mechanism: the seeding scenario test plus a
   determinism assertion (same input slice, byte-identical output).
   `[approved; the ordered-input requirement is derived]`
 - The comment API's public spelling is path-based (`SetComment(path, text)`,
@@ -490,17 +550,20 @@ Vocabulary used throughout, defined once:
   resolving a method-shadowing collision on the document type. Normalized
   comment-text getters (content without the `#` and surrounding whitespace)
   are added; `Raw()` remains for byte-exact inspection. Mechanism: comment
-  API tests; the API-snapshot holds the surface. `[approved]`
+  API tests; the API snapshot holds the surface. `[approved]`
 - `ParseFile` (filename flows into the diagnostic contract) and an atomic
   validate-on-write `WriteFile` are added. `WriteFile`'s contract is the
   deterministic invariant set, each item covered by test: the temp file is
-  created in the destination's directory; the document must
-  round-trip-validate before the rename; an injected write or rename failure
-  leaves the destination bytes untouched and no temp file behind; file mode
-  survives the replace. A round-trip-validation failure is `KindRoundTrip`,
-  carrying the filename and the byte offset of the first divergence.
-  Kernel-level crash injection is not part of the suite. `[approved; the
-  failure kind is derived]`
+  created in the destination's directory; the rendered bytes must re-parse
+  successfully AND the re-parse's re-render must byte-equal them (the
+  round-trip definition — it catches non-idempotent rendering and yields a
+  first-divergence offset); an injected write or rename failure leaves the
+  destination bytes untouched and no temp file behind; file mode survives
+  the replace. A round-trip failure is `KindRoundTrip`, carrying the
+  filename and the byte offset of the first divergence (zero when the
+  re-parse itself failed, with the parse diagnostic wrapped). Kernel-level
+  crash injection is not part of the suite. `[approved; the round-trip
+  definition and failure kind are derived]`
 
 ## 10. Typed accessors
 
@@ -509,53 +572,61 @@ Vocabulary used throughout, defined once:
   type-check (its failure: `KindTypeMismatch`), convert (its failure:
   `KindInexact`) — so the failure kinds are produced by different functions
   and cannot be conflated. The conversion table of the strict-decoding
-  section drives BOTH the type-check stage (which node kinds are acceptable
-  for a target) and the convert stage (whether the specific value passes);
-  it is shared with the decode engine. Mechanism: a test per stage asserts
-  the kind sentinel, including that a read on an absent path reports
-  not-found rather than wrong-type; plus the cross-family table test.
-  `[approved]`
+  section drives both the type-check and convert stages and is shared with
+  the decode engine. Mechanism: a test per stage asserts the kind sentinel,
+  including that a read on an absent path reports not-found rather than
+  wrong-type; plus the cross-family table test. `[approved]`
 - Accessor errors are the unified `Error` type — same contract, same kinds,
   path and span and expected/got and offending value populated. If an
   allocation-free status is ever wanted, it must be this contract's kind,
-  never a parallel enum. `[approved]`
+  never a parallel enum. Mechanism: the accessor tests assert the populated
+  fields. `[approved]`
 - Ergonomics: path-level and node-level accessors return `(T, error)`;
   Cursor terminals also return `(T, error)` (one vocabulary), with the
   Cursor's `Err()` retained only for chains ending in navigation. A comma-ok
   existence surface (`Lookup`/`Has`) serves the optional-with-default read;
   its allocation budget is "no allocations beyond path parsing" (path
-  strings must be parsed; a pre-parsed path type is not part of this wave).
+  strings must be parsed; a pre-parsed path type is deferred work).
   Mechanism: an allocations-per-run assertion at the path-parse floor.
-  `[approved; the allocation budget correction is derived]`
+  `[approved]`
 
 ## 11. Public surface end-states
 
-- Kept and re-based on the read-layer: the fluent Cursor (thin sugar over
-  the shared resolution engine), Walk (traversal over the layer's ordered
-  enumeration), Merge, and Diff. Diff compares logical structure — two
-  documents expressing the same structure in different TOML spellings compare
-  equal; before porting, the concrete case that today compares unequal is
-  named in a test, or the port is reclassified as verification of existing
-  behavior (an open determination, resolved during the port either way).
-  `[approved]`
-- Deleted: the path-based `Items`/`Len` on the document (superseded by the
-  read-layer's `Record.Entries`/`Record.Len`; the Cursor's own iteration
-  survives), and the map-only `Marshal` (no callers anywhere in the fleet;
+- Kept: the fluent Cursor (thin sugar over the shared resolution engine —
+  its re-basing is a consequence of the path re-basing, not separate work),
+  Merge (re-based on the layer), Walk (KEPT ON THE AST, documented as the
+  syntactic traversal per the two-surfaces contract — the layer's containers
+  are not `Node`s, so a layer walk cannot keep the ruled-stable callback
+  signature; logical traversal is a consumer recursion over
+  `Record.Entries`), and Diff. Diff's semantics are ruled concretely:
+  integer and float never compare equal (`1` differs from `1.0`, consistent
+  with the type distinctness of every other ruling), and structural
+  spellings of the same logical shape compare equal (an inline array of
+  inline tables equals an array-of-tables) — both are pinned by test; since
+  the current implementation already exhibits both behaviors, the Diff work
+  is verification-and-pinning, not a rewrite. `[approved]`
+- Deleted: `Get` (the error-swallowing nil-returning path read — the
+  read-layer section rules its replacement), the path-based `Items`/`Len` on
+  the document (their jobs pass to the read-layer: entry enumeration via
+  `Record.Entries`, array-of-tables length via the entry's records, plain
+  array length via the array node's elements accessor), and the map-only
+  `Marshal` (no callers found anywhere in the fleet at verification time;
   its forced alphabetization contradicted the one plausible consumer; a real
-  struct-to-TOML Marshal is deferred work, not this campaign). `[approved]`
+  struct-to-TOML Marshal is deferred work). `[approved]`
 - Mechanism for the whole surface: a committed exported-API snapshot test —
-  an un-performed deletion, an unruled addition, and an unruled `ErrorKind`
-  member all fail it. The release's migration table is generated by diffing
-  this snapshot against the same snapshot generated from the last released
+  an un-performed deletion, an unruled addition, and an unruled kind member
+  all fail it. The release's migration table is generated by diffing this
+  snapshot against the same snapshot generated from the last released
   version, so the table and the test share one derivation. `[derived]`
 - Small correctness fixes riding the wave (each red-green): overflow
   checking on unsigned integer conversion in the value-to-node path
   (`KindBadInput`); `NewTable` refusing a name collision with an existing
   array-of-tables (`KindConflict`; the current behavior can produce output
   the library's own parser rejects); removal of the unused parent-dirty
-  parameter once dirtiness propagation exists; the formatter's spurious
-  blank line from skipped blank-line nodes (fixed inside the blank-line-
-  preservation rework, with a pinning regression test). `[derived]`
+  parameter once dirtiness propagation exists; fixed-array exact-length
+  decoding (the conversion table row); the formatter's spurious blank line
+  (inside the blank-line-preservation rework). `[derived; the exact-length
+  fix is deliberate]`
 
 ## 12. Consumer end-states and sweep constraints
 
@@ -567,36 +638,42 @@ The sweep follows the module graph. Constraints discovered and binding:
   unmigrated source against the new API inside their builds); migrate
   safegit in the same working session (its Go workspace `use`s the strictcli
   checkout, so its tests go red the moment that checkout is migrated); every
-  remaining consumer bumps BOTH module requirements in one commit
-  (howmuchleft's strictcli bump spans more released versions than the
-  others' — it lags the fleet's strictcli version). saferm — which
-  workspace-`use`s the strictcli checkout but does not import this package —
-  gets a `go work sync` plus the strictcli requirement bump when strictcli
-  releases. `[derived]`
+  remaining consumer bumps BOTH module requirements in one commit (each
+  consumer's strictcli bump spans whatever versions it lags — one consumer
+  lags further than the rest). saferm — which workspace-`use`s the strictcli
+  checkout but does not import this package — gets a `go work sync` plus the
+  strictcli requirement bump when strictcli releases. `[derived]`
 - Each consumer's authoritative break list is produced mechanically before
-  the release: at the end of the library work, every consumer is built
-  against the pre-release tree in a scratch clone with a temporary replace
-  directive (never committed), and the compiler output drives the sweep and
-  the migration table in the release notes. `[derived]`
+  the release, in two mandatory parts: every consumer is built against the
+  pre-release tree in a scratch clone with a temporary replace directive
+  (never committed), capturing COMPILE breaks; and each consumer's own test
+  suite (and fixture corpus where one exists) runs against the same tree,
+  capturing DECODE-TIME breaks (strictness errors no compiler can see —
+  unknown keys in real files, newly-refused struct-tag options). The
+  combined output drives the sweep and the migration table in the release
+  notes. `[derived]`
 - Per-consumer rulings. wavescript: deletes its internal strict-decode layer
   and its typed-read, enumeration, comment, value-rendering, and write-cycle
-  helpers. strictcli: builds runtime descriptors from its flag and config
-  registries, keeps its cross-language message vocabularies (rendering
-  engine error data), migrates its bare error type assertion, adopts
-  `ParseFile`, keeps its dry-run effects-handle writes. (Out of this wave's
-  scope: strictcli's conditional unknown-key rejection — a todo is filed in
-  the strictcli project proposing to investigate and make it unconditional
-  across all of its implementations; that work belongs to strictcli's own
-  campaign and is not a sweep item.) pgdesign: the minimal-correct
-  migration — delete the excluded-field workaround and the two-pass hand
-  decode (decoding its dynamic sections directly into map fields, which the
-  map-of-struct fix makes work), plus the mechanical conversions; its
+  helpers; its two path-based `Len` call sites move to the read-layer.
+  strictcli: builds runtime descriptors from its flag and config registries,
+  keeps its cross-language message vocabularies (rendering engine error
+  data), migrates its bare error type assertion, adopts `ParseFile`, keeps
+  its dry-run effects-handle writes. (Out of this wave's scope: strictcli's
+  conditional unknown-key rejection — a todo is filed in the strictcli
+  project proposing to investigate and make it unconditional across all of
+  its implementations; that work belongs to strictcli's own campaign and is
+  not a sweep item.) pgdesign: the minimal-correct migration — delete the
+  excluded-field workaround and the two-pass hand decode (decoding its
+  dynamic sections directly into map fields, which the map-of-struct fix
+  makes work), strip the `omitempty` struct-tag options its migration
+  structs carry (hard errors under the tag-option ruling — a decode-time
+  break the compiler cannot show), plus the mechanical conversions; its
   generated validator stack stays untouched and remains the shape authority
   (the handover question is a later, separate campaign). howmuchleft: keeps
   its startup auto-create of the config file; a present-but-invalid file
   becomes a hard positioned error instead of a silent fall-back to defaults;
   adopts `EnsureDefaults`, plain (non-pointer) config fields, the
-  container-entries fix for its always-nil profile reading (a named
+  container-elements fix for its always-nil profile reading (a named
   consumer-facing defect in the changelog), and the preserving serializer
   for write-back. safegit: adopts required tags for presence and keeps
   pointer fields only for its mutual-exclusivity domain rule. dirstat:
@@ -618,18 +695,24 @@ The sweep follows the module graph. Constraints discovered and binding:
   repository hygiene and test-infrastructure hardening; the mechanical
   `DocumentNode`-to-`Document` rename as its own scripted early pass (it has
   no semantic dependencies, and everything after it is written against the
-  final name); the diagnostic contract; the read-layer and path re-basing;
-  the decode engine (absorbing the decode-bug regression tests); the
-  structural operations; the node-model pass (interface split, field
-  unexporting, setter discipline, dirtiness propagation, and the read-layer's
-  eager-to-lazy switch); fragment-based rendering and value
-  canonicalization; the formatter's blank-line preservation; the ports
-  (Cursor, Walk, Merge, Diff) and the deletions and the token/`Trivia`
-  unexporting as one late scripted identifier sweep; the documentation truth
-  pass; the pre-release consumer compile check; the release. Semantic
-  changes follow dependency order; mechanical changes collapse into as few
-  scripted passes as that order allows, each with a dry run, asserted
-  per-file occurrence counts, and a reviewed diff. `[derived]`
+  final name); the diagnostic contract with `ParseFile`; the read-layer, the
+  path re-basing (including the `Get` deletion and the logical-path
+  refusals), and the exported path helpers; the decode engine and descriptor
+  surface (absorbing the decode-bug regression tests and the fixed-array
+  exact-length flip); the structural operations and the ordered input type
+  and `EnsureDefaults`; the node-model pass (interface split, field
+  unexporting, setter discipline with both funnels, dirtiness propagation,
+  the comment-API respelling, and the read-layer's eager-to-lazy switch);
+  fragment-based rendering, the Set-equality contract, and value
+  canonicalization with the exported renderers; the formatter's blank-line
+  preservation; the accessor conversion of all three families; `WriteFile`;
+  the ports and pinning work (Cursor, Merge, Walk documentation, Diff
+  pinning) and the deletions and the token/`Trivia` unexporting as one late
+  scripted identifier sweep; the documentation truth pass; the pre-release
+  consumer compile-and-test check; the release. Semantic changes follow
+  dependency order; mechanical changes collapse into as few scripted passes
+  as that order allows, each with a dry run, asserted per-file occurrence
+  counts, and a reviewed diff. `[derived]`
 - Repository hygiene precedes the wave: a gofmt sweep as its own commit, CI
   steps failing on unformatted code and on staticcheck findings, the go
   directive relaxed to the minor version, and a CI matrix carrying more than
@@ -659,36 +742,44 @@ The sweep follows the module graph. Constraints discovered and binding:
   no-op). `[derived]`
 - Red-green discipline for the decode bugs fixed by the engine replacement
   (map-of-struct path truncation; array-of-tables under a plain table
-  silently dropped; the map-element reflect panic): tests phrased entirely
-  on the public surface, committed before the engine work with their red
-  failure output pasted into the commit message (the old decoder will not
-  exist to reproduce it), turning green under the engine. The audit test
-  that only compared two decode entry points against each other is
-  strengthened to assert actual values. `[derived]`
+  silently dropped; the map-element reflect panic; fixed-array under-fill):
+  tests phrased entirely on the public surface, committed before the engine
+  work with their red failure output pasted into the commit message (the
+  old decoder will not exist to reproduce it), turning green under the
+  engine. The audit test that only compared two decode entry points against
+  each other is strengthened to assert actual values. `[derived]`
 
 ## 14. Deferred and rejected
 
 A deferred-work todo will be filed at the end of the campaign (shown to the
 user before filing) carrying: the real struct-to-TOML Marshal (with the note
-that pgdesign's exporter could shrink onto it); the full structural-
+that pgdesign's exporter could shrink onto it); the remaining structural-
 manipulation suite (node moves across containers, positional insertion,
-table/inline conversion); the splice API (replacing an exact byte span in
-place, a capability one consumer implements format-neutrally for itself);
-the upgrade of strict decode from first-error to collecting independent
-violations (additive on the aggregate error type; build when a consumer
-asks); a pre-parsed path type for allocation-free lookups; the
-enum-in-descriptor extension as an open decision with pros and cons; and the
-presence-reporting API recorded as rejected with its rationale (required-key
-support plus `EnsureDefaults` absorbed the need; the remaining consumer case
-is domain logic on a data shape where pointer fields are the better
-instrument). A kernel-level crash-injection harness for `WriteFile` and a
-struct-size budget test were considered and rejected (flaky in CI; a
-hand-maintained number that breaks on legitimate change).
+table/inline conversion); the declarative name-list key-ordering convenience
+(explicitly deferred by ruling — to be designed only AFTER the structural
+comment model below settles, never before); the structural comment model
+end-state (containers holding only key-values plus a trailing-trivia slot,
+with per-comment attachment direction as parser-set, correctable data —
+making comment-separation bugs unrepresentable; the deferred design for when
+comment-placement demand materializes); the splice API (replacing an exact
+byte span in place, a capability one consumer implements format-neutrally
+for itself); the upgrade of strict decode from first-error to collecting
+independent violations (additive on the aggregate error type; build when a
+consumer asks); incremental read-layer invalidation (the accepted
+whole-layer rebuild cost's successor); a pre-parsed path type for
+allocation-free lookups; the enum-in-descriptor extension as an open
+decision with pros and cons; and the presence-reporting API recorded as
+rejected with its rationale (required-key support plus `EnsureDefaults`
+absorbed the need; the remaining consumer case is domain logic on a data
+shape where pointer fields are the better instrument). A kernel-level
+crash-injection harness for `WriteFile` and a struct-size budget test were
+considered and rejected (flaky in CI; a hand-maintained number that breaks
+on legitimate change).
 
 ## 15. Settled names
 
-Closed — this section is the complete rename-and-new-name set. Each entry
-marks its origin (renamed from X, or new). All `[approved]`:
+The user-ruled name set. Each entry marks its origin (renamed from X, or
+new). All `[approved]`:
 
 - **`Error`** (renamed from `ParseError`, generalized) / **`Errors`** (new,
   the aggregate) / **`ErrorKind`** (new) with per-kind sentinels. A
@@ -709,59 +800,101 @@ marks its origin (renamed from X, or new). All `[approved]`:
 - **`Pair`** (new) — the ordered key/value element used by the ordered
   inline-table input and `EnsureDefaults`.
 
+Names introduced by the API-contracts section beyond this set are `[derived]`
+and freely revisable within their stated shapes.
+
 ## 16. API contracts
 
 The exported shapes an implementor builds to. Signatures are binding in
 shape (receiver, parameters, returns); parameter names are free. The
 API-snapshot test of the public-surface section holds all of these.
 
+- **Errors.** `Error` is a struct with exported fields: `Kind ErrorKind`,
+  `Path string`, `Pos Position`, `Span Span`, `Message string`,
+  `File string` (empty when no file is known). It implements `error`; its
+  `Is` method matches the per-kind sentinel values. `ErrorKind` is a plain
+  integer enum that does NOT implement `error` (so a kind constant can never
+  be assigned where an error goes); the sentinels are exported package
+  variables of a small unexported error type, one per kind, generated from
+  the kind list so the two cannot drift. `Errors` is the aggregate:
+  `Error() string` renders its first diagnostic; `Unwrap() []error` returns
+  all, in document order. `Position` is `{Line, Column, Offset int}`
+  (line/column 1-based, offset 0-based). `ParseFile(path string)
+  (*Document, error)` and `(*Document).WriteFile(path string) error`.
+  `[derived]`
 - **Read-layer.** `(*Document).Root() *Record` — the logical root,
   constructed per the read-layer section. `(*Record).Entries() iter.Seq[Entry]`
-  (first-appearance order), `(*Record).Len() int`, `(*Record).Get(key string)
-  (Entry, bool)`. `Entry` exposes `Key() string`, `KeySpan() Span`, and its
-  value through exactly one of: `Record() (*Record, bool)` (any table
-  spelling, including an inline table), `Records() ([]*Record, bool)` (an
-  array-of-tables; the collection span of the diagnostics section is
-  `RecordsSpan()`), or `Node() Node` (scalars and plain arrays — the
-  concrete node, so read-then-edit and span/style inspection are one step).
-  The layer is read-only: no type in it has a mutating method (mechanism:
-  the API snapshot). `[derived]`
-- **Descriptor.** `Spec` is `{Fields map[string]Field; Dynamic *Field;
-  Other FieldPolicy}` in shape: `Fields` names the known keys; `Dynamic`,
-  when non-nil, is the uniform descriptor for arbitrary additional keys;
-  the explicit spellings replacing the reference implementation's nil
-  overloading are `FieldAny()` (an any-value field constructor) and
-  `SpecClosed()` (a no-keys table), so absence of a sub-descriptor is
-  always an error, never a meaning. `Field` carries the expected kind (a
-  closed kind enum covering the scalar kinds, array-with-element, table-
-  with-spec, and any), a `Required bool`, an element `*Field` for arrays,
-  and a `*Spec` for tables. Entry points: `(*Document).Validate(*Spec)
-  error` (engine only), `(*Document).Decode(v any) error` and
-  `Unmarshal(data []byte, v any) error` (struct front end), and
-  `DecodeNode(n Node, v any) error` (the node-level decode of the
-  strict-decoding section). Exact enum spellings are the implementor's
-  within these shapes. `[derived]`
+  (first-appearance order), `(*Record).Len() int` (entry count),
+  `(*Record).Get(key string) (Entry, bool)`. `Entry` exposes `Key() string`,
+  `KeySpan() Span`, and its value through exactly one of: `Record()
+  (*Record, bool)` (any table spelling, including an inline table),
+  `Records() ([]*Record, bool)` (an array-of-tables; the collection span of
+  the diagnostics section is `RecordsSpan() Span`), or `Node() Node`
+  (scalars and plain arrays — the concrete node, so read-then-edit and
+  span/style inspection are one step). The layer is read-only: no type in
+  it has a mutating method (mechanism: the API snapshot). `[derived]`
+- **Descriptor.** `Spec` is `{Fields map[string]Field; Dynamic *Field}` in
+  shape: `Fields` names the known keys; `Dynamic`, when non-nil, is the
+  uniform descriptor for arbitrary additional keys, and nil `Dynamic` means
+  no extra keys are permitted — the ONE licensed nil-as-meaning in the
+  descriptor, stated here so it is a documented spelling rather than an
+  accident. `Field` carries the expected kind, a `Required bool`, an
+  element `*Field` for array kinds, and a `*Spec` for table kinds; a
+  missing element or table descriptor where the kind requires one is a
+  construction-time hard error, and `FieldAny()` is the explicit any-value
+  spelling. The kind enum covers: string, integer, float, boolean, the four
+  date-time flavors as FOUR DISTINCT members (no union member — a field
+  accepting any flavor has no spelling until demand proves one, per the
+  granularity ruling), array, table, and any. Entry points:
+  `(*Document).Validate(*Spec) error` (engine only), `(*Document).Decode(v
+  any) error` and `Unmarshal(data []byte, v any) error` (struct front end),
+  and `DecodeNode(n Node, v any) error` (the node-level decode). Exact enum
+  constant spellings are the implementor's within these members. `[derived;
+  the four-flavor granularity is approved]`
 - **Structural operations.** `(*Document).PermuteChildren(path string,
-  order []int) error` (bijection per the write-path section; empty path
-  addresses the document's own children), `(*Document).SortKeys(path
-  string, less func(a, b string) bool) error`,
+  order []int) error` — gather semantics: `order[i]` is the index of the
+  existing child that moves to position `i` (worked example: children
+  `[A, B]` with `order = [1, 0]` yields `[B, A]`); empty path addresses the
+  document's own children; total bijection per the write-path section.
   `(*Document).AppendToArray(path string, value any) error`,
   `(*Document).RemoveFromArray(path string, index int) error` (negative
-  indices per the path syntax). The ordered inline-table input is
-  `[]Pair` with `Pair{Key string, Value any}` (exported fields — it is
-  plain input data, not an encapsulated node), accepted by `Set`/
-  `SetCreate` wherever `map[string]any` is. `EnsureDefaults(defaults
-  []Pair) (added []string, err error)` on `*Document`, paths as `Pair.Key`.
+  indices per the path syntax). The ordered inline-table input is `[]Pair`
+  with `Pair{Key string, Value any}` (exported fields — plain input data,
+  not an encapsulated node), accepted by `Set`/`SetCreate` wherever
+  `map[string]any` is. `(*Document).EnsureDefaults(defaults []Pair)
+  (added []string, err error)`, full paths in `Pair.Key`. `[derived; the
+  gather semantics and op set are approved]`
+- **AST node accessors** (the read side of encapsulation; names mirror the
+  fields they replace): `(*Document).Children() []Node`,
+  `(*TableNode).Children() []Node`, `(*TableNode).KeyPath() []string`,
+  `(*ArrayTableNode).Children() []Node`, `(*ArrayTableNode).KeyPath()
+  []string`, `(*ArrayNode).Elements() []Node`,
+  `(*InlineTableNode).Children() []Node`, `(*KeyValueNode).Key() *KeyNode`,
+  `(*KeyValueNode).Val() Node`, `(*KeyNode).Parts() []string`,
+  `(*KeyNode).RawParts() [][]byte`, `(*KeyNode).Styles() []StringStyle`,
+  `(*CommentNode).Text() string`, `(*StringNode).Style() StringStyle`,
+  `(*IntegerNode).Base() IntegerBase`. Returned slices are copies or
+  read-only by contract (mutating them does not alter the document —
+  mechanism: a test mutates a returned slice and asserts the render is
+  unchanged). Normalized comment getters per the write-path section.
   `[derived]`
-- **Accessors.** On `Scalar` and mirrored at path level and Cursor
-  terminals: `AsString() (string, error)`, `AsInt() (int64, error)`,
-  `AsFloat() (float64, error)`, `AsBool() (bool, error)`, `AsTime() 
-  (time.Time, error)` (offset date-times), plus the Local-type accessors;
-  path level keeps the `GetString(path)`-style spellings with `(T, error)`
-  returns. `Lookup(path string) (Node, bool)` and `Has(path string) bool`
-  are the comma-ok existence surface. `[derived]`
-- **Renderers and path helpers.** `QuoteString(string) string` (basic-string
-  form), `QuoteKey(string) string`, `FormatFloat(float64) string` (the
-  canonical form of the fidelity section), and the path helpers
-  `ParsePath(string) ([]PathSegment, error)` / `JoinPath([]PathSegment)
-  string` with an exported `PathSegment`. `[derived]`
+- **Accessors.** On `Scalar` and mirrored at path level: `AsString()
+  (string, error)`, `AsInt() (int64, error)`, `AsFloat() (float64, error)`,
+  `AsBool() (bool, error)`, `AsTime() (time.Time, error)` (offset
+  date-times), `AsLocalDateTime()`, `AsLocalDate()`, `AsLocalTime()` (node
+  level only — no path-level demand); path level keeps the
+  `GetString(path)`-style spellings with `(T, error)` returns. Cursor
+  terminals keep their existing short spellings (`String()`, `Int()`,
+  `Float()`, `Bool()`, `Time()`) with `(T, error)` returns — chain brevity
+  is the Cursor's purpose; note `String() (string, error)` is deliberately
+  not a `fmt.Stringer` and must not be "fixed" into one.
+  `(*Document).Lookup(path string) (Node, bool)` and `(*Document).Has(path
+  string) bool` are the comma-ok existence surface. `[derived]`
+- **Renderers and path helpers.** `QuoteString(string) string`
+  (basic-string form), `QuoteKey(string) string`, `FormatFloat(float64)
+  string` (total; the canonical form of the fidelity section including the
+  special-float spellings), `ParsePath(string) ([]PathSegment, error)` and
+  `JoinPath([]PathSegment) string` (the quoting authority for path text).
+  `PathSegment` is `{Kind SegmentKind; Key string; Index int}` with
+  `SegmentKind` a two-member enum (key, index); negative indices legal.
+  `[derived]`
