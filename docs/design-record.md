@@ -136,24 +136,25 @@ Vocabulary used throughout, defined once:
 
 ## 3. Decode error reporting
 
-- Strict decode collects every INDEPENDENT violation in document order and
-  returns them as one error value whose `Error()` renders only the first
-  diagnostic (so single-error call sites read like a single error), with the
-  full list reachable via `errors.As`. "Independent" means: after a
-  violation, validation continues across sibling keys and tables but never
-  descends below an errored node, so a broken table cannot produce cascading
-  nonsense. Mechanism for the no-descent rule: a fixture with a violation on
-  a table that itself contains further violations, asserting the exact
-  diagnostic list and the absence of the buried ones. `[approved — see the
-  open-items section: the evidence base for this ruling was corrected during
-  review and the ruling awaits re-confirmation]`
+- Strict decode stops at the FIRST violation in document order, and returns
+  it wrapped in the aggregate error type (carrying a list that, under this
+  ruling, always holds one diagnostic). This was re-confirmed on corrected
+  evidence: the one fleet implementation of strict decode (wavescript's
+  strictdecode) deliberately stops at the first violation, and the
+  multi-diagnostic reporting observed in other consumers sits in their
+  post-decode domain-validation layers, which this design keeps app-side.
+  Shipping the aggregate TYPE regardless of behavior makes a later upgrade
+  to collecting independent violations purely additive — no consumer
+  breaks — so that upgrade is recorded as deferred work, to be built when a
+  consumer asks. `[approved]`
 - The aggregate error's contract: it implements `Unwrap() []error` returning
   the diagnostics in document order; `errors.As` with a single-diagnostic
   target yields the first diagnostic (standard traversal order); `errors.As`
   with the aggregate target yields the whole list; `errors.Is` against a kind
   sentinel matches if any contained diagnostic carries that kind. `[derived]`
-- Parsing remains first-error-only (a parse cannot meaningfully continue past
-  a syntax error). The asymmetry is deliberate and documented. `[approved]`
+- Parsing is likewise first-error-only (a parse cannot meaningfully continue
+  past a syntax error); parse errors are not wrapped in the aggregate.
+  `[approved]`
 
 ## 4. The unified diagnostic contract
 
@@ -279,7 +280,7 @@ Vocabulary used throughout, defined once:
   for a shallow and a deeply nested document; a deep-nesting benchmark
   additionally tracks the render cost. `[derived]`
 - The document type is renamed from `DocumentNode` to `Document`. The rest of
-  the rename set is settled in the open-items section before implementation
+  the rename set is recorded in the settled-names section before implementation
   begins. Sequencing of the rename relative to the other mechanical passes
   is stated once, in the release-and-process section. `[approved]`
 - The exported token vocabulary (token types and the token struct) is
@@ -560,7 +561,10 @@ pgdesign's exporter could shrink onto it); the full structural-manipulation
 suite (node moves across containers, positional insertion, table/inline
 conversion); the splice API (replacing an exact byte span in place, a
 capability one consumer implements format-neutrally for itself); the
-enum-in-descriptor extension as an open decision with pros and cons; and the
+upgrade of strict decode from first-error to collecting independent
+violations (additive on the aggregate error type; build when a consumer
+asks); the enum-in-descriptor extension as an open decision with pros and
+cons; and the
 presence-reporting API recorded as rejected with its rationale (required-key
 support plus the defaults-seeder absorbed the need; the remaining consumer
 case is domain logic on a data shape where pointer fields are the better
@@ -568,21 +572,30 @@ instrument). A kernel-level crash-injection harness for `WriteFile` and a
 struct-size budget test were considered and rejected (flaky in CI; a
 hand-maintained number that breaks on legitimate change).
 
-## 15. Open items
+## 15. Settled names
 
-- **Names not yet settled** (to be proposed with objective reasoning and
-  settled before implementation begins): the unified diagnostic type and its
-  aggregate; the read-layer types; the scalar interface; the descriptor
-  types; the honest name for the key-rename operation; the redesigned
-  defaults-seeder's name.
-- **Decode error collection awaits re-confirmation.** The ruling in the
-  decode-error section was approved partly on the claim that two consumers
-  had hand-built multi-diagnostic DECODE reporting. Review corrected the
-  evidence: wavescript's decode layer deliberately stops at the first
-  violation, while the multi-diagnostic accumulation in pgdesign and
-  strictcli sits in their post-decode domain-validation layers (which this
-  design keeps app-side). The corrected case for collection: those app-side
-  layers present whole-file error lists to users, and engine-collected
-  diagnostics feed the same presentations; the one-pass fixing experience
-  and the structural cascade fix stand on their own. The ruling stands
-  unless the user, on the corrected evidence, prefers first-error-only.
+All names below are `[approved]`, each chosen with the stated reason:
+
+- **`Error` / `Errors` / `ErrorKind`** — the unified diagnostic type, its
+  aggregate, and the kind classification (with `errors.Is` sentinels such as
+  `ErrUnknownKey`, `ErrInexact`). A package's single error type named
+  `Error` is the established Go idiom (`url.Error`, `exec.Error`).
+- **`Record` / `Entry`** — the read-layer's logical container and its
+  ordered key/value element. Deliberately not `Table`: the type uniformly
+  covers all four TOML spellings and must not be confusable with the
+  concrete `TableNode`. The vocabulary matches the reference fold.
+- **`Scalar`** — the sub-interface carrying `Value()` and the typed
+  accessors.
+- **`Spec` / `Field`** — the descriptor and its per-key element; the proven
+  names from the reference implementation the sweep deletes. Deliberately
+  not `Schema`: that word is strictspec's domain, and this library does not
+  present itself as part of that tool family.
+- **`RenameKey`** — the key-rename operation's honest name: it renames a key
+  in place and cannot move nodes; a future move operation can take a
+  truthful name of its own.
+- **`EnsureDefaults`** — the redesigned defaults-seeder, taking the proven
+  name from the consumer whose implementation the design adopts; "ensure"
+  states the idempotent contract (present keys untouched, missing ones
+  created and reported).
+- **`Document`** — the document type (renamed from `DocumentNode`), per the
+  node-model section.
