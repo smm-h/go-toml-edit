@@ -2,6 +2,12 @@
 
 # Changelog
 
+## Unreleased
+
+### Features
+
+- **Full documentation: a usage guide, a design guide, and Go doc comments on the whole exported API.** The package now reads as documented on pkg.go.dev, and the docs site carries prose guides alongside the generated reference.
+
 ## 0.3.0
 
 Position spans on every AST node: Span() exposes 1-based start/end line and column from the most recent parse.
@@ -57,12 +63,16 @@ strictcli needs Marshal to write TOML config files. This adds the inverse of Unm
 
 ## 0.1.2
 
+Format() preserves intra-array comments; README Walk example corrected.
+
 ### Fixes
 
 - **Fix.** Preserve intra-array comments in Format() output.
 - **Fix.** Fix README Walk example to include required WalkMode parameter.
 
 ## 0.1.1
+
+Fidelity fixes: comments between array elements and key quoting styles now survive re-rendering; Walk takes an explicit WalkMode parameter (breaking).
 
 ### Breaking
 
@@ -75,9 +85,13 @@ strictcli needs Marshal to write TOML config files. This adds the inverse of Unm
 
 ## 0.1.0
 
+Release-tooling bootstrap: no user-facing changes (version machinery for the rlsbl bump flow).
+
 - No user-facing changes.
 
 ## 0.0.1
+
+Initial release: full TOML 1.0 parser and comment-preserving editor -- round-trip serialization, editing API, typed getters, fluent cursor, Walk, Diff, Merge, Unmarshal/Decode, and official toml-test suite compliance.
 
 ### Features
 
