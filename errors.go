@@ -246,6 +246,14 @@ func (e *Error) atPath(path string) *Error {
 	return e
 }
 
+// inFile records the source file, unless the diagnostic already names one.
+func (e *Error) inFile(file string) *Error {
+	if e.File == "" {
+		e.File = file
+	}
+	return e
+}
+
 // withValue records the offending value of a bad-input or inexact diagnostic.
 func (e *Error) withValue(v any) *Error {
 	e.Value = v
@@ -303,6 +311,31 @@ func stampPath(err error, path string) error {
 		return err
 	}
 	walkDiagnostics(err, func(d *Error) { d.atPath(path) })
+	return err
+}
+
+// stampFile records file on every diagnostic reachable from err that does not
+// already name one, and returns err. It is how a document read from a file
+// makes its diagnostics name that file.
+func stampFile(err error, file string) error {
+	if err == nil || file == "" {
+		return err
+	}
+	walkDiagnostics(err, func(d *Error) { d.inFile(file) })
+	return err
+}
+
+// diag records the document's origin -- the file it was read from, and the
+// path the caller addressed -- on every diagnostic in err. Public methods
+// return through it, so a diagnostic reported anywhere below them names both.
+func (d *Document) diag(err error, path string) error {
+	if err == nil {
+		return err
+	}
+	err = stampPath(err, path)
+	if d != nil {
+		err = stampFile(err, d.file)
+	}
 	return err
 }
 

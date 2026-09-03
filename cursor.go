@@ -63,9 +63,10 @@ func (c *Cursor) Node() Node {
 	return c.node
 }
 
-// Err returns the first error encountered during navigation.
+// Err returns the first error encountered during navigation, as an *Error
+// naming the document's file when it has one.
 func (c *Cursor) Err() error {
-	return c.err
+	return c.doc.diag(c.err, "")
 }
 
 // String extracts a string value from the current node.

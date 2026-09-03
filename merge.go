@@ -7,7 +7,7 @@ package tomledit
 // and arrays are atomic: existing keys are never overwritten. This is useful
 // for applying default configuration values to a user-provided TOML file.
 func (d *Document) MergeDefaults(path string, defaults map[string]any) error {
-	return d.mergeMap(path, defaults)
+	return d.diag(d.mergeMap(path, defaults), "")
 }
 
 // mergeMap recursively merges a map[string]any into the document at the given
@@ -64,7 +64,7 @@ func (d *Document) mergeMap(prefix string, m map[string]any) error {
 // Array-of-tables are treated atomically: if d already has entries for a
 // given path, all of other's entries for that path are skipped.
 func (d *Document) Merge(other *Document) error {
-	return mergeChildren(d, other, other, "")
+	return d.diag(mergeChildren(d, other, other, ""), "")
 }
 
 // mergeChildren walks the source scope's children (KVs) and sub-tables,

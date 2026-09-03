@@ -9,7 +9,7 @@ package tomledit
 func (d *Document) SetComment(path string, comment string) error {
 	node, err := d.resolveCommentTarget(path)
 	if err != nil {
-		return stampPath(err, path)
+		return d.diag(err, path)
 	}
 	if comment == "" {
 		node.setComment("")
@@ -27,7 +27,7 @@ func (d *Document) SetComment(path string, comment string) error {
 func (d *Document) SetLeadingComments(path string, comments []string) error {
 	node, err := d.resolveCommentTarget(path)
 	if err != nil {
-		return stampPath(err, path)
+		return d.diag(err, path)
 	}
 	formatted := make([]string, len(comments))
 	for i, c := range comments {

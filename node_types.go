@@ -26,6 +26,10 @@ const (
 type Document struct {
 	nodeBase
 	Children []Node
+
+	// file is the path the document was read from (ParseFile), or "" when it
+	// was parsed from bytes. Every diagnostic the document produces names it.
+	file string
 }
 
 // Type returns NodeDocument.

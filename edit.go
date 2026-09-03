@@ -15,14 +15,14 @@ import (
 // any type implementing the Node interface. Use SetCreate to auto-create
 // intermediate tables.
 func (d *Document) Set(path string, value any) error {
-	return stampPath(d.setInternal(path, value, false), path)
+	return d.diag(d.setInternal(path, value, false), path)
 }
 
 // SetCreate is like Set but auto-creates intermediate [table] headers when they
 // do not exist. Missing tables are appended to the document. This is convenient
 // for inserting values into deeply nested paths that may not yet exist.
 func (d *Document) SetCreate(path string, value any) error {
-	return stampPath(d.setInternal(path, value, true), path)
+	return d.diag(d.setInternal(path, value, true), path)
 }
 
 func (d *Document) setInternal(path string, value any, create bool) error {
@@ -276,7 +276,7 @@ func newKeyValueNode(key string, val Node) *KeyValueNode {
 // key-value pairs, tables, array-of-tables, and array elements. Returns nil
 // (no error) if the path does not exist, making it safe to call unconditionally.
 func (d *Document) Delete(path string) error {
-	return stampPath(d.deleteAt(path), path)
+	return d.diag(d.deleteAt(path), path)
 }
 
 func (d *Document) deleteAt(path string) error {
@@ -432,7 +432,7 @@ func deleteIndexFromParent(parent Node, index int) error {
 // existing sibling key, or if the last path segment is an array index (only
 // key segments can be renamed).
 func (d *Document) RenameKey(path string, newKey string) error {
-	return stampPath(d.renameKeyAt(path, newKey), path)
+	return d.diag(d.renameKeyAt(path, newKey), path)
 }
 
 func (d *Document) renameKeyAt(path string, newKey string) error {
@@ -507,7 +507,7 @@ func renameKeyInParent(parent Node, oldKey, newKey string) error {
 // the document. The path must consist of key segments only (no array indices).
 // Returns an error if a table with that exact path already exists.
 func (d *Document) NewTable(path string) error {
-	return stampPath(d.newTableAt(path), path)
+	return d.diag(d.newTableAt(path), path)
 }
 
 func (d *Document) newTableAt(path string) error {
@@ -552,7 +552,7 @@ func (d *Document) newTableAt(path string) error {
 // successive elements of the array. The path must consist of key segments
 // only (no array indices).
 func (d *Document) NewArrayTable(path string) error {
-	return stampPath(d.newArrayTableAt(path), path)
+	return d.diag(d.newArrayTableAt(path), path)
 }
 
 func (d *Document) newArrayTableAt(path string) error {

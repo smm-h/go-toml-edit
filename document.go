@@ -580,11 +580,11 @@ func (d *Document) Get(path string) Node {
 func (d *Document) Resolve(path string) (Node, error) {
 	segments, err := parsePath(path)
 	if err != nil {
-		return nil, stampPath(err, path)
+		return nil, d.diag(err, path)
 	}
 	node, err := resolveNode(d, segments)
 	if err != nil {
-		return nil, stampPath(err, path)
+		return nil, d.diag(err, path)
 	}
 	return node, nil
 }

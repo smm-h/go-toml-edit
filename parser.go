@@ -3,6 +3,7 @@ package tomledit
 import (
 	"fmt"
 	"math"
+	"os"
 	"strconv"
 	"strings"
 	"time"
@@ -20,16 +21,43 @@ import (
 // the position, span and source line of the offending construct. Parsing stops
 // at the first failure.
 func Parse(src []byte) (*Document, error) {
-	tokens, err := lex(src)
+	return parseSource(src, "")
+}
+
+// ParseFile reads the file at path and parses it. The document remembers the
+// filename, so every diagnostic it later produces -- from parsing, access or
+// editing -- names the file it came from.
+//
+// A file that cannot be read is reported as the underlying read error (an
+// *fs.PathError, matchable with errors.Is against fs.ErrNotExist and the
+// rest), not as an *Error: nothing was parsed, so there is nothing to
+// diagnose.
+func ParseFile(path string) (*Document, error) {
+	src, err := os.ReadFile(path)
 	if err != nil {
 		return nil, err
+	}
+	return parseSource(src, path)
+}
+
+// parseSource lexes and parses src, recording file as the document's origin
+// and on every diagnostic the parse itself reports.
+func parseSource(src []byte, file string) (*Document, error) {
+	tokens, err := lex(src)
+	if err != nil {
+		return nil, stampFile(err, file)
 	}
 	p := &parser{
 		tokens: tokens,
 		pos:    0,
 		src:    src,
 	}
-	return p.parseDocument()
+	doc, err := p.parseDocument()
+	if err != nil {
+		return nil, stampFile(err, file)
+	}
+	doc.file = file
+	return doc, nil
 }
 
 // parser is the internal recursive-descent parser.
