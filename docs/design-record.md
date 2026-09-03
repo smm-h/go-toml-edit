@@ -278,8 +278,8 @@ Vocabulary used throughout, defined once:
      then `y`, `a` anchored at its own header, first-header-wins).
   4. Array-of-tables entries collect under one key; a sub-table header under
      an array-of-tables prefix addresses the LAST entry (worked example:
-     `[[s]]\n[s.t]\nx=1` puts `t` inside the second... the most recent `s`
-     entry).
+     `[[s]]\n[[s]]\n[s.t]\nx=1` puts `t` inside the second `s` entry — the
+     most recent one).
   5. Inline tables fold into ordinary records; a record's origin spelling is
      not distinguishable through the layer.
   6. Every entry carries the key's span; every record carries its anchoring
@@ -443,11 +443,13 @@ Vocabulary used throughout, defined once:
 
 ## 8. The Set-equality contract
 
-- `Set(path, value)` — and every value-writing entry point (`SetCreate`,
-  `EnsureDefaults`, `AppendToArray`) — is a no-op if and only if the bytes
+- `Set(path, value)` and `SetCreate` — the value-replacing entry points —
+  are a no-op if and only if the bytes
   it would write for that value are exactly the value-fragment bytes already
   stored. With no stored lexeme (constructed or previously value-mutated
-  targets), the comparison is against the canonical rendering. For a
+  targets), the comparison is against the canonical rendering.
+  (`EnsureDefaults` writes only missing paths, so the rule is moot there;
+  `AppendToArray` always writes by nature.) For a
   container-valued Set (a map, a `[]Pair`, or a slice), the comparison is
   the rendered container against the stored container's full byte range;
   when they differ the container is REPLACED WHOLESALE — interior comments
@@ -652,8 +654,9 @@ Vocabulary used throughout, defined once:
   `[derived]`
 - Repository hygiene precedes the wave: a gofmt sweep as its own commit; CI
   steps failing on unformatted code and staticcheck findings (the kept
-  `SkipTable` sentinel is renamed `ErrSkipTable` in the rename pass to
-  satisfy sentinel naming); the go directive set to the actual floor (1.23,
+  `SkipTable` sentinel is renamed `ErrSkipTable` in the same commit that
+  adds the staticcheck step, so CI is never red on sentinel naming in
+  between); the go directive set to the actual floor (1.23,
   for the iterator types) with a CI matrix of that floor plus stable
   (matrix-supplied versions replacing go-version-file). The CI job name
   stays `test` — the publish workflow's check matcher keys on it. `[derived]`
