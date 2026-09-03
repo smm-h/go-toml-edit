@@ -129,15 +129,17 @@ audited sequence. `Set`/`SetCreate` on a logical-only path (an
 array-of-tables collection name, an implied parent, a dotted-key prefix)
 refuse with `KindWrongContainer` per the record's read-layer section.
 `Delete`'s fold-failure swallow is removed so a fold error surfaces
-instead of reading as "parent not found". One case awaits a user ruling
-and must be recorded here before this phase starts: `Set`/`SetCreate`
+instead of reading as "parent not found". One case is excluded from this
+phase and awaits a user ruling as a Phase 6 residual: `Set`/`SetCreate`
 targeting a name bound by a concrete header table (today a silent
 wrong-key write; refuse vs value-replace under the record's §8 wholesale
-rule).
+rule). The implementor leaves that sequence's behavior untouched; its
+fix rides the ruling.
 
 Verify: op tests incl. bijection violations by kind; the acceptance test
-green; determinism assertion for `EnsureDefaults`; none of the eleven
-audited sequences can panic `Root()` — each refuses with the ruled kind.
+green; determinism assertion for `EnsureDefaults`; of the eleven audited
+panic sequences, all but the awaiting-ruling Set-on-header-table case
+refuse with the ruled kind and cannot panic `Root()`.
 
 ## Phase 7 — Node model
 
@@ -152,10 +154,13 @@ respelling (path-based public setters; node-level unexported; normalized
 getters on `Node`), deletion of the pre-built-Node input branch, and the
 read-layer caching switch (synchronized, generation-keyed; `Parse` alone
 builds nothing, test-asserted; the concurrent-reads race test unchanged
-and green).
+and green). Once parent references exist, `DecodeNode` diagnostics gain
+the document's filename (the Phase 5 audit found they carry none — a
+`Node` has no back-reference to its document until this phase).
 Verify: reflection test (no exported fields on Node implementers); both
 source-walk tests; propagation counter test; race test green under
-`-race`; full suite green.
+`-race`; full suite green; a `DecodeNode` diagnostic from a
+`ParseFile`-loaded document carries the filename.
 
 ## Phase 8 — Rendering, Set-equality, canonicalization
 
