@@ -1000,10 +1000,15 @@ value = 42
 		Value int    `toml:"value"`
 	}
 
+	want := Config{Name: "test", Value: 42}
+
 	// Via Unmarshal
 	var cfg1 Config
 	if err := Unmarshal([]byte(input), &cfg1); err != nil {
 		t.Fatalf("Unmarshal failed: %v", err)
+	}
+	if !reflect.DeepEqual(cfg1, want) {
+		t.Errorf("Unmarshal decoded %+v, want %+v", cfg1, want)
 	}
 
 	// Via Parse + Decode
@@ -1014,6 +1019,9 @@ value = 42
 	var cfg2 Config
 	if err := doc.Decode(&cfg2); err != nil {
 		t.Fatalf("Decode failed: %v", err)
+	}
+	if !reflect.DeepEqual(cfg2, want) {
+		t.Errorf("Decode decoded %+v, want %+v", cfg2, want)
 	}
 
 	if !reflect.DeepEqual(cfg1, cfg2) {

@@ -1116,6 +1116,9 @@ func TestAudit_InlineTableWithDottedKeys(t *testing.T) {
 // Verify DeepEqual on full decode
 // ==========================================================================
 
+// Fails if Unmarshal and Parse+Decode stop producing the same values, or stop
+// producing the RIGHT ones: the two entry points agreeing on nothing is also
+// agreement.
 func TestAudit_UnmarshalEqualsDecodeForComplexDoc(t *testing.T) {
 	input := `
 title = "audit"
@@ -1143,9 +1146,23 @@ host = "r2"
 		DB    DB     `toml:"db"`
 	}
 
+	// What the document says, spelled out: comparing the two decodes to each
+	// other alone would pass just as happily if both of them decoded nothing.
+	want := Config{
+		Title: "audit",
+		DB: DB{
+			Host:     "pg",
+			Port:     5432,
+			Replicas: []Replica{{Host: "r1"}, {Host: "r2"}},
+		},
+	}
+
 	var cfg1 Config
 	if err := Unmarshal([]byte(input), &cfg1); err != nil {
 		t.Fatalf("Unmarshal failed: %v", err)
+	}
+	if !reflect.DeepEqual(cfg1, want) {
+		t.Errorf("Unmarshal decoded %+v, want %+v", cfg1, want)
 	}
 
 	doc, err := Parse([]byte(input))
@@ -1155,6 +1172,9 @@ host = "r2"
 	var cfg2 Config
 	if err := doc.Decode(&cfg2); err != nil {
 		t.Fatalf("Decode failed: %v", err)
+	}
+	if !reflect.DeepEqual(cfg2, want) {
+		t.Errorf("Decode decoded %+v, want %+v", cfg2, want)
 	}
 
 	if !reflect.DeepEqual(cfg1, cfg2) {
