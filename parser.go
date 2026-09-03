@@ -1580,16 +1580,16 @@ func (dt *definitionTracker) defineTable(path []string, node Node, pos Position)
 	existing, ok := parent.children[key]
 	if ok {
 		if existing.kind == entryExplicit {
-			return syntaxErrorAt(dt.src, pos, "table [%s] already defined", strings.Join(path, "."))
+			return syntaxErrorAt(dt.src, pos, "table [%s] already defined", pathFromKeys(path))
 		}
 		if existing.kind == entryValue {
 			return syntaxErrorAt(dt.src, pos, "key %q is already defined as a value", key)
 		}
 		if existing.kind == entryArrayTable {
-			return syntaxErrorAt(dt.src, pos, "cannot define [%s] as a table, already defined as array table", strings.Join(path, "."))
+			return syntaxErrorAt(dt.src, pos, "cannot define [%s] as a table, already defined as array table", pathFromKeys(path))
 		}
 		if existing.kind == entryDottedImplicit {
-			return syntaxErrorAt(dt.src, pos, "cannot define [%s] as a table, already implicitly defined via dotted key", strings.Join(path, "."))
+			return syntaxErrorAt(dt.src, pos, "cannot define [%s] as a table, already implicitly defined via dotted key", pathFromKeys(path))
 		}
 		// Was implicit (from sub-table path), promote to explicit
 		existing.kind = entryExplicit
@@ -1615,7 +1615,7 @@ func (dt *definitionTracker) defineArrayTable(path []string, node Node, pos Posi
 	existing, ok := parent.children[key]
 	if ok {
 		if existing.kind == entryExplicit {
-			return syntaxErrorAt(dt.src, pos, "cannot define [[%s]] as array table, already defined as table", strings.Join(path, "."))
+			return syntaxErrorAt(dt.src, pos, "cannot define [[%s]] as array table, already defined as table", pathFromKeys(path))
 		}
 		if existing.kind == entryValue {
 			return syntaxErrorAt(dt.src, pos, "key %q is already defined as a value", key)
@@ -1627,13 +1627,13 @@ func (dt *definitionTracker) defineArrayTable(path []string, node Node, pos Posi
 			return nil
 		}
 		if existing.kind == entryDottedImplicit {
-			return syntaxErrorAt(dt.src, pos, "cannot define [[%s]] as array table, already implicitly defined via dotted key", strings.Join(path, "."))
+			return syntaxErrorAt(dt.src, pos, "cannot define [[%s]] as array table, already implicitly defined via dotted key", pathFromKeys(path))
 		}
 		// Was implicit (from sub-table path). Can only promote if no
 		// sub-tables were already defined under it (which would conflict
 		// with array-table semantics that reset children per element).
 		if len(existing.children) > 0 {
-			return syntaxErrorAt(dt.src, pos, "cannot define [[%s]] as array table, already used as table with sub-entries", strings.Join(path, "."))
+			return syntaxErrorAt(dt.src, pos, "cannot define [[%s]] as array table, already used as table with sub-entries", pathFromKeys(path))
 		}
 		existing.kind = entryArrayTable
 		existing.node = node
@@ -1661,14 +1661,14 @@ func (dt *definitionTracker) defineKey(path []string, node Node, pos Position) e
 	existing, ok := parent.children[key]
 	if ok {
 		if existing.kind == entryValue {
-			return syntaxErrorAt(dt.src, pos, "duplicate key %q", strings.Join(path, "."))
+			return syntaxErrorAt(dt.src, pos, "duplicate key %s", pathFromKeys(path))
 		}
 		if existing.kind == entryExplicit || existing.kind == entryArrayTable {
-			return syntaxErrorAt(dt.src, pos, "key %q conflicts with table definition", strings.Join(path, "."))
+			return syntaxErrorAt(dt.src, pos, "key %s conflicts with table definition", pathFromKeys(path))
 		}
 		// Implicit: promote to value only if it has no children (sub-tables)
 		if len(existing.children) > 0 {
-			return syntaxErrorAt(dt.src, pos, "key %q is already defined as a table", strings.Join(path, "."))
+			return syntaxErrorAt(dt.src, pos, "key %s is already defined as a table", pathFromKeys(path))
 		}
 		existing.kind = entryValue
 		existing.node = node
