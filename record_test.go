@@ -402,9 +402,9 @@ func TestFold_RecordsReturnsACopy(t *testing.T) {
 	}
 }
 
-// Fails if the layer is built once and cached: until the caching switch lands
-// with its invalidation, every access must rebuild, so an edit is visible to
-// the next read.
+// Fails if the layer is built once and cached: until the caching switch
+// arrives with its invalidation, every access must rebuild, so an edit is
+// visible to the next read.
 func TestFold_RebuiltOnEveryAccess(t *testing.T) {
 	doc, err := Parse([]byte("x = 1\n"))
 	if err != nil {
