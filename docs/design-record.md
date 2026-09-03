@@ -689,8 +689,8 @@ Vocabulary used throughout, defined once:
 
 ## 14. Deferred and rejected
 
-A deferred-work todo will be filed at the end of the campaign (shown to the
-user before filing) carrying: the real struct-to-TOML Marshal (with the note
+The deferred-work todo (`todo/deferred-redesign-work.md`, filed) carries:
+the real struct-to-TOML Marshal (with the note
 that pgdesign's exporter could shrink onto it); the remaining structural-
 manipulation suite (node moves, positional insertion, table/inline
 conversion); the declarative key-ordering convenience (deferred by ruling —
