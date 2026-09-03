@@ -111,10 +111,14 @@ var (
 //	}
 //
 // Which fields are populated depends on the kind and on what the reporting
-// site knew: Pos, Span and Snippet are filled for parse-stage diagnostics,
-// Path for path-addressed operations, File whenever the document's origin is
-// known (see ParseFile), and the remaining fields by the kinds documented on
-// ErrorKind. An unpopulated field carries its zero value.
+// site knew: Pos (line, column and byte offset) and Snippet are filled for
+// every parse-stage diagnostic; Span only where the reporting site knows the
+// extent of the construct it concerns, which for the parse stage means the
+// parser's token diagnostics -- the lexer's and the duplicate-definition
+// tracker's carry the zero Span. Path is filled for path-addressed
+// operations, File whenever the document's origin is known (see ParseFile),
+// and the remaining fields by the kinds documented on ErrorKind. An
+// unpopulated field carries its zero value.
 type Error struct {
 	Kind     ErrorKind // what went wrong
 	Path     string    // document path, in this package's path syntax
