@@ -1631,18 +1631,18 @@ func TestLexEmpty(t *testing.T) {
 	}
 }
 
-// --- ParseError type test ---
+// --- diagnostic rendering test ---
 
 func TestParseErrorFormat(t *testing.T) {
-	e := &ParseError{
-		Line:    3,
-		Column:  10,
+	e := &Error{
+		Kind:    KindSyntax,
+		Pos:     Position{Line: 3, Column: 10, Offset: 42},
 		Message: "unexpected character",
 	}
 	got := e.Error()
 	expected := "line 3, column 10: unexpected character"
 	if got != expected {
-		t.Errorf("ParseError.Error() = %q, want %q", got, expected)
+		t.Errorf("Error.Error() = %q, want %q", got, expected)
 	}
 }
 

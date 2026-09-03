@@ -7,6 +7,18 @@ const IntegerBinary IntegerBase = 3
 const IntegerDecimal IntegerBase = 0
 const IntegerHex IntegerBase = 1
 const IntegerOctal IntegerBase = 2
+const KindBadInput ErrorKind = 9
+const KindBadPath ErrorKind = 7
+const KindConflict ErrorKind = 10
+const KindInexact ErrorKind = 5
+const KindMissingKey ErrorKind = 3
+const KindNotFound ErrorKind = 6
+const KindRoundTrip ErrorKind = 11
+const KindSyntax ErrorKind = 0
+const KindTypeMismatch ErrorKind = 4
+const KindUnknownKey ErrorKind = 1
+const KindUnknownTable ErrorKind = 2
+const KindWrongContainer ErrorKind = 8
 const Modified ChangeKind = 2
 const NodeArray NodeType = 13
 const NodeArrayTable NodeType = 2
@@ -57,7 +69,19 @@ const TokenWhitespace TokenType = 22
 const WalkAll WalkMode = 1
 const WalkLeaves WalkMode = 0
 
+var ErrBadInput error
+var ErrBadPath error
+var ErrConflict error
+var ErrInexact error
+var ErrMissingKey error
+var ErrNotFound error
+var ErrRoundTrip error
 var ErrSkipTable error
+var ErrSyntax error
+var ErrTypeMismatch error
+var ErrUnknownKey error
+var ErrUnknownTable error
+var ErrWrongContainer error
 
 func DefaultFormatConfig() FormatConfig
 func Diff(a *Document, b *Document) []Change
@@ -179,6 +203,30 @@ type Document struct
 	method (*Document) Type() NodeType
 	method (*Document) Value() any
 	method (*Document) Walk(fn func(path string, node Node) error, mode WalkMode) error
+
+type Error struct
+	field Kind ErrorKind
+	field Path string
+	field Pos Position
+	field Span Span
+	field Message string
+	field File string
+	field Snippet string
+	field Expected string
+	field Got string
+	field Value any
+	field Keys []string
+	field Offset int
+	method (*Error) Error() string
+	method (*Error) Is(target error) bool
+	method (*Error) Unwrap() error
+
+type ErrorKind int
+	method (ErrorKind) String() string
+
+type Errors struct
+	method (*Errors) Error() string
+	method (*Errors) Unwrap() []error
 
 type FloatNode struct
 	field Val float64
@@ -311,14 +359,6 @@ type Node interface (sealed)
 
 type NodeType int
 	method (NodeType) String() string
-
-type ParseError struct
-	field Line int
-	field Column int
-	field Offset int
-	field Snippet string
-	field Message string
-	method (*ParseError) Error() string
 
 type Position struct
 	field Line int

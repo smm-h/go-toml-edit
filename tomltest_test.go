@@ -2,6 +2,7 @@ package tomledit
 
 import (
 	"bytes"
+	"errors"
 	"io/fs"
 	"strings"
 	"testing"
@@ -154,15 +155,40 @@ func TestTomlTestValid(t *testing.T) {
 	}
 }
 
-// Fails if an invalid corpus file starts parsing successfully, or if the
-// number of invalid cases run changes.
+// Fails if an invalid corpus file starts parsing successfully, if a rejection
+// stops being reported as a syntax diagnostic carrying a position, a byte
+// offset agreeing with it and the offending source line, or if the number of
+// invalid cases run changes. This is the corpus-wide form of the rule that
+// every lexer and parser error site fills those fields.
 func TestTomlTestInvalid(t *testing.T) {
 	fsys := tomltest.TestCases()
 	skip := tomlTestSkips(t, fsys)
 
 	ran := runCorpus(t, fsys, "invalid", skip, func(t *testing.T, data []byte) {
-		if _, err := Parse(data); err == nil {
+		_, err := Parse(data)
+		if err == nil {
 			t.Errorf("expected parse error but got none")
+			return
+		}
+		var diag *Error
+		if !errors.As(err, &diag) {
+			t.Fatalf("expected *Error, got %T: %v", err, err)
+		}
+		if diag.Kind != KindSyntax {
+			t.Errorf("kind = %v, want %v", diag.Kind, KindSyntax)
+		}
+		if !diag.Pos.IsValid() {
+			t.Errorf("position is invalid: %+v (%v)", diag.Pos, err)
+		}
+		if diag.Pos.Offset < 0 || diag.Pos.Offset > len(data) {
+			t.Fatalf("offset %d outside the %d-byte source", diag.Pos.Offset, len(data))
+		}
+		if want := offsetOfLineColumn(data, diag.Pos.Line, diag.Pos.Column); diag.Pos.Offset != want {
+			t.Errorf("offset = %d, want %d (line %d, column %d)",
+				diag.Pos.Offset, want, diag.Pos.Line, diag.Pos.Column)
+		}
+		if line := sourceLineAt(data, diag.Pos.Offset); diag.Snippet != line && len(line) <= snippetLimit {
+			t.Errorf("snippet = %q, want the source line %q", diag.Snippet, line)
 		}
 	})
 

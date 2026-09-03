@@ -84,54 +84,15 @@ func (l *lexer) emitAt(typ TokenType, start, end, line, col int) {
 	})
 }
 
+// errorf reports a lexing failure at the lexer's current position.
 func (l *lexer) errorf(msg string) error {
-	snippet := l.extractSnippet()
-	return &ParseError{
-		Line:    l.line,
-		Column:  l.col,
-		Offset:  l.pos,
-		Snippet: snippet,
-		Message: msg,
-	}
+	return syntaxErrorAt(l.src, Position{Line: l.line, Column: l.col, Offset: l.pos}, "%s", msg)
 }
 
+// errorfAt reports a lexing failure at a position the lexer has already moved
+// past -- the opening quote of an unterminated string, for instance.
 func (l *lexer) errorfAt(line, col, offset int, msg string) error {
-	// extract snippet around the given offset
-	start := offset
-	end := offset
-	for start > 0 && l.src[start-1] != '\n' {
-		start--
-	}
-	for end < len(l.src) && l.src[end] != '\n' {
-		end++
-	}
-	snippet := string(l.src[start:end])
-	if len(snippet) > 60 {
-		snippet = snippet[:60]
-	}
-	return &ParseError{
-		Line:    line,
-		Column:  col,
-		Offset:  offset,
-		Snippet: snippet,
-		Message: msg,
-	}
-}
-
-func (l *lexer) extractSnippet() string {
-	start := l.pos
-	end := l.pos
-	for start > 0 && l.src[start-1] != '\n' {
-		start--
-	}
-	for end < len(l.src) && l.src[end] != '\n' {
-		end++
-	}
-	snippet := string(l.src[start:end])
-	if len(snippet) > 60 {
-		snippet = snippet[:60]
-	}
-	return snippet
+	return syntaxErrorAt(l.src, Position{Line: line, Column: col, Offset: offset}, "%s", msg)
 }
 
 func (l *lexer) advance(n int) {

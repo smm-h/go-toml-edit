@@ -15,8 +15,10 @@ import (
 // from the original source. Serializing it back with Bytes produces the exact
 // original bytes (round-trip fidelity).
 //
-// Returns a *ParseError on any lexing or parsing error, including duplicate
-// key detection and invalid TOML syntax.
+// Every lexing or parsing failure -- including duplicate key detection and
+// invalid TOML syntax -- is reported as an *Error of kind KindSyntax, carrying
+// the position, span and source line of the offending construct. Parsing stops
+// at the first failure.
 func Parse(src []byte) (*Document, error) {
 	tokens, err := lex(src)
 	if err != nil {
@@ -66,17 +68,22 @@ func (p *parser) expect(typ TokenType) (Token, error) {
 	return tok, nil
 }
 
-func (p *parser) errorfAt(tok Token, format string, args ...any) error {
-	return &ParseError{
-		Line:    tok.Line,
-		Column:  tok.Column,
-		Message: fmt.Sprintf(format, args...),
-	}
+// errorfAt reports a parse failure at tok, carrying tok's position, the span
+// of tok itself, and the source line it sits on.
+func (p *parser) errorfAt(tok Token, format string, args ...any) *Error {
+	return syntaxErrorAt(p.src, tokenStart(tok), format, args...).within(spanFromToken(tok))
 }
 
-func (p *parser) errorf(format string, args ...any) error {
+// errorf reports a parse failure at the token the parser is looking at.
+func (p *parser) errorf(format string, args ...any) *Error {
 	tok := p.peek()
 	return p.errorfAt(tok, format, args...)
+}
+
+// errorFrom reports err -- a failure from one of the value or string decoding
+// helpers, which know no positions -- as a parse-stage diagnostic at tok.
+func (p *parser) errorFrom(tok Token, err error) *Error {
+	return p.errorfAt(tok, "%s", err.Error()).wrapping(err)
 }
 
 // --- trivia collection ---
@@ -186,7 +193,7 @@ func (p *parser) consumeTrailingNewline() []byte {
 
 func (p *parser) parseDocument() (*Document, error) {
 	doc := &Document{}
-	tracker := newDefinitionTracker()
+	tracker := newDefinitionTracker(p.src)
 
 	for p.peekType() != TokenEOF {
 		leadingWS, leadingComments, triviaRaw, orphan := p.collectLeadingTrivia()
@@ -551,7 +558,7 @@ func (p *parser) parseSimpleKey() (decoded string, raw []byte, style StringStyle
 		p.advance()
 		decoded, err = decodeBasicString(tok.Raw)
 		if err != nil {
-			return "", nil, 0, &ParseError{Line: tok.Line, Column: tok.Column, Message: err.Error()}
+			return "", nil, 0, p.errorFrom(tok, err)
 		}
 		return decoded, tok.Raw, StringBasic, nil
 	case TokenLiteralString:
@@ -637,7 +644,7 @@ func (p *parser) parseStringValue() (Node, error) {
 	tok := p.advance()
 	decoded, err := decodeBasicString(tok.Raw)
 	if err != nil {
-		return nil, &ParseError{Line: tok.Line, Column: tok.Column, Message: err.Error()}
+		return nil, p.errorFrom(tok, err)
 	}
 	n := &StringNode{Val: decoded, Style: StringBasic}
 	n.setRaw(tok.Raw)
@@ -658,7 +665,7 @@ func (p *parser) parseMultiLineBasicStringValue() (Node, error) {
 	tok := p.advance()
 	decoded, err := decodeMultiLineBasicString(tok.Raw)
 	if err != nil {
-		return nil, &ParseError{Line: tok.Line, Column: tok.Column, Message: err.Error()}
+		return nil, p.errorFrom(tok, err)
 	}
 	n := &StringNode{Val: decoded, Style: StringMultiLineBasic}
 	n.setRaw(tok.Raw)
@@ -679,7 +686,7 @@ func (p *parser) parseIntegerValue() (Node, error) {
 	tok := p.advance()
 	val, base, err := parseInteger(tok.Raw)
 	if err != nil {
-		return nil, &ParseError{Line: tok.Line, Column: tok.Column, Message: err.Error()}
+		return nil, p.errorFrom(tok, err)
 	}
 	n := &IntegerNode{Val: val, Base: base}
 	n.setRaw(tok.Raw)
@@ -691,7 +698,7 @@ func (p *parser) parseFloatValue() (Node, error) {
 	tok := p.advance()
 	val, err := parseFloat(tok.Raw)
 	if err != nil {
-		return nil, &ParseError{Line: tok.Line, Column: tok.Column, Message: err.Error()}
+		return nil, p.errorFrom(tok, err)
 	}
 	n := &FloatNode{Val: val}
 	n.setRaw(tok.Raw)
@@ -712,7 +719,7 @@ func (p *parser) parseDateTimeValue() (Node, error) {
 	tok := p.advance()
 	val, err := parseOffsetDateTime(string(tok.Raw))
 	if err != nil {
-		return nil, &ParseError{Line: tok.Line, Column: tok.Column, Message: err.Error()}
+		return nil, p.errorFrom(tok, err)
 	}
 	n := &DateTimeNode{Val: val}
 	n.setRaw(tok.Raw)
@@ -724,7 +731,7 @@ func (p *parser) parseLocalDateTimeValue() (Node, error) {
 	tok := p.advance()
 	val, err := parseLocalDateTime(string(tok.Raw))
 	if err != nil {
-		return nil, &ParseError{Line: tok.Line, Column: tok.Column, Message: err.Error()}
+		return nil, p.errorFrom(tok, err)
 	}
 	n := &LocalDateTimeNode{Val: val}
 	n.setRaw(tok.Raw)
@@ -736,7 +743,7 @@ func (p *parser) parseLocalDateValue() (Node, error) {
 	tok := p.advance()
 	val, err := parseLocalDate(string(tok.Raw))
 	if err != nil {
-		return nil, &ParseError{Line: tok.Line, Column: tok.Column, Message: err.Error()}
+		return nil, p.errorFrom(tok, err)
 	}
 	n := &LocalDateNode{Val: val}
 	n.setRaw(tok.Raw)
@@ -748,7 +755,7 @@ func (p *parser) parseLocalTimeValue() (Node, error) {
 	tok := p.advance()
 	val, err := parseLocalTime(string(tok.Raw))
 	if err != nil {
-		return nil, &ParseError{Line: tok.Line, Column: tok.Column, Message: err.Error()}
+		return nil, p.errorFrom(tok, err)
 	}
 	n := &LocalTimeNode{Val: val}
 	n.setRaw(tok.Raw)
@@ -840,7 +847,7 @@ func (p *parser) parseInlineTableValue() (Node, error) {
 	openTok := p.advance() // consume {
 
 	tbl := &InlineTableNode{}
-	tracker := newDefinitionTracker()
+	tracker := newDefinitionTracker(p.src)
 
 	p.skipWhitespace()
 
@@ -1477,19 +1484,21 @@ const (
 
 type definitionTracker struct {
 	root *tableEntry
+	src  []byte // the document source, for the snippets of its diagnostics
 }
 
-func newDefinitionTracker() *definitionTracker {
+func newDefinitionTracker(src []byte) *definitionTracker {
 	return &definitionTracker{
 		root: &tableEntry{kind: entryImplicit, children: make(map[string]*tableEntry)},
+		src:  src,
 	}
 }
 
 // ensurePath creates implicit table entries along the path, returning the
 // final entry. When fromDottedKey is true, new entries are marked as
 // entryDottedImplicit (cannot be reopened by a [table] header).
-// line and col are the source position of the key being defined, used for
-// error reporting.
+// pos is the source position of the key being defined, used for error
+// reporting.
 func (dt *definitionTracker) ensurePath(path []string, fromDottedKey bool, pos Position) (*tableEntry, error) {
 	cur := dt.root
 	for _, key := range path {
@@ -1508,23 +1517,13 @@ func (dt *definitionTracker) ensurePath(path []string, fromDottedKey bool, pos P
 			continue
 		}
 		if child.kind == entryValue {
-			return nil, &ParseError{
-				Line:    pos.Line,
-				Column:  pos.Column,
-				Offset:  pos.Offset,
-				Message: fmt.Sprintf("key %q is already defined as a value", key),
-			}
+			return nil, syntaxErrorAt(dt.src, pos, "key %q is already defined as a value", key)
 		}
 		// Dotted keys cannot traverse through explicitly defined tables
 		// or array tables (you can't add to a table that was already
 		// defined with a [table] or [[array-table]] header)
 		if fromDottedKey && (child.kind == entryExplicit || child.kind == entryArrayTable) {
-			return nil, &ParseError{
-				Line:    pos.Line,
-				Column:  pos.Column,
-				Offset:  pos.Offset,
-				Message: fmt.Sprintf("cannot extend %q via dotted key (already explicitly defined)", key),
-			}
+			return nil, syntaxErrorAt(dt.src, pos, "cannot extend %q via dotted key (already explicitly defined)", key)
 		}
 		cur = child
 	}
@@ -1546,36 +1545,16 @@ func (dt *definitionTracker) defineTable(path []string, node Node, pos Position)
 	existing, ok := parent.children[key]
 	if ok {
 		if existing.kind == entryExplicit {
-			return &ParseError{
-				Line:    pos.Line,
-				Column:  pos.Column,
-				Offset:  pos.Offset,
-				Message: fmt.Sprintf("table [%s] already defined", strings.Join(path, ".")),
-			}
+			return syntaxErrorAt(dt.src, pos, "table [%s] already defined", strings.Join(path, "."))
 		}
 		if existing.kind == entryValue {
-			return &ParseError{
-				Line:    pos.Line,
-				Column:  pos.Column,
-				Offset:  pos.Offset,
-				Message: fmt.Sprintf("key %q is already defined as a value", key),
-			}
+			return syntaxErrorAt(dt.src, pos, "key %q is already defined as a value", key)
 		}
 		if existing.kind == entryArrayTable {
-			return &ParseError{
-				Line:    pos.Line,
-				Column:  pos.Column,
-				Offset:  pos.Offset,
-				Message: fmt.Sprintf("cannot define [%s] as a table, already defined as array table", strings.Join(path, ".")),
-			}
+			return syntaxErrorAt(dt.src, pos, "cannot define [%s] as a table, already defined as array table", strings.Join(path, "."))
 		}
 		if existing.kind == entryDottedImplicit {
-			return &ParseError{
-				Line:    pos.Line,
-				Column:  pos.Column,
-				Offset:  pos.Offset,
-				Message: fmt.Sprintf("cannot define [%s] as a table, already implicitly defined via dotted key", strings.Join(path, ".")),
-			}
+			return syntaxErrorAt(dt.src, pos, "cannot define [%s] as a table, already implicitly defined via dotted key", strings.Join(path, "."))
 		}
 		// Was implicit (from sub-table path), promote to explicit
 		existing.kind = entryExplicit
@@ -1601,20 +1580,10 @@ func (dt *definitionTracker) defineArrayTable(path []string, node Node, pos Posi
 	existing, ok := parent.children[key]
 	if ok {
 		if existing.kind == entryExplicit {
-			return &ParseError{
-				Line:    pos.Line,
-				Column:  pos.Column,
-				Offset:  pos.Offset,
-				Message: fmt.Sprintf("cannot define [[%s]] as array table, already defined as table", strings.Join(path, ".")),
-			}
+			return syntaxErrorAt(dt.src, pos, "cannot define [[%s]] as array table, already defined as table", strings.Join(path, "."))
 		}
 		if existing.kind == entryValue {
-			return &ParseError{
-				Line:    pos.Line,
-				Column:  pos.Column,
-				Offset:  pos.Offset,
-				Message: fmt.Sprintf("key %q is already defined as a value", key),
-			}
+			return syntaxErrorAt(dt.src, pos, "key %q is already defined as a value", key)
 		}
 		if existing.kind == entryArrayTable {
 			// Multiple [[array-table]] entries are fine -- reset children for the new element
@@ -1623,23 +1592,13 @@ func (dt *definitionTracker) defineArrayTable(path []string, node Node, pos Posi
 			return nil
 		}
 		if existing.kind == entryDottedImplicit {
-			return &ParseError{
-				Line:    pos.Line,
-				Column:  pos.Column,
-				Offset:  pos.Offset,
-				Message: fmt.Sprintf("cannot define [[%s]] as array table, already implicitly defined via dotted key", strings.Join(path, ".")),
-			}
+			return syntaxErrorAt(dt.src, pos, "cannot define [[%s]] as array table, already implicitly defined via dotted key", strings.Join(path, "."))
 		}
 		// Was implicit (from sub-table path). Can only promote if no
 		// sub-tables were already defined under it (which would conflict
 		// with array-table semantics that reset children per element).
 		if len(existing.children) > 0 {
-			return &ParseError{
-				Line:    pos.Line,
-				Column:  pos.Column,
-				Offset:  pos.Offset,
-				Message: fmt.Sprintf("cannot define [[%s]] as array table, already used as table with sub-entries", strings.Join(path, ".")),
-			}
+			return syntaxErrorAt(dt.src, pos, "cannot define [[%s]] as array table, already used as table with sub-entries", strings.Join(path, "."))
 		}
 		existing.kind = entryArrayTable
 		existing.node = node
@@ -1667,29 +1626,14 @@ func (dt *definitionTracker) defineKey(path []string, node Node, pos Position) e
 	existing, ok := parent.children[key]
 	if ok {
 		if existing.kind == entryValue {
-			return &ParseError{
-				Line:    pos.Line,
-				Column:  pos.Column,
-				Offset:  pos.Offset,
-				Message: fmt.Sprintf("duplicate key %q", strings.Join(path, ".")),
-			}
+			return syntaxErrorAt(dt.src, pos, "duplicate key %q", strings.Join(path, "."))
 		}
 		if existing.kind == entryExplicit || existing.kind == entryArrayTable {
-			return &ParseError{
-				Line:    pos.Line,
-				Column:  pos.Column,
-				Offset:  pos.Offset,
-				Message: fmt.Sprintf("key %q conflicts with table definition", strings.Join(path, ".")),
-			}
+			return syntaxErrorAt(dt.src, pos, "key %q conflicts with table definition", strings.Join(path, "."))
 		}
 		// Implicit: promote to value only if it has no children (sub-tables)
 		if len(existing.children) > 0 {
-			return &ParseError{
-				Line:    pos.Line,
-				Column:  pos.Column,
-				Offset:  pos.Offset,
-				Message: fmt.Sprintf("key %q is already defined as a table", strings.Join(path, ".")),
-			}
+			return syntaxErrorAt(dt.src, pos, "key %q is already defined as a table", strings.Join(path, "."))
 		}
 		existing.kind = entryValue
 		existing.node = node
@@ -1713,7 +1657,7 @@ func (dt *definitionTracker) tableScope(path []string) *definitionTracker {
 		}
 		cur = child
 	}
-	return &definitionTracker{root: cur}
+	return &definitionTracker{root: cur, src: dt.src}
 }
 
 // arrayTableScope returns a tracker scoped to the latest element of the array table.

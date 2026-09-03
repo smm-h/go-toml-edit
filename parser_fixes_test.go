@@ -39,21 +39,24 @@ func TestParseArrayCommentsPreserved(t *testing.T) {
 	}
 }
 
-// requireParseError is a helper that asserts Parse returns a *ParseError at
-// the given line and column. Returns the error for further assertions.
-func requireParseError(t *testing.T, input string, wantLine, wantCol int) *ParseError {
+// requireParseError is a helper that asserts Parse returns a syntax diagnostic
+// at the given line and column. Returns the diagnostic for further assertions.
+func requireParseError(t *testing.T, input string, wantLine, wantCol int) *Error {
 	t.Helper()
 	_, err := Parse([]byte(input))
 	if err == nil {
 		t.Fatalf("expected parse error for input %q, got nil", input)
 	}
-	var pe *ParseError
+	var pe *Error
 	if !errors.As(err, &pe) {
-		t.Fatalf("expected *ParseError, got %T: %v", err, err)
+		t.Fatalf("expected *Error, got %T: %v", err, err)
 	}
-	if pe.Line != wantLine || pe.Column != wantCol {
+	if pe.Kind != KindSyntax {
+		t.Errorf("kind = %v, want %v", pe.Kind, KindSyntax)
+	}
+	if pe.Pos.Line != wantLine || pe.Pos.Column != wantCol {
 		t.Errorf("position mismatch: got line=%d col=%d, want line=%d col=%d\n  error: %s",
-			pe.Line, pe.Column, wantLine, wantCol, pe.Message)
+			pe.Pos.Line, pe.Pos.Column, wantLine, wantCol, pe.Message)
 	}
 	return pe
 }
@@ -127,12 +130,12 @@ func TestParseErrorPosition_UnclosedString_Guard(t *testing.T) {
 	if err == nil {
 		t.Fatal("expected error for unclosed string")
 	}
-	var pe *ParseError
+	var pe *Error
 	if !errors.As(err, &pe) {
-		t.Fatalf("expected *ParseError, got %T: %v", err, err)
+		t.Fatalf("expected *Error, got %T: %v", err, err)
 	}
-	if pe.Line == 0 && pe.Column == 0 {
-		t.Errorf("expected non-zero position for unclosed string, got line=%d col=%d", pe.Line, pe.Column)
+	if pe.Pos.Line == 0 && pe.Pos.Column == 0 {
+		t.Errorf("expected non-zero position for unclosed string, got line=%d col=%d", pe.Pos.Line, pe.Pos.Column)
 	}
 }
 
