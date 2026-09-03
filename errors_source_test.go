@@ -61,8 +61,9 @@ func packageFiles(t *testing.T) (*gotoken.FileSet, map[string]*ast.File) {
 }
 
 // Fails if any file other than errors.go composes a diagnostic itself --
-// through a composite literal or new() -- instead of routing through the
-// constructor there.
+// through a composite literal (named, or written with its type elided inside a
+// container literal) or new() -- instead of routing through the constructor
+// there.
 func TestDiagnosticsBuiltInOneFile(t *testing.T) {
 	fset, files := packageFiles(t)
 
@@ -79,10 +80,16 @@ func TestDiagnosticsBuiltInOneFile(t *testing.T) {
 		ast.Inspect(files[name], func(n ast.Node) bool {
 			switch node := n.(type) {
 			case *ast.CompositeLit:
+				if node.Type == nil {
+					// An elided literal; reached from its enclosing typed
+					// literal below, which is what names its type.
+					return true
+				}
 				if id, ok := node.Type.(*ast.Ident); ok && diagnosticTypes[id.Name] {
 					t.Errorf("%s: composite literal of %s outside %s -- build diagnostics through the constructor in %s",
 						fset.Position(node.Pos()), id.Name, diagnosticFile, diagnosticFile)
 				}
+				checkElidedElements(t, fset, node, node.Type)
 			case *ast.CallExpr:
 				fn, ok := node.Fun.(*ast.Ident)
 				if !ok || fn.Name != "new" || len(node.Args) != 1 {
@@ -95,6 +102,78 @@ func TestDiagnosticsBuiltInOneFile(t *testing.T) {
 			}
 			return true
 		})
+	}
+}
+
+// checkElidedElements reports the diagnostic literals written with their type
+// elided inside lit, whose own type is litType: `[]*Error{{...}}`,
+// `map[string]Error{"k": {...}}`, `[2]Error{{...}}` and their nestings. Such a
+// literal has a nil Type of its own, so the element type of the container it
+// sits in is the only thing naming it.
+//
+// The element type has to be spelled in the container's own literal to be
+// seen: a named container type (`type diags []*Error`) or a struct field would
+// need the type checker, and are not reached.
+func checkElidedElements(t *testing.T, fset *gotoken.FileSet, lit *ast.CompositeLit, litType ast.Expr) {
+	t.Helper()
+	keyType, elemType := elidedElementTypes(litType)
+	for _, elt := range lit.Elts {
+		if kv, ok := elt.(*ast.KeyValueExpr); ok {
+			checkElidedElement(t, fset, kv.Key, keyType)
+			checkElidedElement(t, fset, kv.Value, elemType)
+			continue
+		}
+		checkElidedElement(t, fset, elt, elemType)
+	}
+}
+
+// checkElidedElement reports expr when it is an elided composite literal of a
+// diagnostic type, and otherwise descends into it.
+func checkElidedElement(t *testing.T, fset *gotoken.FileSet, expr ast.Expr, want ast.Expr) {
+	t.Helper()
+	lit, ok := expr.(*ast.CompositeLit)
+	if !ok || lit.Type != nil || want == nil {
+		return
+	}
+	if name := diagnosticTypeName(want); name != "" {
+		t.Errorf("%s: elided composite literal of %s outside %s -- build diagnostics through the constructor in %s",
+			fset.Position(lit.Pos()), name, diagnosticFile, diagnosticFile)
+		return
+	}
+	checkElidedElements(t, fset, lit, want)
+}
+
+// elidedElementTypes returns the types an elided literal has in the key and in
+// the element position of a composite literal of type expr. A nil result means
+// that position implies no type an elided literal could take.
+func elidedElementTypes(expr ast.Expr) (key, elem ast.Expr) {
+	switch typ := unpointer(expr).(type) {
+	case *ast.ArrayType: // slices and arrays alike
+		return nil, typ.Elt
+	case *ast.MapType:
+		return typ.Key, typ.Value
+	}
+	return nil, nil
+}
+
+// diagnosticTypeName returns the diagnostic type expr names, through any
+// number of pointers, or "" when it names something else.
+func diagnosticTypeName(expr ast.Expr) string {
+	id, ok := unpointer(expr).(*ast.Ident)
+	if !ok || !diagnosticTypes[id.Name] {
+		return ""
+	}
+	return id.Name
+}
+
+// unpointer strips the pointer stars from a type expression.
+func unpointer(expr ast.Expr) ast.Expr {
+	for {
+		star, ok := expr.(*ast.StarExpr)
+		if !ok {
+			return expr
+		}
+		expr = star.X
 	}
 }
 
