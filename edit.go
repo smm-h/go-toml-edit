@@ -1,7 +1,6 @@
 package tomledit
 
 import (
-	"fmt"
 	"reflect"
 	"sort"
 	"time"
@@ -16,23 +15,23 @@ import (
 // any type implementing the Node interface. Use SetCreate to auto-create
 // intermediate tables.
 func (d *Document) Set(path string, value any) error {
-	return d.setInternal(path, value, false)
+	return stampPath(d.setInternal(path, value, false), path)
 }
 
 // SetCreate is like Set but auto-creates intermediate [table] headers when they
 // do not exist. Missing tables are appended to the document. This is convenient
 // for inserting values into deeply nested paths that may not yet exist.
 func (d *Document) SetCreate(path string, value any) error {
-	return d.setInternal(path, value, true)
+	return stampPath(d.setInternal(path, value, true), path)
 }
 
 func (d *Document) setInternal(path string, value any, create bool) error {
 	segments, err := parsePath(path)
 	if err != nil {
-		return fmt.Errorf("path syntax error: %w", err)
+		return err
 	}
 	if len(segments) == 0 {
-		return fmt.Errorf("empty path")
+		return newError(KindBadPath, "empty path")
 	}
 
 	// The last segment is the target key/index to set.
@@ -57,7 +56,7 @@ func (d *Document) setInternal(path string, value any, create bool) error {
 	case indexSegment:
 		return setIndexInParent(parent, lastSeg.Index, valNode)
 	default:
-		return fmt.Errorf("unknown segment type")
+		return newError(KindBadPath, "unknown segment type")
 	}
 }
 
@@ -75,7 +74,7 @@ func (d *Document) resolveParentForEdit(segments []pathSegment, create bool) (No
 	}
 
 	if !create {
-		return nil, fmt.Errorf("parent path not found: %w", err)
+		return nil, wrapError(err, "parent path not found")
 	}
 
 	// Auto-create mode: walk segments, creating tables as needed.
@@ -93,7 +92,7 @@ func (d *Document) resolveOrCreateParent(segments []pathSegment) (Node, error) {
 			// For index segments, the collection must already exist.
 			next, err := resolveIndexSegment(d, current, currentTablePath, seg.Index)
 			if err != nil {
-				return nil, fmt.Errorf("cannot auto-create array index: %w", err)
+				return nil, wrapError(err, "cannot auto-create array index")
 			}
 			current = next
 			continue
@@ -116,7 +115,7 @@ func (d *Document) resolveOrCreateParent(segments []pathSegment) (Node, error) {
 		// Re-resolve to get the newly created table.
 		next, tablePath, err = resolveKeySegment(d, current, currentTablePath, seg.Key, nil, 0)
 		if err != nil {
-			return nil, fmt.Errorf("failed to resolve after creation: %w", err)
+			return nil, wrapError(err, "failed to resolve after creation")
 		}
 		current = next
 		currentTablePath = tablePath
@@ -138,7 +137,7 @@ func (d *Document) createIntermediateTable(current Node, currentTablePath []stri
 	case *ArrayTableNode:
 		newPath = append(append([]string(nil), scope.KeyPath...), key)
 	default:
-		return nil, fmt.Errorf("cannot create intermediate table under %s node", current.Type())
+		return nil, newError(KindWrongContainer, "cannot create intermediate table under %s node", current.Type())
 	}
 
 	tbl := &TableNode{
@@ -181,7 +180,7 @@ func resolveNodeForEdit(doc *Document, segments []pathSegment) (Node, error) {
 			current = node
 
 		default:
-			return nil, fmt.Errorf("unknown segment type")
+			return nil, newError(KindBadPath, "unknown segment type")
 		}
 	}
 
@@ -205,9 +204,9 @@ func setKeyInParent(parent Node, key string, valNode Node) error {
 		if p.partIndex >= len(p.kv.Key.Parts) {
 			return setKeyInParent(p.kv.Val, key, valNode)
 		}
-		return fmt.Errorf("cannot set key %q: intermediate dotted key view", key)
+		return newError(KindWrongContainer, "cannot set key %q: intermediate dotted key view", key)
 	default:
-		return fmt.Errorf("cannot set key %q in %s node", key, parent.Type())
+		return newError(KindWrongContainer, "cannot set key %q in %s node", key, parent.Type())
 	}
 }
 
@@ -251,7 +250,7 @@ func setIndexInParent(parent Node, index int, valNode Node) error {
 	case *KeyValueNode:
 		return setIndexInParent(p.Val, index, valNode)
 	default:
-		return fmt.Errorf("cannot set index [%d] in %s node", index, parent.Type())
+		return newError(KindWrongContainer, "cannot set index [%d] in %s node", index, parent.Type())
 	}
 }
 
@@ -277,12 +276,16 @@ func newKeyValueNode(key string, val Node) *KeyValueNode {
 // key-value pairs, tables, array-of-tables, and array elements. Returns nil
 // (no error) if the path does not exist, making it safe to call unconditionally.
 func (d *Document) Delete(path string) error {
+	return stampPath(d.deleteAt(path), path)
+}
+
+func (d *Document) deleteAt(path string) error {
 	segments, err := parsePath(path)
 	if err != nil {
-		return fmt.Errorf("path syntax error: %w", err)
+		return err
 	}
 	if len(segments) == 0 {
-		return fmt.Errorf("empty path")
+		return newError(KindBadPath, "empty path")
 	}
 
 	parentSegs := segments[:len(segments)-1]
@@ -301,7 +304,7 @@ func (d *Document) Delete(path string) error {
 	case indexSegment:
 		return deleteIndexFromParent(parent, lastSeg.Index)
 	default:
-		return fmt.Errorf("unknown segment type")
+		return newError(KindBadPath, "unknown segment type")
 	}
 }
 
@@ -429,25 +432,29 @@ func deleteIndexFromParent(parent Node, index int) error {
 // existing sibling key, or if the last path segment is an array index (only
 // key segments can be renamed).
 func (d *Document) RenameKey(path string, newKey string) error {
+	return stampPath(d.renameKeyAt(path, newKey), path)
+}
+
+func (d *Document) renameKeyAt(path string, newKey string) error {
 	segments, err := parsePath(path)
 	if err != nil {
-		return fmt.Errorf("path syntax error: %w", err)
+		return err
 	}
 	if len(segments) == 0 {
-		return fmt.Errorf("empty path")
+		return newError(KindBadPath, "empty path")
 	}
 
 	// All segments must be key segments for rename to make sense.
 	lastSeg := segments[len(segments)-1]
 	if lastSeg.Type != keySegment {
-		return fmt.Errorf("cannot rename an array index")
+		return newError(KindWrongContainer, "cannot rename an array index")
 	}
 
 	parentSegs := segments[:len(segments)-1]
 
 	parent, err := d.resolveParentForEdit(parentSegs, false)
 	if err != nil {
-		return fmt.Errorf("path not found: %w", err)
+		return wrapError(err, "path not found")
 	}
 
 	return renameKeyInParent(parent, lastSeg.Key, newKey)
@@ -467,14 +474,14 @@ func renameKeyInParent(parent Node, oldKey, newKey string) error {
 	case *InlineTableNode:
 		children = &p.Children
 	default:
-		return fmt.Errorf("cannot rename key in %s node", parent.Type())
+		return newError(KindWrongContainer, "cannot rename key in %s node", parent.Type())
 	}
 
 	// Check for duplicate: does newKey already exist?
 	for _, child := range *children {
 		if kv, ok := child.(*KeyValueNode); ok {
 			if len(kv.Key.Parts) == 1 && kv.Key.Parts[0] == newKey {
-				return fmt.Errorf("key %q already exists in parent", newKey)
+				return newError(KindConflict, "key %q already exists in parent", newKey)
 			}
 		}
 	}
@@ -493,26 +500,30 @@ func renameKeyInParent(parent Node, oldKey, newKey string) error {
 		}
 	}
 
-	return fmt.Errorf("key %q not found", oldKey)
+	return newError(KindNotFound, "key %q not found", oldKey)
 }
 
 // NewTable creates a new [table] header at the given path and appends it to
 // the document. The path must consist of key segments only (no array indices).
 // Returns an error if a table with that exact path already exists.
 func (d *Document) NewTable(path string) error {
+	return stampPath(d.newTableAt(path), path)
+}
+
+func (d *Document) newTableAt(path string) error {
 	segments, err := parsePath(path)
 	if err != nil {
-		return fmt.Errorf("path syntax error: %w", err)
+		return err
 	}
 	if len(segments) == 0 {
-		return fmt.Errorf("empty path")
+		return newError(KindBadPath, "empty path")
 	}
 
 	// Build the key path from segments.
 	keyPath := make([]string, 0, len(segments))
 	for _, seg := range segments {
 		if seg.Type != keySegment {
-			return fmt.Errorf("NewTable path must contain only key segments, not indices")
+			return newError(KindBadPath, "NewTable path must contain only key segments, not indices")
 		}
 		keyPath = append(keyPath, seg.Key)
 	}
@@ -521,7 +532,7 @@ func (d *Document) NewTable(path string) error {
 	for _, child := range d.Children {
 		if tbl, ok := child.(*TableNode); ok {
 			if pathsEqual(tbl.KeyPath, keyPath) {
-				return fmt.Errorf("table [%s] already exists", joinPath(keyPath))
+				return newError(KindConflict, "table [%s] already exists", joinPath(keyPath))
 			}
 		}
 	}
@@ -541,18 +552,22 @@ func (d *Document) NewTable(path string) error {
 // successive elements of the array. The path must consist of key segments
 // only (no array indices).
 func (d *Document) NewArrayTable(path string) error {
+	return stampPath(d.newArrayTableAt(path), path)
+}
+
+func (d *Document) newArrayTableAt(path string) error {
 	segments, err := parsePath(path)
 	if err != nil {
-		return fmt.Errorf("path syntax error: %w", err)
+		return err
 	}
 	if len(segments) == 0 {
-		return fmt.Errorf("empty path")
+		return newError(KindBadPath, "empty path")
 	}
 
 	keyPath := make([]string, 0, len(segments))
 	for _, seg := range segments {
 		if seg.Type != keySegment {
-			return fmt.Errorf("NewArrayTable path must contain only key segments, not indices")
+			return newError(KindBadPath, "NewArrayTable path must contain only key segments, not indices")
 		}
 		keyPath = append(keyPath, seg.Key)
 	}
@@ -571,7 +586,7 @@ func (d *Document) NewArrayTable(path string) error {
 // All created nodes are dirty (no raw bytes).
 func valueToNode(v any) (Node, error) {
 	if v == nil {
-		return nil, fmt.Errorf("unsupported type: nil")
+		return nil, newError(KindBadInput, "unsupported type: nil")
 	}
 
 	// Check if it already implements Node.
@@ -678,7 +693,7 @@ func valueToNode(v any) (Node, error) {
 		return sliceToArrayNode(items)
 	}
 
-	return nil, fmt.Errorf("unsupported type: %T", v)
+	return nil, newError(KindBadInput, "unsupported type: %T", v).withValue(v)
 }
 
 // sliceToArrayNode converts a []any to an ArrayNode with recursive conversion.
@@ -688,7 +703,7 @@ func sliceToArrayNode(items []any) (Node, error) {
 	for _, item := range items {
 		elem, err := valueToNode(item)
 		if err != nil {
-			return nil, fmt.Errorf("array element: %w", err)
+			return nil, wrapError(err, "array element")
 		}
 		arr.Elements = append(arr.Elements, elem)
 	}
@@ -708,7 +723,7 @@ func mapToInlineTableNode(m map[string]any) (Node, error) {
 	for _, k := range keys {
 		valNode, err := valueToNode(m[k])
 		if err != nil {
-			return nil, fmt.Errorf("inline table key %q: %w", k, err)
+			return nil, wrapError(err, "inline table key %q", k)
 		}
 		kv := newKeyValueNode(k, valNode)
 		tbl.Children = append(tbl.Children, kv)

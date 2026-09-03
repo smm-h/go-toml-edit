@@ -1,6 +1,7 @@
 package tomledit
 
 import (
+	"errors"
 	"fmt"
 	"strings"
 )
@@ -236,11 +237,73 @@ func (e *Error) inSource(src []byte) *Error {
 	return e
 }
 
+// atPath records the document path the failing operation addressed, unless the
+// diagnostic already names one.
+func (e *Error) atPath(path string) *Error {
+	if e.Path == "" {
+		e.Path = path
+	}
+	return e
+}
+
+// withValue records the offending value of a bad-input or inexact diagnostic.
+func (e *Error) withValue(v any) *Error {
+	e.Value = v
+	return e
+}
+
 // wrapping records the underlying error the diagnostic reports, so that
 // errors.Is and errors.As reach it.
 func (e *Error) wrapping(err error) *Error {
 	e.err = err
 	return e
+}
+
+// wrapError adds a context prefix to an error's message. When err is, or
+// wraps, a diagnostic, the result is that diagnostic with the prefixed message
+// -- same kind, position, span, path and file -- reporting the original;
+// otherwise the result is an ordinary wrapped error.
+func wrapError(err error, format string, args ...any) error {
+	prefix := fmt.Sprintf(format, args...)
+	var diag *Error
+	if errors.As(err, &diag) {
+		out := *diag
+		out.Message = prefix + ": " + diag.Message
+		out.err = err
+		return &out
+	}
+	return fmt.Errorf("%s: %w", prefix, err)
+}
+
+// walkDiagnostics calls fn for every diagnostic reachable from err, following
+// both unwrapping forms.
+func walkDiagnostics(err error, fn func(*Error)) {
+	switch e := err.(type) {
+	case *Error:
+		if e == nil {
+			return
+		}
+		fn(e)
+		walkDiagnostics(e.err, fn)
+	case interface{ Unwrap() error }:
+		walkDiagnostics(e.Unwrap(), fn)
+	case interface{ Unwrap() []error }:
+		for _, sub := range e.Unwrap() {
+			walkDiagnostics(sub, fn)
+		}
+	}
+}
+
+// stampPath records path on every diagnostic reachable from err that does not
+// already name one, and returns err. Public entry points use it so that a
+// diagnostic reported from deep inside a resolution still names the path the
+// caller asked for.
+func stampPath(err error, path string) error {
+	if err == nil || path == "" {
+		return err
+	}
+	walkDiagnostics(err, func(d *Error) { d.atPath(path) })
+	return err
 }
 
 // snippetLimit caps how many bytes of a source line a diagnostic quotes.

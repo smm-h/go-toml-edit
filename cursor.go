@@ -1,9 +1,6 @@
 package tomledit
 
-import (
-	"fmt"
-	"time"
-)
+import "time"
 
 // Cursor provides a fluent, nil-safe API for navigating a TOML document's AST.
 // A Cursor is never nil. If navigation fails at any point, the cursor captures
@@ -32,12 +29,12 @@ func (c *Cursor) Key(name string) *Cursor {
 		return c
 	}
 	if c.node == nil {
-		return &Cursor{doc: c.doc, err: fmt.Errorf("cannot look up key %q: current node is nil", name)}
+		return &Cursor{doc: c.doc, err: newError(KindNotFound, "cannot look up key %q: current node is nil", name)}
 	}
 
 	node, tablePath, err := resolveKeySegment(c.doc, c.node, c.tablePath, name, nil, 0)
 	if err != nil {
-		return &Cursor{doc: c.doc, err: fmt.Errorf("key %q: %w", name, err)}
+		return &Cursor{doc: c.doc, err: wrapError(err, "key %q", name)}
 	}
 	return &Cursor{node: node, doc: c.doc, tablePath: tablePath}
 }
@@ -48,12 +45,12 @@ func (c *Cursor) At(index int) *Cursor {
 		return c
 	}
 	if c.node == nil {
-		return &Cursor{doc: c.doc, err: fmt.Errorf("cannot index [%d]: current node is nil", index)}
+		return &Cursor{doc: c.doc, err: newError(KindNotFound, "cannot index [%d]: current node is nil", index)}
 	}
 
 	node, err := resolveIndexSegment(c.doc, c.node, c.tablePath, index)
 	if err != nil {
-		return &Cursor{doc: c.doc, err: fmt.Errorf("index [%d]: %w", index, err)}
+		return &Cursor{doc: c.doc, err: wrapError(err, "index [%d]", index)}
 	}
 	return &Cursor{node: node, doc: c.doc, tablePath: c.tablePath}
 }

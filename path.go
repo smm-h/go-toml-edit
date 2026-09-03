@@ -1,7 +1,6 @@
 package tomledit
 
 import (
-	"fmt"
 	"strconv"
 	"strings"
 )
@@ -33,7 +32,7 @@ type pathSegment struct {
 // Empty path returns an error.
 func parsePath(path string) ([]pathSegment, error) {
 	if path == "" {
-		return nil, fmt.Errorf("empty path")
+		return nil, newError(KindBadPath, "empty path")
 	}
 
 	var segments []pathSegment
@@ -44,7 +43,7 @@ func parsePath(path string) ([]pathSegment, error) {
 		if i > 0 && path[i] == '.' {
 			i++
 			if i >= len(path) {
-				return nil, fmt.Errorf("trailing dot in path")
+				return nil, newError(KindBadPath, "trailing dot in path")
 			}
 		}
 
@@ -78,24 +77,24 @@ func parsePath(path string) ([]pathSegment, error) {
 // parseIndex parses "[N]" or "[-N]" starting at position i.
 func parseIndex(path string, i int) (pathSegment, int, error) {
 	if i >= len(path) || path[i] != '[' {
-		return pathSegment{}, i, fmt.Errorf("expected '['")
+		return pathSegment{}, i, newError(KindBadPath, "expected '['")
 	}
 	i++ // skip '['
 
 	end := strings.IndexByte(path[i:], ']')
 	if end < 0 {
-		return pathSegment{}, i, fmt.Errorf("unclosed bracket in path")
+		return pathSegment{}, i, newError(KindBadPath, "unclosed bracket in path")
 	}
 	end += i
 
 	content := path[i:end]
 	if content == "" {
-		return pathSegment{}, end, fmt.Errorf("empty index in path")
+		return pathSegment{}, end, newError(KindBadPath, "empty index in path")
 	}
 
 	idx, err := strconv.Atoi(content)
 	if err != nil {
-		return pathSegment{}, end, fmt.Errorf("non-numeric index %q in path", content)
+		return pathSegment{}, end, newError(KindBadPath, "non-numeric index %q in path", content)
 	}
 
 	return pathSegment{Type: indexSegment, Index: idx}, end + 1, nil
@@ -104,7 +103,7 @@ func parseIndex(path string, i int) (pathSegment, int, error) {
 // parseQuotedKey parses a quoted key segment like "host.name" starting at position i.
 func parseQuotedKey(path string, i int) (pathSegment, int, error) {
 	if i >= len(path) || path[i] != '"' {
-		return pathSegment{}, i, fmt.Errorf("expected '\"'")
+		return pathSegment{}, i, newError(KindBadPath, "expected '\"'")
 	}
 	i++ // skip opening quote
 
@@ -122,7 +121,7 @@ func parseQuotedKey(path string, i int) (pathSegment, int, error) {
 		key.WriteByte(path[i])
 		i++
 	}
-	return pathSegment{}, i, fmt.Errorf("unclosed quote in path")
+	return pathSegment{}, i, newError(KindBadPath, "unclosed quote in path")
 }
 
 // parseBareKey parses a bare key segment, handling backslash-escaped dots.

@@ -1,7 +1,5 @@
 package tomledit
 
-import "fmt"
-
 // MergeDefaults recursively walks defaults and sets keys that do not exist in
 // the document at the given path. If path is empty, merges at the document root.
 //
@@ -29,7 +27,7 @@ func (d *Document) mergeMap(prefix string, m map[string]any) error {
 			// Key doesn't exist: set it. For maps, use SetCreate so the whole
 			// inline table is created atomically.
 			if err := d.SetCreate(fullPath, val); err != nil {
-				return fmt.Errorf("setting default %q: %w", fullPath, err)
+				return wrapError(err, "setting default %q", fullPath)
 			}
 			continue
 		}
@@ -95,7 +93,7 @@ func mergeChildren(target *Document, source *Document, scope Node, prefix string
 		if existing == nil {
 			// New key: copy value and comments.
 			if err := target.SetCreate(fullPath, nodeToValue(kv.Val)); err != nil {
-				return fmt.Errorf("merging key %q: %w", fullPath, err)
+				return wrapError(err, "merging key %q", fullPath)
 			}
 			// Copy comments to the newly created node.
 			copyComments(target, fullPath, kv)
@@ -126,7 +124,7 @@ func mergeChildren(target *Document, source *Document, scope Node, prefix string
 		existing := target.Get(fullPath)
 		if existing == nil {
 			if err := target.SetCreate(fullPath, nodeToValue(kv.Val)); err != nil {
-				return fmt.Errorf("merging dotted key %q: %w", fullPath, err)
+				return wrapError(err, "merging dotted key %q", fullPath)
 			}
 			copyComments(target, fullPath, kv)
 		} else {
@@ -219,7 +217,7 @@ func mergeSubTable(target *Document, source *Document, tbl *TableNode, subPrefix
 		}
 		fullPath := buildPathFromParts(subPrefix, kv.Key.Parts)
 		if err := target.SetCreate(fullPath, nodeToValue(kv.Val)); err != nil {
-			return fmt.Errorf("merging sub-table key %q: %w", fullPath, err)
+			return wrapError(err, "merging sub-table key %q", fullPath)
 		}
 		copyComments(target, fullPath, kv)
 	}
@@ -243,7 +241,7 @@ func mergeSubTable(target *Document, source *Document, tbl *TableNode, subPrefix
 // mergeArrayTableEntry creates a new [[array-table]] entry in the target.
 func mergeArrayTableEntry(target *Document, _ *Document, atn *ArrayTableNode, subPrefix string) error {
 	if err := target.NewArrayTable(subPrefix); err != nil {
-		return fmt.Errorf("creating array table %q: %w", subPrefix, err)
+		return wrapError(err, "creating array table %q", subPrefix)
 	}
 	// Find the last entry index (the one we just created is at index 0 if new).
 	// Use SetCreate to add children.
@@ -257,7 +255,7 @@ func mergeArrayTableEntry(target *Document, _ *Document, atn *ArrayTableNode, su
 		// should work.
 		fullPath := subPrefix + "[-1]." + buildPathFromParts("", kv.Key.Parts)
 		if err := target.SetCreate(fullPath, nodeToValue(kv.Val)); err != nil {
-			return fmt.Errorf("merging array table entry key %q: %w", fullPath, err)
+			return wrapError(err, "merging array table entry key %q", fullPath)
 		}
 	}
 	return nil

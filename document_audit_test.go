@@ -1,6 +1,7 @@
 package tomledit
 
 import (
+	"errors"
 	"strings"
 	"testing"
 )
@@ -141,13 +142,13 @@ func TestAudit_EmptyPathResolve(t *testing.T) {
 		t.Fatalf("parse error: %v", err)
 	}
 
-	// Resolve with empty path should return error
+	// Resolve with empty path should return a bad-path diagnostic
 	_, resolveErr := doc.Resolve("")
 	if resolveErr == nil {
 		t.Fatal("Resolve(\"\") should return error")
 	}
-	if !strings.Contains(resolveErr.Error(), "path syntax error") {
-		t.Errorf("expected path syntax error, got: %v", resolveErr)
+	if !errors.Is(resolveErr, ErrBadPath) {
+		t.Errorf("expected a bad-path diagnostic, got: %v", resolveErr)
 	}
 }
 
@@ -376,22 +377,25 @@ func TestAudit_ResolveDistinguishesPathSyntaxVsResolution(t *testing.T) {
 		t.Fatalf("parse error: %v", err)
 	}
 
-	// Bad syntax
+	// Bad syntax: a path that does not parse.
 	_, syntaxErr := doc.Resolve("a[")
 	if syntaxErr == nil {
 		t.Fatal("expected error for bad syntax")
 	}
-	if !strings.Contains(syntaxErr.Error(), "path syntax error") {
-		t.Errorf("expected 'path syntax error', got: %v", syntaxErr)
+	if !errors.Is(syntaxErr, ErrBadPath) {
+		t.Errorf("expected a bad-path diagnostic, got: %v", syntaxErr)
 	}
 
-	// Valid syntax, missing key
+	// Valid syntax, missing key: a resolution failure, a different kind.
 	_, resErr := doc.Resolve("nonexistent")
 	if resErr == nil {
 		t.Fatal("expected error for missing key")
 	}
-	if !strings.Contains(resErr.Error(), "resolution error") {
-		t.Errorf("expected 'resolution error', got: %v", resErr)
+	if !errors.Is(resErr, ErrNotFound) {
+		t.Errorf("expected a not-found diagnostic, got: %v", resErr)
+	}
+	if errors.Is(resErr, ErrBadPath) {
+		t.Errorf("a resolution failure must not match the bad-path kind: %v", resErr)
 	}
 }
 

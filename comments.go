@@ -1,7 +1,5 @@
 package tomledit
 
-import "fmt"
-
 // SetComment sets the inline comment on the node at the given path.
 // The comment string should NOT include the "# " prefix -- it will be added
 // automatically. An empty string removes the comment.
@@ -11,7 +9,7 @@ import "fmt"
 func (d *Document) SetComment(path string, comment string) error {
 	node, err := d.resolveCommentTarget(path)
 	if err != nil {
-		return err
+		return stampPath(err, path)
 	}
 	if comment == "" {
 		node.setComment("")
@@ -29,7 +27,7 @@ func (d *Document) SetComment(path string, comment string) error {
 func (d *Document) SetLeadingComments(path string, comments []string) error {
 	node, err := d.resolveCommentTarget(path)
 	if err != nil {
-		return err
+		return stampPath(err, path)
 	}
 	formatted := make([]string, len(comments))
 	for i, c := range comments {
@@ -46,16 +44,16 @@ func (d *Document) SetLeadingComments(path string, comments []string) error {
 func (d *Document) resolveCommentTarget(path string) (Node, error) {
 	segments, err := parsePath(path)
 	if err != nil {
-		return nil, fmt.Errorf("path syntax error: %w", err)
+		return nil, err
 	}
 	if len(segments) == 0 {
-		return nil, fmt.Errorf("empty path")
+		return nil, newError(KindBadPath, "empty path")
 	}
 
 	// First try resolving the full path normally to see what we get.
 	node, err := resolveNode(d, segments)
 	if err != nil {
-		return nil, fmt.Errorf("path not found: %w", err)
+		return nil, wrapError(err, "path not found")
 	}
 
 	// If the resolved node is a table or array-table, return it directly.
@@ -75,13 +73,13 @@ func (d *Document) resolveCommentTarget(path string) (Node, error) {
 	parentSegs := segments[:len(segments)-1]
 	parent, err := resolveNode(d, parentSegs)
 	if err != nil {
-		return nil, fmt.Errorf("parent path not found: %w", err)
+		return nil, wrapError(err, "parent path not found")
 	}
 
 	// Check if the parent is an inline table. TOML does not allow comments
 	// inside inline tables, so setting a comment would produce invalid TOML.
 	if isInsideInlineTable(parent) {
-		return nil, fmt.Errorf("cannot set comment on inline table member: TOML does not allow comments inside inline tables")
+		return nil, newError(KindConflict, "cannot set comment on inline table member: TOML does not allow comments inside inline tables")
 	}
 
 	kv := findKVInParent(parent, d, lastSeg.Key)

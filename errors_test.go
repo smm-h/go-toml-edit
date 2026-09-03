@@ -134,6 +134,194 @@ func TestErrorsAggregateContract(t *testing.T) {
 	}
 }
 
+// Fails if any error-producing surface stops reporting the unified
+// diagnostic: one representative failure per surface, matched by kind through
+// errors.Is and structurally through errors.As, as the documented contract
+// promises.
+func TestDiagnosticContractAcrossSurfaces(t *testing.T) {
+	const src = `title = "hello"
+tags = [1, 2]
+point = { x = 1 }
+
+[server]
+host = "localhost"
+
+[[products]]
+name = "a"
+`
+	// wantPath is the path the diagnostic must name; "" means the surface
+	// reports no path.
+	tests := []struct {
+		name     string
+		run      func(d *Document) error
+		wantKind ErrorKind
+		wantSent error
+		wantPath string
+	}{
+		{
+			name:     "parse: syntax",
+			run:      func(*Document) error { _, err := Parse([]byte("a = = 1\n")); return err },
+			wantKind: KindSyntax,
+			wantSent: ErrSyntax,
+		},
+		{
+			name:     "resolve: bad path",
+			run:      func(d *Document) error { _, err := d.Resolve("tags["); return err },
+			wantKind: KindBadPath,
+			wantSent: ErrBadPath,
+			wantPath: "tags[",
+		},
+		{
+			name:     "resolve: not found",
+			run:      func(d *Document) error { _, err := d.Resolve("server.port"); return err },
+			wantKind: KindNotFound,
+			wantSent: ErrNotFound,
+			wantPath: "server.port",
+		},
+		{
+			name:     "resolve: index out of range",
+			run:      func(d *Document) error { _, err := d.Resolve("tags[9]"); return err },
+			wantKind: KindNotFound,
+			wantSent: ErrNotFound,
+			wantPath: "tags[9]",
+		},
+		{
+			name:     "resolve: wrong container",
+			run:      func(d *Document) error { _, err := d.Resolve("title.nested"); return err },
+			wantKind: KindWrongContainer,
+			wantSent: ErrWrongContainer,
+			wantPath: "title.nested",
+		},
+		{
+			name:     "resolve: key on an array-of-tables collection",
+			run:      func(d *Document) error { _, err := d.Resolve("products.name"); return err },
+			wantKind: KindWrongContainer,
+			wantSent: ErrWrongContainer,
+			wantPath: "products.name",
+		},
+		{
+			name:     "set: unsupported value",
+			run:      func(d *Document) error { return d.Set("title", make(chan int)) },
+			wantKind: KindBadInput,
+			wantSent: ErrBadInput,
+			wantPath: "title",
+		},
+		{
+			name:     "set: missing parent",
+			run:      func(d *Document) error { return d.Set("nope.deep", 1) },
+			wantKind: KindNotFound,
+			wantSent: ErrNotFound,
+			wantPath: "nope.deep",
+		},
+		{
+			name:     "rename: missing key",
+			run:      func(d *Document) error { return d.RenameKey("server.port", "p") },
+			wantKind: KindNotFound,
+			wantSent: ErrNotFound,
+			wantPath: "server.port",
+		},
+		{
+			name:     "rename: existing sibling",
+			run:      func(d *Document) error { return d.RenameKey("title", "tags") },
+			wantKind: KindConflict,
+			wantSent: ErrConflict,
+			wantPath: "title",
+		},
+		{
+			name:     "rename: an array index",
+			run:      func(d *Document) error { return d.RenameKey("tags[0]", "x") },
+			wantKind: KindWrongContainer,
+			wantSent: ErrWrongContainer,
+			wantPath: "tags[0]",
+		},
+		{
+			name:     "new table: already exists",
+			run:      func(d *Document) error { return d.NewTable("server") },
+			wantKind: KindConflict,
+			wantSent: ErrConflict,
+			wantPath: "server",
+		},
+		{
+			name:     "new table: index in path",
+			run:      func(d *Document) error { return d.NewTable("a[0]") },
+			wantKind: KindBadPath,
+			wantSent: ErrBadPath,
+			wantPath: "a[0]",
+		},
+		{
+			name:     "delete: bad path",
+			run:      func(d *Document) error { return d.Delete("a[") },
+			wantKind: KindBadPath,
+			wantSent: ErrBadPath,
+			wantPath: "a[",
+		},
+		{
+			name:     "comment: inside an inline table",
+			run:      func(d *Document) error { return d.SetComment("point.x", "no") },
+			wantKind: KindConflict,
+			wantSent: ErrConflict,
+			wantPath: "point.x",
+		},
+		{
+			name:     "comment: missing path",
+			run:      func(d *Document) error { return d.SetLeadingComments("server.port", []string{"x"}) },
+			wantKind: KindNotFound,
+			wantSent: ErrNotFound,
+			wantPath: "server.port",
+		},
+		{
+			name:     "cursor: missing key",
+			run:      func(d *Document) error { return d.Key("server").Key("port").Err() },
+			wantKind: KindNotFound,
+			wantSent: ErrNotFound,
+		},
+		{
+			name:     "cursor: index on a scalar",
+			run:      func(d *Document) error { return d.Key("title").At(0).Err() },
+			wantKind: KindWrongContainer,
+			wantSent: ErrWrongContainer,
+		},
+		{
+			name: "merge defaults: unsupported value",
+			run: func(d *Document) error {
+				return d.MergeDefaults("", map[string]any{"fresh": make(chan int)})
+			},
+			wantKind: KindBadInput,
+			wantSent: ErrBadInput,
+			wantPath: "fresh",
+		},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			doc, err := Parse([]byte(src))
+			if err != nil {
+				t.Fatalf("Parse failed: %v", err)
+			}
+			err = tt.run(doc)
+			if err == nil {
+				t.Fatalf("expected an error")
+			}
+			if !errors.Is(err, tt.wantSent) {
+				t.Errorf("errors.Is(err, %v) = false, want true (err: %v)", tt.wantSent, err)
+			}
+			var diag *Error
+			if !errors.As(err, &diag) {
+				t.Fatalf("errors.As(*Error) failed for %T: %v", err, err)
+			}
+			if diag.Kind != tt.wantKind {
+				t.Errorf("kind = %v, want %v (err: %v)", diag.Kind, tt.wantKind, err)
+			}
+			if diag.Message == "" {
+				t.Errorf("diagnostic carries no message")
+			}
+			if tt.wantPath != "" && diag.Path != tt.wantPath {
+				t.Errorf("path = %q, want %q", diag.Path, tt.wantPath)
+			}
+		})
+	}
+}
+
 // Fails if a parse-stage diagnostic stops carrying a position, a byte offset
 // that agrees with it, or the source line it sits on -- the three things every
 // error site in the lexer and parser is required to fill.

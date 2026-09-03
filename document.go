@@ -1,9 +1,6 @@
 package tomledit
 
-import (
-	"fmt"
-	"time"
-)
+import "time"
 
 // resolveNode resolves a parsed path against the document's AST, returning
 // the target node. For KeyValueNodes the unwrapped value is returned.
@@ -37,7 +34,7 @@ func resolveNode(doc *Document, segments []pathSegment) (Node, error) {
 			// (the indexed element is an ArrayTableNode with the same KeyPath).
 
 		default:
-			return nil, fmt.Errorf("unknown segment type")
+			return nil, newError(KindBadPath, "unknown segment type")
 		}
 	}
 
@@ -82,10 +79,10 @@ func resolveKeySegment(
 
 	case *arrayTableCollection:
 		// Cannot look up a key directly on a collection; must index first
-		return nil, nil, fmt.Errorf("cannot look up key %q on array-of-tables (use an index first)", key)
+		return nil, nil, newError(KindWrongContainer, "cannot look up key %q on array-of-tables (use an index first)", key)
 
 	default:
-		return nil, nil, fmt.Errorf("cannot look up key %q in %s node", key, current.Type())
+		return nil, nil, newError(KindWrongContainer, "cannot look up key %q in %s node", key, current.Type())
 	}
 }
 
@@ -129,7 +126,7 @@ func resolveKeyInDocument(doc *Document, scope *Document, tablePath []string, ke
 		return view, targetPath, nil
 	}
 
-	return nil, nil, fmt.Errorf("key %q not found", key)
+	return nil, nil, newError(KindNotFound, "key %q not found", key)
 }
 
 // resolveKeyInTable searches a table's children and sub-tables for a key.
@@ -172,7 +169,7 @@ func resolveKeyInTable(doc *Document, scope *TableNode, currentTablePath []strin
 		return view, targetPath, nil
 	}
 
-	return nil, nil, fmt.Errorf("key %q not found in table [%s]", key, joinPath(scope.KeyPath))
+	return nil, nil, newError(KindNotFound, "key %q not found in table [%s]", key, joinPath(scope.KeyPath))
 }
 
 // resolveKeyInArrayTable searches an array table's children for a key.
@@ -195,7 +192,7 @@ func resolveKeyInArrayTable(doc *Document, scope *ArrayTableNode, currentTablePa
 		}
 	}
 	if scopeIdx == -1 {
-		return nil, nil, fmt.Errorf("key %q not found in array table [[%s]]", key, joinPath(scope.KeyPath))
+		return nil, nil, newError(KindNotFound, "key %q not found in array table [[%s]]", key, joinPath(scope.KeyPath))
 	}
 
 	// Check for sub-tables scoped to this array entry: scan forward from
@@ -264,7 +261,7 @@ func resolveKeyInArrayTable(doc *Document, scope *ArrayTableNode, currentTablePa
 		}, targetPath, nil
 	}
 
-	return nil, nil, fmt.Errorf("key %q not found in array table [[%s]]", key, joinPath(scope.KeyPath))
+	return nil, nil, newError(KindNotFound, "key %q not found in array table [[%s]]", key, joinPath(scope.KeyPath))
 }
 
 // resolveKeyInInlineTable searches an inline table's children for a key.
@@ -273,7 +270,7 @@ func resolveKeyInInlineTable(scope *InlineTableNode, key string) (Node, []string
 	if err == nil {
 		return node, tablePath, nil
 	}
-	return nil, nil, fmt.Errorf("key %q not found in inline table", key)
+	return nil, nil, newError(KindNotFound, "key %q not found in inline table", key)
 }
 
 // resolveIndexSegment handles an index lookup into an array or array-of-tables.
@@ -297,21 +294,21 @@ func resolveIndexSegment(doc *Document, current Node, currentTablePath []string,
 		return resolveIndexSegment(doc, scope.Val, currentTablePath, index)
 
 	default:
-		return nil, fmt.Errorf("cannot index into %s node", current.Type())
+		return nil, newError(KindWrongContainer, "cannot index into %s node", current.Type())
 	}
 }
 
 // normalizeIndex converts a possibly-negative index to a valid non-negative index.
 func normalizeIndex(index, length int) (int, error) {
 	if length == 0 {
-		return 0, fmt.Errorf("index %d out of range (empty collection)", index)
+		return 0, newError(KindNotFound, "index %d out of range (empty collection)", index)
 	}
 	idx := index
 	if idx < 0 {
 		idx = length + idx
 	}
 	if idx < 0 || idx >= length {
-		return 0, fmt.Errorf("index %d out of range (length %d)", index, length)
+		return 0, newError(KindNotFound, "index %d out of range (length %d)", index, length)
 	}
 	return idx, nil
 }
@@ -425,7 +422,7 @@ func resolveKeyInKVList(doc *Document, children []Node, tablePath []string, key 
 		}
 	}
 	if len(matching) == 0 {
-		return nil, nil, fmt.Errorf("key %q not found", key)
+		return nil, nil, newError(KindNotFound, "key %q not found", key)
 	}
 	if len(matching) == 1 {
 		kv := matching[0]
@@ -447,7 +444,7 @@ func resolveKeyInDottedGroup(doc *Document, group *dottedKeyGroup, key string) (
 		}
 	}
 	if len(matching) == 0 {
-		return nil, nil, fmt.Errorf("key %q not found", key)
+		return nil, nil, newError(KindNotFound, "key %q not found", key)
 	}
 	if len(matching) == 1 {
 		kv := matching[0]
@@ -534,7 +531,7 @@ func resolveKeyInCompoundView(doc *Document, view *compoundTableView, key string
 		}, targetPath, nil
 	}
 
-	return nil, nil, fmt.Errorf("key %q not found", key)
+	return nil, nil, newError(KindNotFound, "key %q not found", key)
 }
 
 // resolveKeyInDottedView handles key lookups within a dottedKeyView.
@@ -550,7 +547,7 @@ func resolveKeyInDottedView(doc *Document, view *dottedKeyView, key string) (Nod
 		}
 		return &dottedKeyView{kv: view.kv, partIndex: view.partIndex + 1, doc: doc}, nil, nil
 	}
-	return nil, nil, fmt.Errorf("key %q not found", key)
+	return nil, nil, newError(KindNotFound, "key %q not found", key)
 }
 
 // --- Public API methods on Document ---
@@ -576,17 +573,18 @@ func (d *Document) Get(path string) Node {
 }
 
 // Resolve resolves the dot-separated path against the document and returns the
-// target node. Unlike Get, it returns descriptive errors for both path syntax
-// errors and resolution failures, making it suitable for cases where the caller
-// needs to distinguish "not found" from "invalid path".
+// target node. Unlike Get, it reports why the resolution failed: the returned
+// *Error carries KindBadPath for a syntactically invalid path, KindNotFound
+// for a path naming nothing, and KindWrongContainer for a step that does not
+// apply to what it addresses.
 func (d *Document) Resolve(path string) (Node, error) {
 	segments, err := parsePath(path)
 	if err != nil {
-		return nil, fmt.Errorf("path syntax error: %w", err)
+		return nil, stampPath(err, path)
 	}
 	node, err := resolveNode(d, segments)
 	if err != nil {
-		return nil, fmt.Errorf("resolution error: %w", err)
+		return nil, stampPath(err, path)
 	}
 	return node, nil
 }
