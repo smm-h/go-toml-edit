@@ -107,9 +107,9 @@ func (d *DocumentNode) resolveOrCreateParent(segments []pathSegment) (Node, erro
 			continue
 		}
 
-		// Key not found -- create a table for it.
-		tablePath, err = d.createIntermediateTable(current, currentTablePath, seg.Key)
-		if err != nil {
+		// Key not found -- create a table for it. The path it returns is
+		// discarded: the re-resolution below recomputes it.
+		if _, err := d.createIntermediateTable(current, currentTablePath, seg.Key); err != nil {
 			return nil, err
 		}
 

@@ -272,7 +272,7 @@ Two walk modes are available:
 - `tomledit.WalkLeaves` -- visits only scalar (leaf) values; containers (arrays, inline tables) are recursed into but not yielded to the callback
 - `tomledit.WalkAll` -- visits containers AND their children; the callback receives inline tables and arrays as well as their elements
 
-Return `tomledit.SkipTable` from the callback to skip the children of the current inline table or array.
+Return `tomledit.ErrSkipTable` from the callback to skip the children of the current inline table or array.
 
 Array-of-tables paths include the index: `"products[0].name"`, `"products[1].name"`.
 

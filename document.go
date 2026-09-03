@@ -357,8 +357,6 @@ type compoundTableView struct {
 	// The tables/array-tables whose KeyPaths start with this prefix
 	tables    []*TableNode
 	arrayTbls []*ArrayTableNode
-	// KVs from the parent scope that belong to implicit tables at this prefix
-	kvs []*KeyValueNode
 }
 
 func (c *compoundTableView) Type() NodeType { return NodeTable }

@@ -255,16 +255,16 @@ id = 2
 	}
 }
 
-// Audit focus 8: SkipTable on array-of-tables entry.
-// Return SkipTable for products[0] -- should it skip that entry but continue to products[1]?
+// Audit focus 8: ErrSkipTable on array-of-tables entry.
+// Return ErrSkipTable for products[0] -- should it skip that entry but continue to products[1]?
 //
 // NOTE: Walk does not yield array-of-tables entries as standalone nodes --
-// it walks directly into their children. So SkipTable can only be returned
+// it walks directly into their children. So ErrSkipTable can only be returned
 // for individual KV values within an entry. This test documents the actual
-// behavior: SkipTable on a scalar KV is a no-op (that KV is still "not collected"
-// since SkipTable replaces nil as the return value, but subsequent KVs in the
+// behavior: ErrSkipTable on a scalar KV is a no-op (that KV is still "not collected"
+// since ErrSkipTable replaces nil as the return value, but subsequent KVs in the
 // same table ARE still visited).
-func TestAudit_Walk_SkipTable_ArrayOfTablesEntry(t *testing.T) {
+func TestAudit_Walk_ErrSkipTable_ArrayOfTablesEntry(t *testing.T) {
 	input := `[[products]]
 name = "Widget"
 price = 9.99
@@ -280,10 +280,10 @@ price = 19.99
 
 	var paths []string
 	err = doc.Walk(func(path string, node Node) error {
-		// Try to "skip" the first product entry by returning SkipTable
+		// Try to "skip" the first product entry by returning ErrSkipTable
 		// when we encounter its first KV.
 		if path == "products[0].name" {
-			return SkipTable
+			return ErrSkipTable
 		}
 		paths = append(paths, path)
 		return nil
@@ -292,9 +292,9 @@ price = 19.99
 		t.Fatalf("Walk: %v", err)
 	}
 
-	t.Logf("Paths after SkipTable on products[0].name: %v", paths)
+	t.Logf("Paths after ErrSkipTable on products[0].name: %v", paths)
 
-	// Since SkipTable on a scalar is a no-op (nothing to skip),
+	// Since ErrSkipTable on a scalar is a no-op (nothing to skip),
 	// products[0].price should still be visited.
 	// products[1].name and products[1].price should also be visited.
 	foundPrice0 := false
@@ -312,9 +312,9 @@ price = 19.99
 	}
 
 	if !foundPrice0 {
-		t.Logf("products[0].price was skipped -- SkipTable on scalar DID skip remaining table children")
+		t.Logf("products[0].price was skipped -- ErrSkipTable on scalar DID skip remaining table children")
 	} else {
-		t.Logf("products[0].price was visited -- SkipTable on scalar is a no-op as expected")
+		t.Logf("products[0].price was visited -- ErrSkipTable on scalar is a no-op as expected")
 	}
 	if !foundName1 {
 		t.Errorf("products[1].name should be visited regardless")
@@ -324,8 +324,8 @@ price = 19.99
 	}
 }
 
-// Audit focus 8b: SkipTable on an inline table inside an array-of-tables.
-func TestAudit_Walk_SkipTable_InlineTableInArrayOfTables(t *testing.T) {
+// Audit focus 8b: ErrSkipTable on an inline table inside an array-of-tables.
+func TestAudit_Walk_ErrSkipTable_InlineTableInArrayOfTables(t *testing.T) {
 	input := `[[products]]
 name = "Widget"
 meta = {color = "red", weight = 1.5}
@@ -343,7 +343,7 @@ meta = {color = "blue", weight = 2.0}
 	err = doc.Walk(func(path string, node Node) error {
 		if path == "products[0].meta" {
 			paths = append(paths, path)
-			return SkipTable
+			return ErrSkipTable
 		}
 		paths = append(paths, path)
 		return nil
@@ -354,11 +354,11 @@ meta = {color = "blue", weight = 2.0}
 
 	t.Logf("Paths: %v", paths)
 
-	// SkipTable on products[0].meta should skip its children (color, weight)
+	// ErrSkipTable on products[0].meta should skip its children (color, weight)
 	// but products[1] should still be fully visited.
 	for _, p := range paths {
 		if p == "products[0].meta.color" || p == "products[0].meta.weight" {
-			t.Errorf("SkipTable should have skipped %q", p)
+			t.Errorf("ErrSkipTable should have skipped %q", p)
 		}
 	}
 

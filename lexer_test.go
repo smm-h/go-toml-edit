@@ -1248,12 +1248,7 @@ role = "backend"
 		t.Fatalf("lex complex document: %v", err)
 	}
 
-	// Verify key properties rather than every single token
-	var tokenTypes []TokenType
-	for _, tk := range tokens {
-		tokenTypes = append(tokenTypes, tk.Type)
-	}
-
+	// Verify key properties rather than every single token.
 	// Check that the document starts with a comment
 	if tokens[0].Type != TokenComment {
 		t.Errorf("expected first token to be Comment, got %s", tokens[0].Type)

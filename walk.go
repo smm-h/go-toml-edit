@@ -6,10 +6,10 @@ import (
 	"strings"
 )
 
-// SkipTable is a sentinel error returned from a Walk visitor function to skip
+// ErrSkipTable is a sentinel error returned from a Walk visitor function to skip
 // the current table's children (or inline table's children). Returning
-// SkipTable on a scalar node is a no-op.
-var SkipTable = errors.New("skip table")
+// ErrSkipTable on a scalar node is a no-op.
+var ErrSkipTable = errors.New("skip table")
 
 // WalkMode controls which nodes the Walk visitor function is called for.
 type WalkMode int
@@ -35,17 +35,17 @@ const (
 //   - WalkAll: containers AND their children are yielded
 //
 // The path uses dot-separated keys with bracket indices for array-of-tables
-// entries (e.g. "servers[0].host"). Return SkipTable from fn to skip the
+// entries (e.g. "servers[0].host"). Return ErrSkipTable from fn to skip the
 // children of the current inline table or array. Return any other non-nil
 // error to stop the walk immediately.
 func (d *DocumentNode) Walk(fn func(path string, node Node) error, mode WalkMode) error {
 	// Phase 1: root-level KVs (before any table header)
 	for _, child := range d.Children {
-		switch child.(type) {
+		switch child := child.(type) {
 		case *TableNode, *ArrayTableNode:
 			// stop at first table header
 		case *KeyValueNode:
-			if err := walkKV("", child.(*KeyValueNode), fn, mode); err != nil {
+			if err := walkKV("", child, fn, mode); err != nil {
 				return err
 			}
 			continue
@@ -245,7 +245,7 @@ func walkValue(path string, node Node, fn func(string, Node) error, mode WalkMod
 		if mode == WalkAll {
 			err := fn(path, v)
 			if err != nil {
-				if errors.Is(err, SkipTable) {
+				if errors.Is(err, ErrSkipTable) {
 					return nil
 				}
 				return err
@@ -264,7 +264,7 @@ func walkValue(path string, node Node, fn func(string, Node) error, mode WalkMod
 		if mode == WalkAll {
 			err := fn(path, v)
 			if err != nil {
-				if errors.Is(err, SkipTable) {
+				if errors.Is(err, ErrSkipTable) {
 					return nil
 				}
 				return err
@@ -282,8 +282,8 @@ func walkValue(path string, node Node, fn func(string, Node) error, mode WalkMod
 		// Scalar value: yield it
 		err := fn(path, node)
 		if err != nil {
-			if errors.Is(err, SkipTable) {
-				// SkipTable on a non-table is a no-op (nothing to skip)
+			if errors.Is(err, ErrSkipTable) {
+				// ErrSkipTable on a non-table is a no-op (nothing to skip)
 				return nil
 			}
 			return err

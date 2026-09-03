@@ -66,13 +66,6 @@ func (l *lexer) run() error {
 	return nil
 }
 
-func (l *lexer) peek() byte {
-	if l.pos < len(l.src) {
-		return l.src[l.pos]
-	}
-	return 0
-}
-
 func (l *lexer) peekAt(offset int) byte {
 	p := l.pos + offset
 	if p < len(l.src) {

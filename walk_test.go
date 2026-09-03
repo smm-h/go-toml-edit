@@ -216,8 +216,8 @@ name = "Gadget"
 	}
 }
 
-// Test 9: SkipTable skips a table's children but continues with other tables.
-func TestWalk_SkipTable(t *testing.T) {
+// Test 9: ErrSkipTable skips a table's children but continues with other tables.
+func TestWalk_ErrSkipTable(t *testing.T) {
 	doc := parseWalkDoc(t, `
 [server]
 host = "localhost"
@@ -230,7 +230,7 @@ name = "mydb"
 	err := doc.Walk(func(path string, node Node) error {
 		// Skip all entries under "server"
 		if path == "server.host" {
-			return SkipTable
+			return ErrSkipTable
 		}
 		paths = append(paths, path)
 		return nil
@@ -238,8 +238,8 @@ name = "mydb"
 	if err != nil {
 		t.Fatalf("Walk returned error: %v", err)
 	}
-	// server.host triggered SkipTable (was not collected), server.port follows
-	// in the same table so it should still appear (SkipTable on a scalar is a no-op).
+	// server.host triggered ErrSkipTable (was not collected), server.port follows
+	// in the same table so it should still appear (ErrSkipTable on a scalar is a no-op).
 	// database.name should appear.
 	if len(paths) < 1 {
 		t.Fatal("expected at least one path")
@@ -256,7 +256,7 @@ name = "mydb"
 	}
 }
 
-// Test 9b: SkipTable on an inline table skips its children.
+// Test 9b: ErrSkipTable on an inline table skips its children.
 func TestWalk_SkipInlineTable(t *testing.T) {
 	doc := parseWalkDoc(t, `config = {x = 1, y = 2}
 other = "yes"`)
@@ -264,7 +264,7 @@ other = "yes"`)
 	err := doc.Walk(func(path string, node Node) error {
 		if path == "config" {
 			paths = append(paths, path)
-			return SkipTable
+			return ErrSkipTable
 		}
 		paths = append(paths, path)
 		return nil
