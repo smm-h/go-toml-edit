@@ -74,8 +74,9 @@ virtual view types retired from resolution (deleted fully in Phase 11).
 The Cursor re-based internally on layer positions. Path helpers exported
 (`ParsePath`, `JoinPath`, `PathSegment`); the diagnostic path renderer
 uses them.
-Verify: the fold suite (including the ported reference-fold expectations
-and the worked examples from the record) green; existing document/path/
+Verify: the fold suite (including the per-case reference-tree comparison
+over the valid toml-test corpus and the worked examples from the record)
+green; existing document/path/
 cursor tests green with only the enumerated behavioral edits (widening
 flips land in Phase 10; here only resolution semantics); path round-trip
 and diagnostic paste-back tests green.
@@ -115,8 +116,28 @@ BEFORE freezing the op signatures — the record marks them provisional
 until it passes. The small write-path fixes: unsigned overflow refusal,
 `NewTable` array-of-tables collision refusal, the inline-table
 delete-missing-key dirty fix (each red-green).
+
+Fold-aware edit refusals (added after the Phase 4 audit found eleven
+public edit sequences that build an unfoldable document, leaving `Root()`
+to panic and the document unrepairable): every edit operation that can
+create a binding conflict refuses instead — `NewTable`/`NewArrayTable`
+against any existing binding of the name (value, record, or collection),
+`RenameKey` to a name bound by any construct kind (not just key-value
+siblings), and dotted-key/table duplicate collisions — each refusal
+`KindConflict` per the record's definition, each red-green against its
+audited sequence. `Set`/`SetCreate` on a logical-only path (an
+array-of-tables collection name, an implied parent, a dotted-key prefix)
+refuse with `KindWrongContainer` per the record's read-layer section.
+`Delete`'s fold-failure swallow is removed so a fold error surfaces
+instead of reading as "parent not found". One case awaits a user ruling
+and must be recorded here before this phase starts: `Set`/`SetCreate`
+targeting a name bound by a concrete header table (today a silent
+wrong-key write; refuse vs value-replace under the record's §8 wholesale
+rule).
+
 Verify: op tests incl. bijection violations by kind; the acceptance test
-green; determinism assertion for `EnsureDefaults`.
+green; determinism assertion for `EnsureDefaults`; none of the eleven
+audited sequences can panic `Root()` — each refuses with the ruled kind.
 
 ## Phase 7 — Node model
 
