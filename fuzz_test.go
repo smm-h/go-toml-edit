@@ -91,3 +91,20 @@ func FuzzRoundTrip(f *testing.F) {
 		}
 	})
 }
+
+// Fails if any document the parser accepts cannot be folded -- rule 7 of the
+// read-layer, which says a conflict the parser accepts never reaches the fold.
+// A fold error here is a parser that accepted a document TOML cannot express.
+func FuzzFold(f *testing.F) {
+	addFuzzSeeds(f)
+
+	f.Fuzz(func(t *testing.T, data []byte) {
+		doc, err := Parse(data)
+		if err != nil {
+			return // Invalid input, skip
+		}
+		if _, err := foldDocument(doc); err != nil {
+			t.Fatalf("a parsed document did not fold: %v\ninput: %q", err, data)
+		}
+	})
+}
