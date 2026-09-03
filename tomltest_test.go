@@ -190,6 +190,13 @@ func TestTomlTestInvalid(t *testing.T) {
 		if line := sourceLineAt(data, diag.Pos.Offset); diag.Snippet != line && len(line) <= snippetLimit {
 			t.Errorf("snippet = %q, want the source line %q", diag.Snippet, line)
 		}
+		// Independent of the helper above, which quotes nothing wherever the
+		// diagnostic does: a rejected non-empty source always yields an
+		// excerpt, including when the position sits at end of input.
+		if diag.Snippet == "" && len(strings.TrimRight(string(data), "\r\n")) > 0 {
+			t.Errorf("snippet is empty for a %d-byte source rejected at offset %d",
+				len(data), diag.Pos.Offset)
+		}
 	})
 
 	if ran != wantInvalidCases {

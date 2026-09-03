@@ -344,11 +344,24 @@ const snippetLimit = 60
 
 // snippetAt returns the source line containing offset, truncated to
 // snippetLimit bytes. It returns "" when offset falls outside src.
+//
+// A diagnostic reported at the end of a newline-terminated source sits on the
+// empty line after the last newline, where quoting "the line containing the
+// offset" would quote nothing; such an offset quotes the last non-empty line
+// instead, which is the line the unfinished construct opened on.
 func snippetAt(src []byte, offset int) string {
 	if offset < 0 || offset > len(src) {
 		return ""
 	}
-	start, end := offset, offset
+	end := offset
+	if end == len(src) {
+		// Step back over the empty line a newline-terminated source ends on,
+		// and over any blank lines before it, to the last line with content.
+		for end > 0 && src[end-1] == '\n' {
+			end--
+		}
+	}
+	start := end
 	for start > 0 && src[start-1] != '\n' {
 		start--
 	}

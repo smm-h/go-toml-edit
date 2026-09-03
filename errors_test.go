@@ -379,12 +379,21 @@ func TestParseDiagnosticsCarryPositionAndSnippet(t *testing.T) {
 	}
 }
 
-// sourceLineAt returns the whole source line containing offset.
+// sourceLineAt returns the whole source line a diagnostic at offset quotes:
+// the line containing offset, except at the end of a newline-terminated source,
+// where it is the last line with content. It mirrors snippetAt without the
+// length limit.
 func sourceLineAt(src []byte, offset int) string {
 	if offset < 0 || offset > len(src) {
 		return ""
 	}
-	start, end := offset, offset
+	end := offset
+	if end == len(src) {
+		for end > 0 && src[end-1] == '\n' {
+			end--
+		}
+	}
+	start := end
 	for start > 0 && src[start-1] != '\n' {
 		start--
 	}
