@@ -2,8 +2,10 @@ package tomledit
 
 import (
 	"encoding"
+	"errors"
 	"fmt"
 	"reflect"
+	"strings"
 	"testing"
 	"time"
 )
@@ -403,15 +405,10 @@ func TestUnmarshal_InlineTableToMap(t *testing.T) {
 // --- 8. Struct tags ---
 
 func TestUnmarshal_StructTags(t *testing.T) {
-	input := `
-custom_name = "hello"
-skipped = "should not appear"
-with_empty = "value"
-`
+	input := `custom_name = "hello"`
 	type Config struct {
 		CustomField string `toml:"custom_name"`
 		Skipped     string `toml:"-"`
-		WithEmpty   string `toml:"with_empty,omitempty"`
 	}
 	var cfg Config
 	if err := Unmarshal([]byte(input), &cfg); err != nil {
@@ -421,10 +418,103 @@ with_empty = "value"
 		t.Errorf("CustomField = %q, want %q", cfg.CustomField, "hello")
 	}
 	if cfg.Skipped != "" {
-		t.Errorf("Skipped = %q, want empty (should be skipped)", cfg.Skipped)
+		t.Errorf("Skipped = %q, want empty (nothing binds it)", cfg.Skipped)
 	}
-	if cfg.WithEmpty != "value" {
-		t.Errorf("WithEmpty = %q, want %q", cfg.WithEmpty, "value")
+}
+
+// Fails if an excluded field stops being excluded from the document's universe
+// as well as from decoding: a key naming a `toml:"-"` field is as unknown as a
+// key naming nothing at all, never a key that is quietly ignored.
+func TestUnmarshal_ExcludedFieldIsUnknown(t *testing.T) {
+	type Config struct {
+		Skipped string `toml:"-"`
+	}
+	var cfg Config
+	err := Unmarshal([]byte(`Skipped = "should not appear"`), &cfg)
+	if err == nil {
+		t.Fatalf("Unmarshal accepted a key naming an excluded field: %+v", cfg)
+	}
+	if !errors.Is(err, ErrUnknownKey) {
+		t.Fatalf("err = %v, want an unknown-key diagnostic", err)
+	}
+	if cfg.Skipped != "" {
+		t.Errorf("Skipped = %q, want empty", cfg.Skipped)
+	}
+}
+
+// Fails if an unexported field stops being excluded: it cannot be written, so
+// a key naming one is unknown too.
+func TestUnmarshal_UnexportedFieldIsUnknown(t *testing.T) {
+	type Config struct {
+		Name   string `toml:"name"`
+		hidden string
+	}
+	var cfg Config
+	err := Unmarshal([]byte("name = \"x\"\nhidden = \"y\"\n"), &cfg)
+	if err == nil {
+		t.Fatalf("Unmarshal accepted a key naming an unexported field: %+v", cfg)
+	}
+	if !errors.Is(err, ErrUnknownKey) {
+		t.Fatalf("err = %v, want an unknown-key diagnostic", err)
+	}
+	_ = cfg.hidden
+}
+
+// Fails if a toml tag option the package does not read is accepted: an option
+// nothing acts on would silently do nothing, which is how "omitempty" came to
+// look meaningful on a decoder that never read it.
+func TestUnmarshal_UnknownTagOptionIsRefused(t *testing.T) {
+	type Config struct {
+		WithEmpty string `toml:"with_empty,omitempty"`
+	}
+	var cfg Config
+	err := Unmarshal([]byte(`with_empty = "value"`), &cfg)
+	if err == nil {
+		t.Fatal("Unmarshal accepted the unknown tag option \"omitempty\"")
+	}
+	if !strings.Contains(err.Error(), "omitempty") {
+		t.Errorf("err = %v, want the offending option named", err)
+	}
+}
+
+// Fails if a toml tag on an unexported field is accepted: no document key can
+// ever reach it, so the tag says something the decoder cannot honour.
+func TestUnmarshal_TagOnUnexportedFieldIsRefused(t *testing.T) {
+	type Config struct {
+		secret string `toml:"secret"`
+	}
+	var cfg Config
+	err := Unmarshal([]byte(`other = 1`), &cfg)
+	if err == nil {
+		t.Fatal("Unmarshal accepted a toml tag on an unexported field")
+	}
+	if !strings.Contains(err.Error(), "secret") {
+		t.Errorf("err = %v, want the offending field named", err)
+	}
+	_ = cfg.secret
+}
+
+// Fails if the required tag option stops being read: it is how a struct says
+// what a descriptor says with Field.Required.
+func TestUnmarshal_RequiredTagOption(t *testing.T) {
+	type Config struct {
+		Host string `toml:"host,required"`
+		Port int    `toml:"port"`
+	}
+	var cfg Config
+	if err := Unmarshal([]byte("host = \"h\"\nport = 1\n"), &cfg); err != nil {
+		t.Fatalf("Unmarshal failed: %v", err)
+	}
+	err := Unmarshal([]byte("port = 1\n"), &cfg)
+	if err == nil {
+		t.Fatal("Unmarshal accepted a document missing a required key")
+	}
+	if !errors.Is(err, ErrMissingKey) {
+		t.Fatalf("err = %v, want a missing-key diagnostic", err)
+	}
+	var diag *Error
+	if errors.As(err, &diag) && diag.Path != "host" {
+		t.Errorf("diagnostic names path %q, want %q", diag.Path, "host")
 	}
 }
 
@@ -740,9 +830,12 @@ func TestUnmarshal_EmptyDocument(t *testing.T) {
 	}
 }
 
-// --- 18. Extra keys ---
+// --- 18. Unknown keys ---
 
-func TestUnmarshal_ExtraKeys(t *testing.T) {
+// Fails if an unknown key is ignored again, or if only the first one is
+// reported: strictness is the only mode, and independent violations are
+// collected in document order.
+func TestUnmarshal_UnknownKeysAreRefused(t *testing.T) {
 	input := `
 name = "test"
 unknown = "ignored"
@@ -752,9 +845,29 @@ also_unknown = 999
 		Name string `toml:"name"`
 	}
 	var cfg Config
-	if err := Unmarshal([]byte(input), &cfg); err != nil {
-		t.Fatalf("Unmarshal failed: %v", err)
+	err := Unmarshal([]byte(input), &cfg)
+	if err == nil {
+		t.Fatalf("Unmarshal accepted two unknown keys: %+v", cfg)
 	}
+	if !errors.Is(err, ErrUnknownKey) {
+		t.Fatalf("err = %v, want an unknown-key diagnostic", err)
+	}
+	var all *Errors
+	if !errors.As(err, &all) {
+		t.Fatalf("err = %v (%T), want an aggregate", err, err)
+	}
+	var paths []string
+	for _, d := range all.Unwrap() {
+		var diag *Error
+		if errors.As(d, &diag) {
+			paths = append(paths, diag.Path)
+		}
+	}
+	if !reflect.DeepEqual(paths, []string{"unknown", "also_unknown"}) {
+		t.Errorf("diagnostics name %v, want [unknown also_unknown] in document order", paths)
+	}
+	// The known key still decoded: a violation stops the construct it names,
+	// not the walk.
 	if cfg.Name != "test" {
 		t.Errorf("Name = %q, want %q", cfg.Name, "test")
 	}

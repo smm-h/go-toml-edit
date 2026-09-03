@@ -265,6 +265,32 @@ func (e *Error) inFile(file string) *Error {
 	return e
 }
 
+// expects records the two sides of a type-mismatch diagnostic: what the target
+// accepts, and what the document carries.
+func (e *Error) expects(expected, got string) *Error {
+	e.Expected = expected
+	e.Got = got
+	return e
+}
+
+// listing records the direct child keys of the construct an unknown-table
+// diagnostic names.
+func (e *Error) listing(keys []string) *Error {
+	e.Keys = keys
+	return e
+}
+
+// asDiagnostic returns the diagnostic err is, or the first one it wraps, and
+// wraps err in a fresh one when it carries none -- so a caller that must
+// report a *Error always has one.
+func asDiagnostic(err error) *Error {
+	var diag *Error
+	if errors.As(err, &diag) {
+		return diag
+	}
+	return newError(KindConflict, "%s", err).wrapping(err)
+}
+
 // withValue records the offending value of a bad-input or inexact diagnostic.
 func (e *Error) withValue(v any) *Error {
 	e.Value = v

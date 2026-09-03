@@ -213,6 +213,22 @@ func parseBareKey(path string, i int) (PathSegment, int) {
 	return PathSegment{Kind: SegmentKey, Key: key.String()}, i
 }
 
+// keyPath renders the path of a key inside the construct at parent, through
+// JoinPath, so a diagnostic's path reads back into Resolve. The empty parent
+// is the document root.
+func keyPath(parent, key string) string {
+	segment := JoinPath([]PathSegment{{Kind: SegmentKey, Key: key}})
+	if parent == "" {
+		return segment
+	}
+	return parent + "." + segment
+}
+
+// indexPath renders the path of element i inside the construct at parent.
+func indexPath(parent string, i int) string {
+	return parent + JoinPath([]PathSegment{{Kind: SegmentIndex, Index: i}})
+}
+
 // pathFromKeys renders a key path (the parts of a table header or a dotted
 // key) as path text through JoinPath, so error messages and the diagnostic
 // path field quote exactly like the path parser reads.

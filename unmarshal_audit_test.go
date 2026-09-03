@@ -1,6 +1,7 @@
 package tomledit
 
 import (
+	"errors"
 	"math"
 	"reflect"
 	"strings"
@@ -42,10 +43,12 @@ func TestAudit_EmbeddedConflictingFields(t *testing.T) {
 	t.Logf("INFO: A.Name=%q B.Name=%q (first-wins behavior)", cfg.A.Name, cfg.B.Name)
 }
 
-// Unexported embedded struct -- its exported fields should NOT be promoted.
+// Unexported embedded struct -- its fields are not promoted, so the document
+// universe does not carry them.
+//
+// Fails if a key naming a field of an unexported embedded struct is accepted
+// again: nothing can write it, so it is unknown, not ignored.
 func TestAudit_UnexportedEmbeddedStruct(t *testing.T) {
-	// Cannot test unexported embedding from test file since it must be in-package.
-	// But we can test that the collectFields function skips unexported fields.
 	type inner struct {
 		Val string `toml:"val"`
 	}
@@ -59,14 +62,15 @@ val = "should_not_appear"
 `
 	var cfg Config
 	err := Unmarshal([]byte(input), &cfg)
-	if err != nil {
-		t.Fatalf("Unmarshal failed: %v", err)
+	if err == nil {
+		t.Fatalf("Unmarshal accepted a key naming an unexported embedding: %+v", cfg)
+	}
+	if !errors.Is(err, ErrUnknownKey) {
+		t.Fatalf("err = %v, want an unknown-key diagnostic", err)
 	}
 	if cfg.Name != "test" {
 		t.Errorf("Name = %q, want %q", cfg.Name, "test")
 	}
-	// "val" should be silently ignored because 'inner' is not exported
-	// The field `inner` itself is not exported (lowercase), so collectFields skips it.
 	if cfg.inner.Val != "" {
 		t.Errorf("unexported embedded field should not be set, got Val=%q", cfg.inner.Val)
 	}
@@ -268,6 +272,9 @@ func TestAudit_DottedKeyTopLevelMap(t *testing.T) {
 // Audit Focus Area 4: Map with non-string keys
 // ==========================================================================
 
+// Fails if a map target whose keys are not strings reaches reflect: TOML keys
+// are strings, so the target is refused when its descriptor is derived, with
+// an error naming the type -- never a panic.
 func TestAudit_MapNonStringKeys(t *testing.T) {
 	input := `
 [data]
@@ -277,21 +284,12 @@ foo = "bar"
 		Data map[int]string `toml:"data"`
 	}
 	var cfg Config
-
-	// BUG: The current implementation panics instead of returning an error
-	// because decodeKVIntoMap does not validate that the map key type is string.
-	// We use recover to document this as a concrete bug rather than crashing the test suite.
-	defer func() {
-		if r := recover(); r != nil {
-			t.Logf("BUG CONFIRMED: map[int]string panics instead of returning error: %v", r)
-		}
-	}()
-
 	err := Unmarshal([]byte(input), &cfg)
 	if err == nil {
-		t.Error("expected error for map[int]string target, got nil (and no panic either)")
-	} else {
-		t.Logf("correctly returned error: %v", err)
+		t.Fatal("Unmarshal accepted a map[int]string target")
+	}
+	if !strings.Contains(err.Error(), "map[int]string") {
+		t.Errorf("err = %v, want the offending target type named", err)
 	}
 }
 
@@ -835,14 +833,16 @@ func TestAudit_ErrorMessageOverflow(t *testing.T) {
 }
 
 // ==========================================================================
-// Additional edge cases: Extra keys silently ignored
+// Additional edge cases: unknown keys inside a nested table
 // ==========================================================================
 
+// Fails if an unknown key inside a nested table is ignored, or if its
+// diagnostic stops naming the full path to it.
 func TestAudit_ExtraKeysInNestedTable(t *testing.T) {
 	input := `
 [server]
 host = "localhost"
-unknown_key = "should be ignored"
+unknown_key = "should be refused"
 another_unknown = 999
 `
 	type Server struct {
@@ -852,8 +852,23 @@ another_unknown = 999
 		Server Server `toml:"server"`
 	}
 	var cfg Config
-	if err := Unmarshal([]byte(input), &cfg); err != nil {
-		t.Fatalf("extra keys in nested table should be ignored: %v", err)
+	err := Unmarshal([]byte(input), &cfg)
+	if err == nil {
+		t.Fatalf("Unmarshal accepted unknown keys in a nested table: %+v", cfg)
+	}
+	var all *Errors
+	if !errors.As(err, &all) {
+		t.Fatalf("err = %v (%T), want an aggregate", err, err)
+	}
+	var paths []string
+	for _, d := range all.Unwrap() {
+		var diag *Error
+		if errors.As(d, &diag) {
+			paths = append(paths, diag.Path)
+		}
+	}
+	if !reflect.DeepEqual(paths, []string{"server.unknown_key", "server.another_unknown"}) {
+		t.Errorf("diagnostics name %v, want both nested keys in document order", paths)
 	}
 	if cfg.Server.Host != "localhost" {
 		t.Errorf("Host = %q, want localhost", cfg.Server.Host)
@@ -876,21 +891,24 @@ func TestAudit_ArrayTooManyElements(t *testing.T) {
 	}
 }
 
+// Fails if an under-filled fixed-size array is accepted again: zero-padding
+// invents values the document never carried. The any-length spelling is a
+// slice.
 func TestAudit_ArrayFewerElements(t *testing.T) {
 	input := `vals = [1, 2]`
 	type Config struct {
 		Vals [5]int `toml:"vals"`
 	}
 	var cfg Config
-	// Fewer elements than array size should be OK (remaining are zero)
-	if err := Unmarshal([]byte(input), &cfg); err != nil {
-		t.Fatalf("fewer elements should be OK: %v", err)
+	err := Unmarshal([]byte(input), &cfg)
+	if err == nil {
+		t.Fatalf("Unmarshal accepted two elements into [5]int: %v", cfg.Vals)
 	}
-	if cfg.Vals[0] != 1 || cfg.Vals[1] != 2 {
-		t.Errorf("first two elements wrong: %v", cfg.Vals)
+	if !errors.Is(err, ErrInexact) {
+		t.Fatalf("err = %v, want an inexact diagnostic", err)
 	}
-	if cfg.Vals[2] != 0 || cfg.Vals[3] != 0 || cfg.Vals[4] != 0 {
-		t.Errorf("remaining elements should be zero: %v", cfg.Vals)
+	if cfg.Vals != [5]int{} {
+		t.Errorf("Vals = %v, want the target untouched", cfg.Vals)
 	}
 }
 

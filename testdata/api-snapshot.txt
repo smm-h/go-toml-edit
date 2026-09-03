@@ -6,6 +6,17 @@ const Added ChangeKind = 0
 const EntryRecord EntryKind = 1
 const EntryRecords EntryKind = 2
 const EntryValue EntryKind = 0
+const FieldKindAny FieldKind = 10
+const FieldKindArray FieldKind = 8
+const FieldKindBoolean FieldKind = 3
+const FieldKindFloat FieldKind = 2
+const FieldKindInteger FieldKind = 1
+const FieldKindLocalDate FieldKind = 6
+const FieldKindLocalDateTime FieldKind = 5
+const FieldKindLocalTime FieldKind = 7
+const FieldKindOffsetDateTime FieldKind = 4
+const FieldKindString FieldKind = 0
+const FieldKindTable FieldKind = 9
 const IntegerBinary IntegerBase = 3
 const IntegerDecimal IntegerBase = 0
 const IntegerHex IntegerBase = 1
@@ -88,8 +99,10 @@ var ErrUnknownKey error
 var ErrUnknownTable error
 var ErrWrongContainer error
 
+func DecodeNode(n Node, v any) error
 func DefaultFormatConfig() FormatConfig
 func Diff(a *Document, b *Document) []Change
+func FieldAny() Field
 func JoinPath(segs []PathSegment) string
 func Marshal(v any) ([]byte, error)
 func Parse(src []byte) (*Document, error)
@@ -211,6 +224,7 @@ type Document struct
 	method (*Document) SetLeadingComments(path string, comments []string) error
 	method (*Document) Span() Span
 	method (*Document) Type() NodeType
+	method (*Document) Validate(spec *Spec) error
 	method (*Document) Value() any
 	method (*Document) Walk(fn func(path string, node Node) error, mode WalkMode) error
 
@@ -249,6 +263,15 @@ type ErrorKind int
 type Errors struct
 	method (*Errors) Error() string
 	method (*Errors) Unwrap() []error
+
+type Field struct
+	field Kind FieldKind
+	field Required bool
+	field Elem *Field
+	field Table *Spec
+
+type FieldKind int
+	method (FieldKind) String() string
 
 type FloatNode struct
 	field Val float64
@@ -405,6 +428,10 @@ type Span struct
 	field Start Position
 	field End Position
 	method (Span) IsValid() bool
+
+type Spec struct
+	field Fields map[string]Field
+	field Dynamic *Field
 
 type StringNode struct
 	field Val string
