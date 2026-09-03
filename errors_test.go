@@ -134,6 +134,19 @@ func TestErrorsAggregateContract(t *testing.T) {
 	}
 }
 
+// Fails if the zero aggregate panics when rendered. The package never returns
+// an empty aggregate -- no diagnostics is a nil error -- but Errors is
+// exported, so a consumer can construct one and print it.
+func TestZeroErrorsRenders(t *testing.T) {
+	var e Errors
+	if got, want := e.Error(), "no diagnostics"; got != want {
+		t.Errorf("Error() = %q, want %q", got, want)
+	}
+	if all := e.Unwrap(); len(all) != 0 {
+		t.Errorf("Unwrap() = %v, want no diagnostics", all)
+	}
+}
+
 // Fails if any error-producing surface stops reporting the unified
 // diagnostic: one representative failure per surface, matched by kind through
 // errors.Is and structurally through errors.As, as the documented contract

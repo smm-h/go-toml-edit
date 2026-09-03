@@ -182,8 +182,15 @@ type Errors struct {
 	diags []*Error
 }
 
-// Error renders the first diagnostic of the aggregate.
-func (e *Errors) Error() string { return e.diags[0].Error() }
+// Error renders the first diagnostic of the aggregate, or "no diagnostics"
+// when it holds none. This package never produces an empty aggregate, but the
+// type is exported, so rendering a zero value reports rather than panics.
+func (e *Errors) Error() string {
+	if len(e.diags) == 0 {
+		return "no diagnostics"
+	}
+	return e.diags[0].Error()
+}
 
 // Unwrap returns every diagnostic of the aggregate, in document order.
 func (e *Errors) Unwrap() []error {
