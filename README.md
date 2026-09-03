@@ -82,10 +82,10 @@ fmt.Println(doc.GetInt("server.port"))    // 8080, true
 ### Edit Values
 
 ```go
-doc.Set("server.port", 9090)              // update existing key
+doc.Set("server.port", 9090)               // update existing key
 doc.SetCreate("database.host", "db.local") // create key + intermediate table
 doc.Delete("server.debug")                 // remove a key
-doc.RenameKey("server.host", "address")   // rename a key
+doc.RenameKey("server.host", "address")    // rename a key
 ```
 
 ### Comment Management
