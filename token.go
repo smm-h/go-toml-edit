@@ -73,4 +73,5 @@ type Token struct {
 	Raw    []byte // exact bytes from source
 	Line   int    // 1-based
 	Column int    // 1-based
+	Offset int    // 0-based byte offset of Raw within the source
 }

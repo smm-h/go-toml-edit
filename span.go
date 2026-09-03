@@ -1,10 +1,12 @@
 package tomledit
 
-// Position is a 1-based line/column location in TOML source. Columns count
-// bytes (not runes), matching the convention used by ParseError and Token.
+// Position is a location in TOML source: a 1-based line and column plus the
+// 0-based byte offset of the same point. Columns count bytes (not runes),
+// matching the convention used by diagnostics and tokens.
 type Position struct {
 	Line   int // 1-based line number
 	Column int // 1-based byte column within the line
+	Offset int // 0-based byte offset from the start of the source
 }
 
 // IsValid reports whether the position was populated from source (Line >= 1).
@@ -32,7 +34,8 @@ func (s Span) IsValid() bool { return s.Start.IsValid() }
 
 // advancePos returns the position after consuming raw, using the same
 // line/column rules as the lexer: a newline byte moves to the next line at
-// column 1, every other byte advances the column by one.
+// column 1, every other byte advances the column by one. Every byte advances
+// the offset.
 func advancePos(p Position, raw []byte) Position {
 	for _, b := range raw {
 		if b == '\n' {
@@ -41,13 +44,14 @@ func advancePos(p Position, raw []byte) Position {
 		} else {
 			p.Column++
 		}
+		p.Offset++
 	}
 	return p
 }
 
 // tokenStart returns the start position of a token.
 func tokenStart(tok Token) Position {
-	return Position{Line: tok.Line, Column: tok.Column}
+	return Position{Line: tok.Line, Column: tok.Column, Offset: tok.Offset}
 }
 
 // spanFromToken returns the span covering exactly one token.

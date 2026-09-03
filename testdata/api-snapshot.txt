@@ -323,6 +323,7 @@ type ParseError struct
 type Position struct
 	field Line int
 	field Column int
+	field Offset int
 	method (Position) IsValid() bool
 
 type Span struct
@@ -361,6 +362,7 @@ type Token struct
 	field Raw []byte
 	field Line int
 	field Column int
+	field Offset int
 
 type TokenType int
 	method (TokenType) String() string

@@ -66,6 +66,38 @@ func TestTokenTypes(t *testing.T) {
 	}
 }
 
+// Fails if the lexer stops recording each token's byte offset, or records one
+// that does not point at the token's own bytes -- the offsets diagnostics and
+// spans are built from.
+func TestTokenOffsets(t *testing.T) {
+	src := []byte("# c\r\ntitle = \"hello\"\n[a.b]\nx = [1, 2]\ny = { z = '''q''' }\n")
+	tokens, err := lex(src)
+	if err != nil {
+		t.Fatalf("lex failed: %v", err)
+	}
+	prevEnd := 0
+	for i, tok := range tokens {
+		end := tok.Offset + len(tok.Raw)
+		if tok.Offset < 0 || end > len(src) {
+			t.Fatalf("token %d (%s): offset range %d..%d outside the %d-byte source", i, tok.Type, tok.Offset, end, len(src))
+		}
+		if got := src[tok.Offset:end]; string(got) != string(tok.Raw) {
+			t.Errorf("token %d (%s): src[%d:%d] = %q, want %q", i, tok.Type, tok.Offset, end, got, tok.Raw)
+		}
+		if tok.Offset != prevEnd {
+			t.Errorf("token %d (%s): offset = %d, want %d (tokens must tile the source without gaps)", i, tok.Type, tok.Offset, prevEnd)
+		}
+		prevEnd = end
+	}
+	if prevEnd != len(src) {
+		t.Errorf("tokens cover %d bytes, want %d", prevEnd, len(src))
+	}
+	last := tokens[len(tokens)-1]
+	if last.Type != TokenEOF || last.Offset != len(src) {
+		t.Errorf("last token = %s at offset %d, want EOF at %d", last.Type, last.Offset, len(src))
+	}
+}
+
 func TestTokenTypeStringUnknown(t *testing.T) {
 	unknown := TokenType(999)
 	if got := unknown.String(); got != "Unknown" {

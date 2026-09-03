@@ -44,17 +44,17 @@ func mustParseSpanDoc(t *testing.T) *Document {
 	return doc
 }
 
+// assertSpan checks the line/column endpoints of a span. The byte offsets of
+// the same endpoints are covered by the offset tests at the bottom of this
+// file, which assert they agree with the line/column pair for every node.
 func assertSpan(t *testing.T, label string, got Span, startLine, startCol, endLine, endCol int) {
 	t.Helper()
-	want := Span{
-		Start: Position{Line: startLine, Column: startCol},
-		End:   Position{Line: endLine, Column: endCol},
-	}
-	if got != want {
+	if got.Start.Line != startLine || got.Start.Column != startCol ||
+		got.End.Line != endLine || got.End.Column != endCol {
 		t.Errorf("%s: span = %d:%d-%d:%d, want %d:%d-%d:%d",
 			label,
 			got.Start.Line, got.Start.Column, got.End.Line, got.End.Column,
-			want.Start.Line, want.Start.Column, want.End.Line, want.End.Column)
+			startLine, startCol, endLine, endCol)
 	}
 }
 
@@ -328,6 +328,126 @@ func TestSpanEditPolicy(t *testing.T) {
 		t.Fatalf("Get(b) returned nil")
 	}
 	assertSpan(t, "untouched value", bVal.Span(), 2, 5, 2, 6)
+}
+
+// --- byte offsets ---
+
+// offsetOfLineColumn converts a 1-based line/column pair into the 0-based byte
+// offset of the same point in src, by the lexer's own advancement rules.
+func offsetOfLineColumn(src []byte, line, column int) int {
+	curLine, curCol := 1, 1
+	for i := 0; i <= len(src); i++ {
+		if curLine == line && curCol == column {
+			return i
+		}
+		if i == len(src) {
+			break
+		}
+		if src[i] == '\n' {
+			curLine++
+			curCol = 1
+		} else {
+			curCol++
+		}
+	}
+	return -1
+}
+
+// Fails if any node's span offsets stop agreeing with its line/column
+// endpoints -- the condition a span-construction site that forgets to carry
+// the offset produces.
+func TestSpanOffsetsAgreeWithLineColumn(t *testing.T) {
+	src := []byte(spanTestDoc)
+	doc := mustParseSpanDoc(t)
+
+	check := func(label string, sp Span) {
+		t.Helper()
+		if !sp.IsValid() {
+			return
+		}
+		if want := offsetOfLineColumn(src, sp.Start.Line, sp.Start.Column); sp.Start.Offset != want {
+			t.Errorf("%s: start offset = %d, want %d (line %d, column %d)",
+				label, sp.Start.Offset, want, sp.Start.Line, sp.Start.Column)
+		}
+		if want := offsetOfLineColumn(src, sp.End.Line, sp.End.Column); sp.End.Offset != want {
+			t.Errorf("%s: end offset = %d, want %d (line %d, column %d)",
+				label, sp.End.Offset, want, sp.End.Line, sp.End.Column)
+		}
+	}
+
+	check("document", doc.Span())
+	err := doc.Walk(func(path string, node Node) error {
+		check(path, node.Span())
+		return nil
+	}, WalkAll)
+	if err != nil {
+		t.Fatalf("Walk failed: %v", err)
+	}
+}
+
+// Fails if a span stops slicing the exact source bytes of the construct it
+// covers -- the offsets are only useful if src[start:end] is the construct.
+func TestSpanOffsetsSliceTheSource(t *testing.T) {
+	src := []byte(spanTestDoc)
+	doc := mustParseSpanDoc(t)
+
+	tests := []struct {
+		label string
+		span  Span
+		want  string
+	}{
+		{"title key", rootKV(t, doc, 0).Key.Span(), "title"},
+		{"title value", rootKV(t, doc, 0).Val.Span(), `"hello"`},
+		{"count key-value", rootKV(t, doc, 1).Span(), "count = 42"},
+		{"tags array", rootKV(t, doc, 8).Val.Span(), "[1, 2, 3]"},
+		{"tags element 1", rootKV(t, doc, 8).Val.(*ArrayNode).Elements[1].Span(), "2"},
+		{"point inline table", rootKV(t, doc, 9).Val.Span(), "{ x = 1, y = 2 }"},
+		{"desc multiline value", rootKV(t, doc, 10).Val.Span(), "\"\"\"\nmulti\nline\"\"\""},
+		{"[server] header", doc.Children[11].Span(), "[server]"},
+		{"[server.tls] header", doc.Children[12].Span(), "[server.tls]"},
+		{"[[products]] header", doc.Children[13].Span(), "[[products]]"},
+	}
+	for _, tt := range tests {
+		t.Run(tt.label, func(t *testing.T) {
+			sp := tt.span
+			if !sp.IsValid() {
+				t.Fatalf("span is invalid")
+			}
+			if sp.Start.Offset < 0 || sp.End.Offset > len(src) || sp.Start.Offset > sp.End.Offset {
+				t.Fatalf("offsets out of range: %d..%d (source is %d bytes)", sp.Start.Offset, sp.End.Offset, len(src))
+			}
+			if got := string(src[sp.Start.Offset:sp.End.Offset]); got != tt.want {
+				t.Errorf("src[%d:%d] = %q, want %q", sp.Start.Offset, sp.End.Offset, got, tt.want)
+			}
+		})
+	}
+}
+
+// Fails if CRLF line endings stop being counted in offsets (the \r is a byte
+// of the source even though it never advances the line).
+func TestSpanOffsetsCRLF(t *testing.T) {
+	src := []byte("a = 1\r\nb = 2\r\n")
+	doc, err := Parse(src)
+	if err != nil {
+		t.Fatalf("Parse failed: %v", err)
+	}
+	b := doc.Children[1].(*KeyValueNode)
+	if got := string(src[b.Span().Start.Offset:b.Span().End.Offset]); got != "b = 2" {
+		t.Errorf("second key-value slices %q, want %q", got, "b = 2")
+	}
+}
+
+// Fails if the document span stops ending at the last byte of the source.
+func TestSpanOffsetsDocumentCoversSource(t *testing.T) {
+	src := []byte(spanTestDoc)
+	doc := mustParseSpanDoc(t)
+	sp := doc.Span()
+	if sp.Start.Offset != 0 {
+		t.Errorf("document start offset = %d, want 0", sp.Start.Offset)
+	}
+	if sp.End.Offset != len(src) {
+		t.Errorf("document end offset = %d, want %d (the source length)", sp.End.Offset, len(src))
+	}
 }
 
 func TestSpanZeroInvalid(t *testing.T) {

@@ -80,6 +80,7 @@ func (l *lexer) emitAt(typ TokenType, start, end, line, col int) {
 		Raw:    l.src[start:end],
 		Line:   line,
 		Column: col,
+		Offset: start,
 	})
 }
 
