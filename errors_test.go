@@ -430,3 +430,40 @@ func TestSnippetIsTruncated(t *testing.T) {
 		t.Errorf("snippet length = %d, want %d", len(diag.Snippet), snippetLimit)
 	}
 }
+
+// Fails if a diagnostic positioned at the end of a newline-terminated source
+// quotes nothing. The end-of-input offset sits on the empty final line, so the
+// excerpt worth quoting is the line the unfinished construct opened on.
+func TestSnippetAtEndOfInput(t *testing.T) {
+	tests := []struct {
+		name  string
+		input string
+		want  string
+	}{
+		{"unclosed array", "a = [1,\n", "a = [1,"},
+		{"empty unclosed array", "a = [\n", "a = ["},
+		{"unclosed array over lines", "a = [\n  1,\n", "  1,"},
+		{"unclosed array after a comment", "a = [1, # tail\n", "a = [1, # tail"},
+		{"trailing blank lines", "a = [1,\n\n\n", "a = [1,"},
+	}
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			src := []byte(tt.input)
+			_, err := Parse(src)
+			if err == nil {
+				t.Fatalf("expected a parse error for %q", tt.input)
+			}
+			var diag *Error
+			if !errors.As(err, &diag) {
+				t.Fatalf("expected *Error, got %T: %v", err, err)
+			}
+			if diag.Pos.Offset != len(src) {
+				t.Fatalf("offset = %d, want %d (end of input): this case no longer "+
+					"exercises an end-of-input diagnostic", diag.Pos.Offset, len(src))
+			}
+			if diag.Snippet != tt.want {
+				t.Errorf("snippet = %q, want %q", diag.Snippet, tt.want)
+			}
+		})
+	}
+}
