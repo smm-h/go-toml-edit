@@ -219,7 +219,7 @@ func TestMergeDefaults_ArraysAtomic(t *testing.T) {
 	}
 
 	// The existing array should be unchanged.
-	node := doc.Get("tags")
+	node, _ := doc.Lookup("tags")
 	arr, ok := node.(*ArrayNode)
 	if !ok {
 		t.Fatalf("expected ArrayNode, got %T", node)

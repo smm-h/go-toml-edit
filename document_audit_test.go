@@ -130,8 +130,8 @@ func TestAudit_EmptyPathGet(t *testing.T) {
 	}
 
 	// Get with empty path should return nil (ParsePath returns error for "")
-	node := doc.Get("")
-	if node != nil {
+	node, ok := doc.Lookup("")
+	if ok {
 		t.Errorf("Get(\"\") should return nil, got %T", node)
 	}
 }
@@ -164,8 +164,8 @@ host = "localhost"
 	}
 
 	// Get("server") should return the TableNode
-	node := doc.Get("server")
-	if node == nil {
+	node, ok := doc.Lookup("server")
+	if !ok {
 		t.Fatal("Get(\"server\") returned nil")
 	}
 	if _, ok := node.(*TableNode); !ok {
@@ -201,8 +201,8 @@ name = "b"
 	}
 
 	// Index 5 out of bounds
-	node := doc.Get("items[5]")
-	if node != nil {
+	node, ok := doc.Lookup("items[5]")
+	if ok {
 		t.Errorf("Get(\"items[5]\") should return nil for out-of-bounds, got %T", node)
 	}
 
@@ -224,8 +224,8 @@ name = "a"
 	}
 
 	// -2 on length-1 array
-	node := doc.Get("items[-2]")
-	if node != nil {
+	node, ok := doc.Lookup("items[-2]")
+	if ok {
 		t.Errorf("Get(\"items[-2]\") should return nil for out-of-bounds, got %T", node)
 	}
 }
@@ -240,8 +240,8 @@ arr = []
 		t.Fatalf("parse error: %v", err)
 	}
 
-	node := doc.Get("section.arr[-1]")
-	if node != nil {
+	node, ok := doc.Lookup("section.arr[-1]")
+	if ok {
 		t.Errorf("Get(\"section.arr[-1]\") should return nil for empty array, got %T", node)
 	}
 
@@ -414,16 +414,42 @@ name = "Gadget"
 		t.Fatalf("parse error: %v", err)
 	}
 
-	// Get("products") should return the arrayTableCollection
-	node := doc.Get("products")
-	if node == nil {
-		t.Fatal("Get(\"products\") returned nil -- should return arrayTableCollection")
+	// An array-of-tables is not a single node: the concrete-node surfaces
+	// refuse it, and the read-layer is where its entries are read.
+	if node, ok := doc.Lookup("products"); ok {
+		t.Errorf("Lookup(\"products\") answered with %T; an array-of-tables is no single node", node)
+	}
+	if doc.Has("products") {
+		t.Error("Has(\"products\") reported an array-of-tables as a concrete node")
+	}
+	_, err = doc.Resolve("products")
+	if !errors.Is(err, ErrWrongContainer) {
+		t.Errorf("Resolve(\"products\") = %v, want a wrong-container diagnostic", err)
 	}
 
-	// Trying to Get("products.name") without index should error
-	node = doc.Get("products.name")
-	if node != nil {
-		t.Errorf("Get(\"products.name\") without index should return nil, got %T", node)
+	// A key on a collection needs an index first.
+	_, err = doc.Resolve("products.name")
+	if !errors.Is(err, ErrWrongContainer) {
+		t.Errorf("Resolve(\"products.name\") = %v, want a wrong-container diagnostic", err)
+	}
+
+	// Indexing reaches the entry, which is a node.
+	node, ok := doc.Lookup("products[0]")
+	if !ok {
+		t.Fatal("Lookup(\"products[0]\") found nothing")
+	}
+	if _, isEntry := node.(*ArrayTableNode); !isEntry {
+		t.Errorf("products[0] is a %T, want an *ArrayTableNode", node)
+	}
+
+	// The read-layer carries the collection itself.
+	entry, ok := doc.Root().Get("products")
+	if !ok {
+		t.Fatal("the read-layer has no entry products")
+	}
+	records, ok := entry.Records()
+	if !ok || len(records) != 2 {
+		t.Errorf("the read-layer holds %d product entries, want 2", len(records))
 	}
 }
 
@@ -446,16 +472,28 @@ func TestAudit_DottedKeyIntermediateAccess(t *testing.T) {
 		t.Errorf("expected \"deep\", got %q", val)
 	}
 
-	// Intermediate: Get("a.b") should return a dottedKeyView (not nil)
-	node := doc.Get("a.b")
-	if node == nil {
-		t.Fatal("Get(\"a.b\") returned nil -- should return intermediate dottedKeyView")
+	// The tables a dotted key implies have no node of their own, so the
+	// concrete-node surfaces refuse them.
+	for _, path := range []string{"a", "a.b"} {
+		if node, ok := doc.Lookup(path); ok {
+			t.Errorf("Lookup(%q) answered with %T; an implied table is no single node", path, node)
+		}
+		if _, err := doc.Resolve(path); !errors.Is(err, ErrWrongContainer) {
+			t.Errorf("Resolve(%q) = %v, want a wrong-container diagnostic", path, err)
+		}
 	}
 
-	// Get("a") should also return something
-	node = doc.Get("a")
-	if node == nil {
-		t.Fatal("Get(\"a\") returned nil -- should return intermediate dottedKeyView")
+	// The read-layer carries them.
+	a, ok := doc.Root().Get("a")
+	if !ok {
+		t.Fatal("the read-layer has no entry a")
+	}
+	rec, ok := a.Record()
+	if !ok {
+		t.Fatalf("entry a is a %s, want a record", a.Kind())
+	}
+	if _, ok := rec.Get("b"); !ok {
+		t.Error("the record a does not hold b")
 	}
 }
 
@@ -575,8 +613,8 @@ func TestAudit_GettersSilentOnErrors(t *testing.T) {
 	if _, ok := doc.GetTime("bad["); ok {
 		t.Error("GetTime on bad path should return false")
 	}
-	if node := doc.Get("bad["); node != nil {
-		t.Errorf("Get on bad path should return nil, got %T", node)
+	if node, ok := doc.Lookup("bad["); ok {
+		t.Errorf("Lookup on bad path should report false, got %T", node)
 	}
 }
 
@@ -607,8 +645,8 @@ func TestAudit_IndexIntoNonArray(t *testing.T) {
 		t.Fatalf("parse error: %v", err)
 	}
 
-	node := doc.Get("val[0]")
-	if node != nil {
+	node, ok := doc.Lookup("val[0]")
+	if ok {
 		t.Errorf("Get(\"val[0]\") on a string should return nil, got %T", node)
 	}
 
@@ -627,8 +665,8 @@ func TestAudit_KeyLookupInNonTable(t *testing.T) {
 		t.Fatalf("parse error: %v", err)
 	}
 
-	node := doc.Get("val.sub")
-	if node != nil {
+	node, ok := doc.Lookup("val.sub")
+	if ok {
 		t.Errorf("Get(\"val.sub\") on an integer should return nil, got %T", node)
 	}
 }
@@ -648,8 +686,8 @@ x = 2
 		t.Fatalf("parse error: %v", err)
 	}
 
-	node := doc.Get("entries[0]")
-	if node == nil {
+	node, ok := doc.Lookup("entries[0]")
+	if !ok {
 		t.Fatal("Get(\"entries[0]\") returned nil")
 	}
 	if _, ok := node.(*ArrayTableNode); !ok {

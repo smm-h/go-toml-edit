@@ -21,9 +21,9 @@ func (d *Document) mergeMap(prefix string, m map[string]any) error {
 		}
 
 		subMap, isMap := val.(map[string]any)
-		existing := d.Get(fullPath)
+		existing, present := d.probe(fullPath)
 
-		if existing == nil {
+		if !present {
 			// Key doesn't exist: set it. For maps, use SetCreate so the whole
 			// inline table is created atomically.
 			if err := d.SetCreate(fullPath, val); err != nil {
@@ -32,17 +32,13 @@ func (d *Document) mergeMap(prefix string, m map[string]any) error {
 			continue
 		}
 
-		// Key exists. If both sides are maps/tables, recurse.
+		// Key exists. If both sides are tables, recurse. An array-of-tables,
+		// a scalar and an array are all atomic: the existing value stands.
 		if isMap {
-			// Check if existing is a table-like node we can merge into.
-			switch existing.(type) {
-			case *TableNode, *InlineTableNode, *ArrayTableNode,
-				*compoundTableView, *dottedKeyView, *dottedKeyGroup:
+			if existing.rec != nil {
 				if err := d.mergeMap(fullPath, subMap); err != nil {
 					return err
 				}
-			default:
-				// Existing is a scalar or array -- keep it (atomic).
 			}
 			continue
 		}
@@ -89,8 +85,8 @@ func mergeChildren(target *Document, source *Document, scope Node, prefix string
 			fullPath = prefix + "." + part
 		}
 
-		existing := target.Get(fullPath)
-		if existing == nil {
+		existing, present := target.probe(fullPath)
+		if !present {
 			// New key: copy value and comments.
 			if err := target.SetCreate(fullPath, nodeToValue(kv.Val)); err != nil {
 				return wrapError(err, "merging key %q", fullPath)
@@ -99,7 +95,7 @@ func mergeChildren(target *Document, source *Document, scope Node, prefix string
 			copyComments(target, fullPath, kv)
 		} else {
 			// Existing key: check if both are tables for recursive merge.
-			if isTableLike(existing) && isTableLike(kv.Val) {
+			if existing.rec != nil && isTableLike(kv.Val) {
 				if err := mergeChildren(target, source, kv.Val, fullPath); err != nil {
 					return err
 				}
@@ -121,8 +117,7 @@ func mergeChildren(target *Document, source *Document, scope Node, prefix string
 		// Multi-part dotted key like a.b.c = val.
 		// Build the full path and merge as a leaf.
 		fullPath := buildPathFromParts(prefix, kv.Key.Parts)
-		existing := target.Get(fullPath)
-		if existing == nil {
+		if _, present := target.probe(fullPath); !present {
 			if err := target.SetCreate(fullPath, nodeToValue(kv.Val)); err != nil {
 				return wrapError(err, "merging dotted key %q", fullPath)
 			}
@@ -154,13 +149,13 @@ func mergeChildren(target *Document, source *Document, scope Node, prefix string
 			suffix := n.KeyPath[len(scopePath):]
 			subPrefix := buildPathFromParts(prefix, suffix)
 
-			existing := target.Get(subPrefix)
-			if existing == nil {
+			existing, present := target.probe(subPrefix)
+			if !present {
 				// Entire sub-table is new. Create it and copy all children.
 				if err := mergeSubTable(target, source, n, subPrefix); err != nil {
 					return err
 				}
-			} else if isTableLike(existing) {
+			} else if existing.rec != nil {
 				// Both sides have this table: recurse.
 				if err := mergeChildren(target, source, n, subPrefix); err != nil {
 					return err
@@ -191,8 +186,7 @@ func mergeChildren(target *Document, source *Document, scope Node, prefix string
 	// Process array-table groups: if target has zero entries, copy all;
 	// if target already has entries, skip (atomic).
 	for _, group := range arrayTableGroups {
-		existing := target.Get(group.subPrefix)
-		if existing != nil {
+		if _, present := target.probe(group.subPrefix); present {
 			// Target already has this array-of-tables: keep it (atomic).
 			continue
 		}
@@ -305,12 +299,23 @@ func isDirectChild(childPath, parentPath []string) bool {
 // that can be recursively merged.
 func isTableLike(n Node) bool {
 	switch n.(type) {
-	case *TableNode, *InlineTableNode, *ArrayTableNode,
-		*compoundTableView, *dottedKeyView, *dottedKeyGroup:
+	case *TableNode, *InlineTableNode, *ArrayTableNode:
 		return true
 	default:
 		return false
 	}
+}
+
+// probe reports what the path names in the read-layer, and whether it names
+// anything at all. Unlike Lookup it answers for logical positions too: a merge
+// asks whether the target already carries a key, and a table the target spells
+// with a longer header carries one just as much as a table with its own.
+func (d *Document) probe(path string) (layerPos, bool) {
+	pos, err := d.resolvePos(path)
+	if err != nil {
+		return layerPos{}, false
+	}
+	return pos, true
 }
 
 // nodeToValue converts an AST node back to a Go value suitable for SetCreate.

@@ -89,8 +89,8 @@ func TestArrayComments_SetPreservesOtherComments(t *testing.T) {
 	}
 
 	// Verify the semantic value is correct.
-	node := doc2.Get("arr[1]")
-	if node == nil {
+	node, ok := doc2.Lookup("arr[1]")
+	if !ok {
 		t.Fatalf("Get arr[1]: not found")
 	}
 	if node.Value() != int64(42) {
@@ -178,8 +178,8 @@ func TestArrayComments_SetPreservesInlineOnUnchanged(t *testing.T) {
 	if err != nil {
 		t.Fatalf("re-parse failed: %v\noutput:\n%s", err, got)
 	}
-	node := doc2.Get("arr[1]")
-	if node == nil {
+	node, ok := doc2.Lookup("arr[1]")
+	if !ok {
 		t.Fatalf("Get arr[1]: not found")
 	}
 	if node.Value() != "B" {

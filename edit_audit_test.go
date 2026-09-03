@@ -94,8 +94,8 @@ name = "test"
 
 	// Must parse back
 	doc2 := roundTripAudit(t, doc)
-	node := doc2.Get("config.tags")
-	if node == nil {
+	node, ok := doc2.Lookup("config.tags")
+	if !ok {
 		t.Fatal("tags not found after round-trip")
 	}
 	arr, ok := node.(*ArrayNode)
@@ -127,8 +127,7 @@ name = "test"
 	out := string(doc.Bytes())
 	// Must parse back as valid TOML
 	doc2 := roundTripAudit(t, doc)
-	node := doc2.Get("config.metadata")
-	if node == nil {
+	if _, ok := doc2.Lookup("config.metadata"); !ok {
 		t.Fatalf("metadata not found after round-trip. Output:\n%s", out)
 	}
 }
@@ -148,8 +147,8 @@ label = "numbers"
 	}
 
 	doc2 := roundTripAudit(t, doc)
-	node := doc2.Get("data.values")
-	if node == nil {
+	node, ok := doc2.Lookup("data.values")
+	if !ok {
 		t.Fatal("values not found after round-trip")
 	}
 	arr, ok := node.(*ArrayNode)
@@ -279,7 +278,7 @@ func TestAudit_DeleteFromInlineTable(t *testing.T) {
 	out := string(doc.Bytes())
 	// b should be gone, a and c should remain
 	doc2 := roundTripAudit(t, doc)
-	if doc2.Get("config.b") != nil {
+	if doc2.Has("config.b") {
 		t.Errorf("config.b should be deleted. Output:\n%s", out)
 	}
 	va, ok := doc2.GetInt("config.a")
@@ -318,7 +317,7 @@ name = "mydb"
 	}
 
 	doc2 := roundTripAudit(t, doc)
-	if doc2.Get("server") != nil {
+	if doc2.Has("server") {
 		t.Error("server should not resolve after deletion")
 	}
 	val, ok := doc2.GetString("database.name")
@@ -437,7 +436,7 @@ key = "original"
 	if err != nil {
 		t.Fatalf("Delete error: %v", err)
 	}
-	if doc.Get("config.key") != nil {
+	if doc.Has("config.key") {
 		t.Fatal("key should be deleted")
 	}
 
@@ -577,7 +576,7 @@ name = "Gadget"
 	}
 
 	// Verify first entry is unchanged
-	if doc.Get("products[0].color") != nil {
+	if doc.Has("products[0].color") {
 		t.Error("products[0].color should not exist")
 	}
 
@@ -896,8 +895,8 @@ func TestAudit_SetInlineArrayElement(t *testing.T) {
 	}
 
 	doc2 := roundTripAudit(t, doc)
-	node := doc2.Get("arr[1]")
-	if node == nil {
+	node, ok := doc2.Lookup("arr[1]")
+	if !ok {
 		t.Fatal("arr[1] not found after round-trip")
 	}
 	if node.Value() != int64(42) {
@@ -919,8 +918,8 @@ func TestAudit_DeleteInlineArrayElement(t *testing.T) {
 	}
 
 	doc2 := roundTripAudit(t, doc)
-	node := doc2.Get("arr")
-	if node == nil {
+	node, ok := doc2.Lookup("arr")
+	if !ok {
 		t.Fatal("arr not found")
 	}
 	arr, ok := node.(*ArrayNode)

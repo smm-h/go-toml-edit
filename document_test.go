@@ -45,8 +45,8 @@ func parseTestDoc(t *testing.T) *Document {
 
 func TestGet_ServerHost(t *testing.T) {
 	doc := parseTestDoc(t)
-	node := doc.Get("server.host")
-	if node == nil {
+	node, ok := doc.Lookup("server.host")
+	if !ok {
 		t.Fatal("Get(\"server.host\") returned nil")
 	}
 	s, ok := node.(*StringNode)
@@ -170,8 +170,8 @@ func TestGetTime_DatesCreated(t *testing.T) {
 
 func TestGet_DatesUpdated(t *testing.T) {
 	doc := parseTestDoc(t)
-	node := doc.Get("dates.updated")
-	if node == nil {
+	node, ok := doc.Lookup("dates.updated")
+	if !ok {
 		t.Fatal("Get(\"dates.updated\") returned nil")
 	}
 	if _, ok := node.(*LocalDateTimeNode); !ok {
@@ -181,8 +181,8 @@ func TestGet_DatesUpdated(t *testing.T) {
 
 func TestGet_DatesBirthday(t *testing.T) {
 	doc := parseTestDoc(t)
-	node := doc.Get("dates.birthday")
-	if node == nil {
+	node, ok := doc.Lookup("dates.birthday")
+	if !ok {
 		t.Fatal("Get(\"dates.birthday\") returned nil")
 	}
 	if _, ok := node.(*LocalDateNode); !ok {
@@ -192,8 +192,8 @@ func TestGet_DatesBirthday(t *testing.T) {
 
 func TestGet_DatesAlarm(t *testing.T) {
 	doc := parseTestDoc(t)
-	node := doc.Get("dates.alarm")
-	if node == nil {
+	node, ok := doc.Lookup("dates.alarm")
+	if !ok {
 		t.Fatal("Get(\"dates.alarm\") returned nil")
 	}
 	if _, ok := node.(*LocalTimeNode); !ok {
@@ -236,8 +236,8 @@ func TestGetInt_NestedArrayNeg1(t *testing.T) {
 
 func TestGet_MissingPath(t *testing.T) {
 	doc := parseTestDoc(t)
-	node := doc.Get("nonexistent")
-	if node != nil {
+	node, ok := doc.Lookup("nonexistent")
+	if ok {
 		t.Errorf("expected nil for missing path, got %T", node)
 	}
 }

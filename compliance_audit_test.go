@@ -30,9 +30,8 @@ func TestCompoundTablePath_IntermediateAccess(t *testing.T) {
 	if err != nil {
 		t.Fatalf("Parse failed: %v", err)
 	}
-	node := doc.Get("a.b.c.d")
-	if node == nil {
-		t.Fatalf("Get(\"a.b.c.d\") returned nil; expected table node")
+	if _, ok := doc.Lookup("a.b.c.d"); !ok {
+		t.Fatalf("Lookup(\"a.b.c.d\") found nothing; expected the table node")
 	}
 }
 

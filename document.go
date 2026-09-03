@@ -2,45 +2,6 @@ package tomledit
 
 import "time"
 
-// resolveNode resolves a parsed path against the document's AST, returning
-// the target node. For KeyValueNodes the unwrapped value is returned.
-func resolveNode(doc *Document, segments []PathSegment) (Node, error) {
-	if len(segments) == 0 {
-		return doc, nil
-	}
-
-	var current Node = doc
-	// currentTablePath tracks our logical position in the table hierarchy,
-	// used when looking up sub-tables from the document's flat list.
-	var currentTablePath []string
-
-	for i, seg := range segments {
-		switch seg.Kind {
-		case SegmentKey:
-			node, tablePath, err := resolveKeySegment(doc, current, currentTablePath, seg.Key, segments, i)
-			if err != nil {
-				return nil, err
-			}
-			current = node
-			currentTablePath = tablePath
-
-		case SegmentIndex:
-			node, err := resolveIndexSegment(doc, current, currentTablePath, seg.Index)
-			if err != nil {
-				return nil, err
-			}
-			current = node
-			// After indexing into an array-of-tables, currentTablePath stays the same
-			// (the indexed element is an ArrayTableNode with the same KeyPath).
-
-		default:
-			return nil, newError(KindBadPath, "unknown segment type")
-		}
-	}
-
-	return current, nil
-}
-
 // resolveKeySegment handles a key lookup within the current scope.
 // It returns the resolved node, the updated table path, and any error.
 func resolveKeySegment(
@@ -539,49 +500,15 @@ func resolveKeyInDottedView(doc *Document, view *dottedKeyView, key string) (Nod
 }
 
 // --- Public API methods on Document ---
-
-// Get resolves the dot-separated path against the document and returns the
-// target node. For key-value pairs, the value node is returned (not the
-// KeyValueNode wrapper). Returns nil if the path is syntactically invalid or
-// the key is not found.
 //
-// Path syntax uses dots to separate keys (e.g. "server.host"), brackets for
-// array indices (e.g. "items[0]"), and supports negative indices (e.g. "items[-1]"
-// for the last element). Use Resolve for the same operation with error details.
-func (d *Document) Get(path string) Node {
-	segments, err := ParsePath(path)
-	if err != nil {
-		return nil
-	}
-	node, err := resolveNode(d, segments)
-	if err != nil {
-		return nil
-	}
-	return node
-}
-
-// Resolve resolves the dot-separated path against the document and returns the
-// target node. Unlike Get, it reports why the resolution failed: the returned
-// *Error carries KindBadPath for a syntactically invalid path, KindNotFound
-// for a path naming nothing, and KindWrongContainer for a step that does not
-// apply to what it addresses.
-func (d *Document) Resolve(path string) (Node, error) {
-	segments, err := ParsePath(path)
-	if err != nil {
-		return nil, d.diag(err, path)
-	}
-	node, err := resolveNode(d, segments)
-	if err != nil {
-		return nil, d.diag(err, path)
-	}
-	return node, nil
-}
+// Resolve, Lookup and Has live in resolve.go, with the read-layer walk they
+// share. The typed getters below are their conveniences.
 
 // GetString resolves the path and returns the string value. Returns ("", false)
 // if the path is not found or the value is not a string.
 func (d *Document) GetString(path string) (string, bool) {
-	node := d.Get(path)
-	if node == nil {
+	node, ok := d.Lookup(path)
+	if !ok {
 		return "", false
 	}
 	if s, ok := node.(*StringNode); ok {
@@ -593,8 +520,8 @@ func (d *Document) GetString(path string) (string, bool) {
 // GetInt resolves the path and returns the integer value. Returns (0, false)
 // if the path is not found or the value is not an integer.
 func (d *Document) GetInt(path string) (int64, bool) {
-	node := d.Get(path)
-	if node == nil {
+	node, ok := d.Lookup(path)
+	if !ok {
 		return 0, false
 	}
 	if n, ok := node.(*IntegerNode); ok {
@@ -606,8 +533,8 @@ func (d *Document) GetInt(path string) (int64, bool) {
 // GetBool resolves the path and returns the boolean value. Returns (false, false)
 // if the path is not found or the value is not a boolean.
 func (d *Document) GetBool(path string) (bool, bool) {
-	node := d.Get(path)
-	if node == nil {
+	node, ok := d.Lookup(path)
+	if !ok {
 		return false, false
 	}
 	if b, ok := node.(*BooleanNode); ok {
@@ -619,8 +546,8 @@ func (d *Document) GetBool(path string) (bool, bool) {
 // GetFloat resolves the path and returns the float64 value. Returns (0, false)
 // if the path is not found or the value is not a float.
 func (d *Document) GetFloat(path string) (float64, bool) {
-	node := d.Get(path)
-	if node == nil {
+	node, ok := d.Lookup(path)
+	if !ok {
 		return 0, false
 	}
 	if f, ok := node.(*FloatNode); ok {
@@ -632,8 +559,8 @@ func (d *Document) GetFloat(path string) (float64, bool) {
 // GetTime resolves the path and returns a time.Time value. Returns (time.Time{}, false)
 // if the path is not found or the value is not an offset date-time.
 func (d *Document) GetTime(path string) (time.Time, bool) {
-	node := d.Get(path)
-	if node == nil {
+	node, ok := d.Lookup(path)
+	if !ok {
 		return time.Time{}, false
 	}
 	if dt, ok := node.(*DateTimeNode); ok {

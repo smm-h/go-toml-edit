@@ -217,8 +217,8 @@ func TestSet_Array(t *testing.T) {
 		t.Fatalf("Set returned error: %v", err)
 	}
 
-	node := doc.Get("server.tags")
-	if node == nil {
+	node, ok := doc.Lookup("server.tags")
+	if !ok {
 		t.Fatal("Get returned nil for tags")
 	}
 	arr, ok := node.(*ArrayNode)
@@ -243,8 +243,8 @@ func TestSet_Map(t *testing.T) {
 		t.Fatalf("Set returned error: %v", err)
 	}
 
-	node := doc.Get("server.metadata")
-	if node == nil {
+	node, ok := doc.Lookup("server.metadata")
+	if !ok {
 		t.Fatal("Get returned nil for metadata")
 	}
 	tbl, ok := node.(*InlineTableNode)
@@ -266,8 +266,8 @@ func TestSet_WithNodeValue(t *testing.T) {
 	doc := parseEditTestDoc(t)
 
 	// Get an existing node and copy it to a new location.
-	srcNode := doc.Get("server.host")
-	if srcNode == nil {
+	srcNode, ok := doc.Lookup("server.host")
+	if !ok {
 		t.Fatal("source node is nil")
 	}
 	err := doc.Set("server.backup_host", srcNode)
@@ -412,8 +412,7 @@ func TestDelete_NegativeIndex(t *testing.T) {
 	}
 
 	// Index 1 should not exist.
-	node := doc.Get("products[1].name")
-	if node != nil {
+	if _, ok := doc.Lookup("products[1].name"); ok {
 		t.Error("products[1] should not exist after deleting [-1]")
 	}
 
@@ -706,8 +705,8 @@ func TestSet_RoundTrip_Comprehensive(t *testing.T) {
 	}
 
 	for _, c := range checks {
-		node := doc2.Get(c.path)
-		if node == nil {
+		node, ok := doc2.Lookup(c.path)
+		if !ok {
 			t.Errorf("Get(%q) returned nil after round-trip", c.path)
 			continue
 		}

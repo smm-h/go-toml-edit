@@ -62,74 +62,53 @@ func (d *Document) setInternal(path string, value any, create bool) error {
 
 // resolveParentForEdit resolves the parent container for an edit operation.
 // When create is true, missing intermediate tables are auto-created.
-func (d *Document) resolveParentForEdit(segments []PathSegment, create bool) (Node, error) {
-	if len(segments) == 0 {
-		return d, nil
-	}
-
-	// Try resolving the full parent path first.
-	node, err := resolveNodeForEdit(d, segments)
+func (d *Document) resolveParentForEdit(segments []PathSegment, create bool) (layerPos, error) {
+	pos, err := d.walkPath(segments)
 	if err == nil {
-		return node, nil
+		return pos, nil
 	}
-
 	if !create {
-		return nil, wrapError(err, "parent path not found")
+		return layerPos{}, wrapError(err, "parent path not found")
 	}
-
-	// Auto-create mode: walk segments, creating tables as needed.
 	return d.resolveOrCreateParent(segments)
 }
 
-// resolveOrCreateParent walks the path segments, creating intermediate tables
-// as needed. Returns the final parent container.
-func (d *Document) resolveOrCreateParent(segments []PathSegment) (Node, error) {
-	var current Node = d
-	var currentTablePath []string
-
-	for _, seg := range segments {
-		if seg.Kind != SegmentKey {
-			// For index segments, the collection must already exist.
-			next, err := resolveIndexSegment(d, current, currentTablePath, seg.Index)
-			if err != nil {
-				return nil, wrapError(err, "cannot auto-create array index")
-			}
-			current = next
-			continue
-		}
-
-		// Try to resolve this key segment.
-		next, tablePath, err := resolveKeySegment(d, current, currentTablePath, seg.Key, nil, 0)
-		if err == nil {
-			current = next
-			currentTablePath = tablePath
-			continue
-		}
-
-		// Key not found -- create a table for it. The path it returns is
-		// discarded: the re-resolution below recomputes it.
-		if _, err := d.createIntermediateTable(current, currentTablePath, seg.Key); err != nil {
-			return nil, err
-		}
-
-		// Re-resolve to get the newly created table.
-		next, tablePath, err = resolveKeySegment(d, current, currentTablePath, seg.Key, nil, 0)
+// resolveOrCreateParent walks the path segments, creating a standard table for
+// every key step that names nothing yet, and returns the final parent position.
+func (d *Document) resolveOrCreateParent(segments []PathSegment) (layerPos, error) {
+	for i := 1; i <= len(segments); i++ {
+		root, err := foldDocument(d)
 		if err != nil {
-			return nil, wrapError(err, "failed to resolve after creation")
+			return layerPos{}, err
 		}
-		current = next
-		currentTablePath = tablePath
+		if _, err := walkFrom(posFromRecord(root), segments[:i]); err == nil {
+			continue
+		} else if segments[i-1].Kind != SegmentKey {
+			// Only a key can be created; an array element must already exist.
+			return layerPos{}, wrapError(err, "cannot auto-create array index")
+		}
+		parent, err := walkFrom(posFromRecord(root), segments[:i-1])
+		if err != nil {
+			return layerPos{}, err
+		}
+		if err := d.createIntermediateTable(parent, segments[i-1].Key); err != nil {
+			return layerPos{}, err
+		}
 	}
 
-	return current, nil
+	pos, err := d.walkPath(segments)
+	if err != nil {
+		return layerPos{}, wrapError(err, "failed to resolve after creation")
+	}
+	return pos, nil
 }
 
-// createIntermediateTable creates a new [table] for the given key under the
-// current scope. Returns the updated table path.
-func (d *Document) createIntermediateTable(current Node, currentTablePath []string, key string) ([]string, error) {
+// createIntermediateTable appends a new [table] for the given key under the
+// parent position. A parent no single node stands for cannot hold one.
+func (d *Document) createIntermediateTable(parent layerPos, key string) error {
 	var newPath []string
 
-	switch scope := current.(type) {
+	switch scope := parent.node.(type) {
 	case *Document:
 		newPath = []string{key}
 	case *TableNode:
@@ -137,7 +116,7 @@ func (d *Document) createIntermediateTable(current Node, currentTablePath []stri
 	case *ArrayTableNode:
 		newPath = append(append([]string(nil), scope.KeyPath...), key)
 	default:
-		return nil, newError(KindWrongContainer, "cannot create intermediate table under %s node", current.Type())
+		return newError(KindWrongContainer, "cannot create intermediate table under %s", parent.describe())
 	}
 
 	tbl := &TableNode{
@@ -147,49 +126,12 @@ func (d *Document) createIntermediateTable(current Node, currentTablePath []stri
 	tbl.nodeTrivia.TrailingNewline = []byte("\n")
 
 	d.Children = append(d.Children, tbl)
-	return newPath, nil
-}
-
-// resolveNodeForEdit is like resolveNode but returns container nodes (tables,
-// documents, inline tables) without unwrapping KeyValueNodes whose value is an
-// inline table or array. This allows the edit operations to find the right
-// parent for insertion.
-func resolveNodeForEdit(doc *Document, segments []PathSegment) (Node, error) {
-	if len(segments) == 0 {
-		return doc, nil
-	}
-
-	var current Node = doc
-	var currentTablePath []string
-
-	for i, seg := range segments {
-		switch seg.Kind {
-		case SegmentKey:
-			node, tablePath, err := resolveKeySegment(doc, current, currentTablePath, seg.Key, segments, i)
-			if err != nil {
-				return nil, err
-			}
-			current = node
-			currentTablePath = tablePath
-
-		case SegmentIndex:
-			node, err := resolveIndexSegment(doc, current, currentTablePath, seg.Index)
-			if err != nil {
-				return nil, err
-			}
-			current = node
-
-		default:
-			return nil, newError(KindBadPath, "unknown segment type")
-		}
-	}
-
-	return current, nil
+	return nil
 }
 
 // setKeyInParent sets or replaces a key-value in a parent container.
-func setKeyInParent(parent Node, key string, valNode Node) error {
-	switch p := parent.(type) {
+func setKeyInParent(parent layerPos, key string, valNode Node) error {
+	switch p := parent.node.(type) {
 	case *Document:
 		return setKeyInChildren(&p.Children, key, valNode, false)
 	case *TableNode:
@@ -198,15 +140,8 @@ func setKeyInParent(parent Node, key string, valNode Node) error {
 		return setKeyInChildren(&p.Children, key, valNode, false)
 	case *InlineTableNode:
 		return setKeyInChildren(&p.Children, key, valNode, true)
-	case *dottedKeyView:
-		// The dotted key view points into a KV's value. If the value is an
-		// inline table, set inside it.
-		if p.partIndex >= len(p.kv.Key.Parts) {
-			return setKeyInParent(p.kv.Val, key, valNode)
-		}
-		return newError(KindWrongContainer, "cannot set key %q: intermediate dotted key view", key)
 	default:
-		return newError(KindWrongContainer, "cannot set key %q in %s node", key, parent.Type())
+		return newError(KindWrongContainer, "cannot set key %q in %s", key, parent.describe())
 	}
 }
 
@@ -229,8 +164,8 @@ func setKeyInChildren(children *[]Node, key string, valNode Node, markParentDirt
 }
 
 // setIndexInParent replaces an element at the given index in an array.
-func setIndexInParent(parent Node, index int, valNode Node) error {
-	switch p := parent.(type) {
+func setIndexInParent(parent layerPos, index int, valNode Node) error {
+	switch p := parent.node.(type) {
 	case *ArrayNode:
 		idx, err := normalizeIndex(index, len(p.Elements))
 		if err != nil {
@@ -247,10 +182,8 @@ func setIndexInParent(parent Node, index int, valNode Node) error {
 		p.Elements[idx] = valNode
 		p.markDirty()
 		return nil
-	case *KeyValueNode:
-		return setIndexInParent(p.Val, index, valNode)
 	default:
-		return newError(KindWrongContainer, "cannot set index [%d] in %s node", index, parent.Type())
+		return newError(KindWrongContainer, "cannot set index [%d] in %s", index, parent.describe())
 	}
 }
 
@@ -302,15 +235,15 @@ func (d *Document) deleteAt(path string) error {
 	case SegmentKey:
 		return d.deleteKeyFromParent(parent, lastSeg.Key)
 	case SegmentIndex:
-		return deleteIndexFromParent(parent, lastSeg.Index)
+		return d.deleteIndexFromParent(parent, lastSeg.Index)
 	default:
 		return newError(KindBadPath, "unknown segment type")
 	}
 }
 
 // deleteKeyFromParent removes a key from a parent container.
-func (d *Document) deleteKeyFromParent(parent Node, key string) error {
-	switch p := parent.(type) {
+func (d *Document) deleteKeyFromParent(parent layerPos, key string) error {
+	switch p := parent.node.(type) {
 	case *Document:
 		deleteKeyFromChildren(&p.Children, key)
 		d.deleteTableOrArrayTableByFirstKey(key)
@@ -390,8 +323,26 @@ func (d *Document) deleteSubTableByKey(parentPath []string, key string) {
 }
 
 // deleteIndexFromParent removes an element at the given index.
-func deleteIndexFromParent(parent Node, index int) error {
-	switch p := parent.(type) {
+func (d *Document) deleteIndexFromParent(parent layerPos, index int) error {
+	if parent.records != nil {
+		if len(parent.records) == 0 {
+			return nil
+		}
+		idx, err := normalizeIndex(index, len(parent.records))
+		if err != nil {
+			return nil // silent no-op for out-of-range
+		}
+		// Remove the array-of-tables entry from the document's children.
+		target := parent.records[idx].node
+		for i, child := range d.Children {
+			if child == target {
+				d.Children = append(d.Children[:i], d.Children[i+1:]...)
+				break
+			}
+		}
+		return nil
+	}
+	switch p := parent.node.(type) {
 	case *ArrayNode:
 		if len(p.Elements) == 0 {
 			return nil // silent no-op
@@ -403,25 +354,6 @@ func deleteIndexFromParent(parent Node, index int) error {
 		p.Elements = append(p.Elements[:idx], p.Elements[idx+1:]...)
 		p.markDirty()
 		return nil
-	case *arrayTableCollection:
-		if len(p.entries) == 0 {
-			return nil
-		}
-		idx, err := normalizeIndex(index, len(p.entries))
-		if err != nil {
-			return nil
-		}
-		// Remove the ArrayTableNode from the document's children.
-		target := p.entries[idx]
-		for i, child := range p.doc.Children {
-			if child == target {
-				p.doc.Children = append(p.doc.Children[:i], p.doc.Children[i+1:]...)
-				break
-			}
-		}
-		return nil
-	case *KeyValueNode:
-		return deleteIndexFromParent(p.Val, index)
 	default:
 		return nil // silent no-op
 	}
@@ -461,10 +393,10 @@ func (d *Document) renameKeyAt(path string, newKey string) error {
 }
 
 // renameKeyInParent renames a key inside a parent container.
-func renameKeyInParent(parent Node, oldKey, newKey string) error {
+func renameKeyInParent(parent layerPos, oldKey, newKey string) error {
 	var children *[]Node
 
-	switch p := parent.(type) {
+	switch p := parent.node.(type) {
 	case *Document:
 		children = &p.Children
 	case *TableNode:
@@ -474,7 +406,7 @@ func renameKeyInParent(parent Node, oldKey, newKey string) error {
 	case *InlineTableNode:
 		children = &p.Children
 	default:
-		return newError(KindWrongContainer, "cannot rename key in %s node", parent.Type())
+		return newError(KindWrongContainer, "cannot rename key in %s", parent.describe())
 	}
 
 	// Check for duplicate: does newKey already exist?

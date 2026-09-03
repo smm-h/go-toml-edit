@@ -186,16 +186,17 @@ type Document struct
 	method (*Document) Decode(v any) error
 	method (*Document) Delete(path string) error
 	method (*Document) Format(opts ...FormatOption) []byte
-	method (*Document) Get(path string) Node
 	method (*Document) GetBool(path string) (bool, bool)
 	method (*Document) GetFloat(path string) (float64, bool)
 	method (*Document) GetInt(path string) (int64, bool)
 	method (*Document) GetString(path string) (string, bool)
 	method (*Document) GetTime(path string) (time.Time, bool)
+	method (*Document) Has(path string) bool
 	method (*Document) Items(path string) iter.Seq2[int, Node]
 	method (*Document) Key(name string) *Cursor
 	method (*Document) LeadingComments() []string
 	method (*Document) Len(path string) int
+	method (*Document) Lookup(path string) (Node, bool)
 	method (*Document) Merge(other *Document) error
 	method (*Document) MergeDefaults(path string, defaults map[string]any) error
 	method (*Document) NewArrayTable(path string) error

@@ -10,30 +10,22 @@ import "iter"
 //	for i, node := range doc.Items("servers") { ... }
 func (d *Document) Items(path string) iter.Seq2[int, Node] {
 	return func(yield func(int, Node) bool) {
-		segments, err := ParsePath(path)
+		pos, err := d.resolvePos(path)
 		if err != nil {
 			return
 		}
-		node, err := resolveNode(d, segments)
-		if err != nil {
-			return
-		}
-		iterateNode(node, yield)
+		iteratePos(pos, yield)
 	}
 }
 
 // Len returns the number of elements at the path. Returns -1 if the path is
 // invalid, does not exist, or does not point to an array or array-of-tables.
 func (d *Document) Len(path string) int {
-	segments, err := ParsePath(path)
+	pos, err := d.resolvePos(path)
 	if err != nil {
 		return -1
 	}
-	node, err := resolveNode(d, segments)
-	if err != nil {
-		return -1
-	}
-	return nodeLen(node)
+	return posLen(pos)
 }
 
 // Items returns a range-over-func iterator over elements of the current node.
@@ -57,7 +49,40 @@ func (c *Cursor) Len() int {
 	return nodeLen(c.node)
 }
 
-// iterateNode yields elements from an array or array-of-tables node.
+// iteratePos yields the elements at a position: the entries of an
+// array-of-tables, or the elements of an array node.
+func iteratePos(pos layerPos, yield func(int, Node) bool) {
+	if pos.records != nil {
+		for i, rec := range pos.records {
+			if !yield(i, rec.node) {
+				return
+			}
+		}
+		return
+	}
+	if arr, ok := pos.node.(*ArrayNode); ok {
+		for i, elem := range arr.Elements {
+			if !yield(i, elem) {
+				return
+			}
+		}
+	}
+}
+
+// posLen returns the number of elements at a position, or -1 when it holds
+// neither an array-of-tables nor an array.
+func posLen(pos layerPos) int {
+	if pos.records != nil {
+		return len(pos.records)
+	}
+	if arr, ok := pos.node.(*ArrayNode); ok {
+		return len(arr.Elements)
+	}
+	return -1
+}
+
+// iterateNode yields elements from an array or array-of-tables node. It serves
+// the Cursor, which still navigates the AST directly.
 func iterateNode(node Node, yield func(int, Node) bool) {
 	switch n := node.(type) {
 	case *ArrayNode:

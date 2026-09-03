@@ -50,13 +50,19 @@ func (d *Document) resolveCommentTarget(path string) (Node, error) {
 		return nil, newError(KindBadPath, "empty path")
 	}
 
-	// First try resolving the full path normally to see what we get.
-	node, err := resolveNode(d, segments)
+	// Resolve the full path first to see what it names.
+	pos, err := d.walkPath(segments)
 	if err != nil {
 		return nil, wrapError(err, "path not found")
 	}
+	node, ok := pos.concrete()
+	if !ok {
+		// Nothing carries the comment: the path names an array-of-tables, or a
+		// table only implied by a longer header or a dotted key.
+		return nil, pos.noNodeError()
+	}
 
-	// If the resolved node is a table or array-table, return it directly.
+	// A table or array-table header carries its own comments.
 	switch node.(type) {
 	case *TableNode, *ArrayTableNode:
 		return node, nil
@@ -70,19 +76,18 @@ func (d *Document) resolveCommentTarget(path string) (Node, error) {
 		return node, nil
 	}
 
-	parentSegs := segments[:len(segments)-1]
-	parent, err := resolveNode(d, parentSegs)
+	parent, err := d.walkPath(segments[:len(segments)-1])
 	if err != nil {
 		return nil, wrapError(err, "parent path not found")
 	}
 
 	// Check if the parent is an inline table. TOML does not allow comments
 	// inside inline tables, so setting a comment would produce invalid TOML.
-	if isInsideInlineTable(parent) {
+	if isInsideInlineTable(parent.node) {
 		return nil, newError(KindConflict, "cannot set comment on inline table member: TOML does not allow comments inside inline tables")
 	}
 
-	kv := findKVInParent(parent, d, lastSeg.Key)
+	kv := findKVInParent(parent.node, lastSeg.Key)
 	if kv != nil {
 		return kv, nil
 	}
@@ -102,7 +107,7 @@ func isInsideInlineTable(node Node) bool {
 }
 
 // findKVInParent searches for a KeyValueNode with the given key in a parent.
-func findKVInParent(parent Node, doc *Document, key string) *KeyValueNode {
+func findKVInParent(parent Node, key string) *KeyValueNode {
 	var children []Node
 	switch p := parent.(type) {
 	case *Document:

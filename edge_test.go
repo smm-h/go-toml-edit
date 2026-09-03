@@ -125,8 +125,8 @@ func TestEdgeVeryLargeArray(t *testing.T) {
 	if err != nil {
 		t.Fatalf("Parse failed: %v", err)
 	}
-	node := doc.Get("key")
-	if node == nil {
+	node, ok := doc.Lookup("key")
+	if !ok {
 		t.Fatal("Get returned nil for key")
 	}
 	arr, ok := node.(*ArrayNode)
@@ -424,8 +424,8 @@ func TestEdgeSetThenGetConsistency(t *testing.T) {
 		if err := doc.Set(tc.path, tc.val); err != nil {
 			t.Fatalf("Set(%q, %v) failed: %v", tc.path, tc.val, err)
 		}
-		node := doc.Get(tc.path)
-		if node == nil {
+		node, ok := doc.Lookup(tc.path)
+		if !ok {
 			t.Fatalf("Get(%q) returned nil after Set", tc.path)
 		}
 		got := node.Value()
@@ -483,8 +483,8 @@ func TestEdgeExtremeNegativeIndices(t *testing.T) {
 	}
 
 	// -100 on a 2-element array should return nil/error
-	node := doc.Get("products[-100]")
-	if node != nil {
+	node, ok := doc.Lookup("products[-100]")
+	if ok {
 		t.Fatalf("expected nil for extreme negative index, got %v", node)
 	}
 
@@ -494,14 +494,14 @@ func TestEdgeExtremeNegativeIndices(t *testing.T) {
 	if err != nil {
 		t.Fatal(err)
 	}
-	node2 := doc2.Get("key[-100]")
-	if node2 != nil {
+	node2, ok := doc2.Lookup("key[-100]")
+	if ok {
 		t.Fatalf("expected nil for extreme negative index on array, got %v", node2)
 	}
 
 	// Positive out of range too
-	node3 := doc2.Get("key[100]")
-	if node3 != nil {
+	node3, ok := doc2.Lookup("key[100]")
+	if ok {
 		t.Fatalf("expected nil for out-of-range positive index, got %v", node3)
 	}
 }
@@ -515,8 +515,8 @@ func TestEdgeEmptyKeys(t *testing.T) {
 	}
 
 	// Access with quoted empty key
-	node := doc.Get(`""`)
-	if node == nil {
+	node, ok := doc.Lookup(`""`)
+	if !ok {
 		t.Fatal("Get with empty key returned nil")
 	}
 	s, ok := node.(*StringNode)

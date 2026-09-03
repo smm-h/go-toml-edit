@@ -257,8 +257,8 @@ func TestAuditFloatZeroPointZero(t *testing.T) {
 	if err != nil {
 		t.Fatalf("re-parse error: %v", err)
 	}
-	node := doc2.Get("val")
-	if node == nil {
+	node, ok := doc2.Lookup("val")
+	if !ok {
 		t.Fatal("val not found after re-parse")
 	}
 	if _, ok := node.(*FloatNode); !ok {
