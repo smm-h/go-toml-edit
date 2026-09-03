@@ -153,28 +153,6 @@ func (n *nodeBase) setLeadingComments(comments []string) {
 	n.SetLeadingComments(comments)
 }
 
-// nullNode provides no-op implementations of all Node interface methods.
-// Internal virtual node types (dottedKeyView, dottedKeyGroup,
-// compoundTableView, arrayTableCollection) embed nullNode and override
-// only Type() and Value().
-type nullNode struct{}
-
-func (nullNode) Type() NodeType              { return NodeType(-1) }
-func (nullNode) Value() any                  { return nil }
-func (nullNode) Comment() string             { return "" }
-func (nullNode) SetComment(string)           {}
-func (nullNode) setComment(string)           {}
-func (nullNode) LeadingComments() []string   { return nil }
-func (nullNode) SetLeadingComments([]string) {}
-func (nullNode) setLeadingComments([]string) {}
-func (nullNode) Raw() []byte                 { return nil }
-func (nullNode) setRaw([]byte)               {}
-func (nullNode) Span() Span                  { return Span{} }
-func (nullNode) setSpan(Span)                {}
-func (nullNode) isDirty() bool               { return false }
-func (nullNode) markDirty()                  {}
-func (nullNode) trivia() *Trivia             { return &Trivia{} }
-
 // LocalDateTime represents a TOML local date-time (no timezone).
 type LocalDateTime struct {
 	Year, Month, Day     int
