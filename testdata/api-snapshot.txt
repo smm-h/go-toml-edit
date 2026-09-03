@@ -37,6 +37,8 @@ const NodeLocalTime NodeType = 12
 const NodeString NodeType = 5
 const NodeTable NodeType = 1
 const Removed ChangeKind = 1
+const SegmentIndex SegmentKind = 1
+const SegmentKey SegmentKind = 0
 const StringBasic StringStyle = 0
 const StringLiteral StringStyle = 1
 const StringMultiLineBasic StringStyle = 2
@@ -85,9 +87,11 @@ var ErrWrongContainer error
 
 func DefaultFormatConfig() FormatConfig
 func Diff(a *Document, b *Document) []Change
+func JoinPath(segs []PathSegment) string
 func Marshal(v any) ([]byte, error)
 func Parse(src []byte) (*Document, error)
 func ParseFile(path string) (*Document, error)
+func ParsePath(path string) ([]PathSegment, error)
 func Unmarshal(data []byte, v any) error
 func WithIndentWidth(n int) FormatOption
 func WithLineWidth(n int) FormatOption
@@ -361,11 +365,18 @@ type Node interface (sealed)
 type NodeType int
 	method (NodeType) String() string
 
+type PathSegment struct
+	field Kind SegmentKind
+	field Key string
+	field Index int
+
 type Position struct
 	field Line int
 	field Column int
 	field Offset int
 	method (Position) IsValid() bool
+
+type SegmentKind int
 
 type Span struct
 	field Start Position

@@ -10,7 +10,7 @@ import "iter"
 //	for i, node := range doc.Items("servers") { ... }
 func (d *Document) Items(path string) iter.Seq2[int, Node] {
 	return func(yield func(int, Node) bool) {
-		segments, err := parsePath(path)
+		segments, err := ParsePath(path)
 		if err != nil {
 			return
 		}
@@ -25,7 +25,7 @@ func (d *Document) Items(path string) iter.Seq2[int, Node] {
 // Len returns the number of elements at the path. Returns -1 if the path is
 // invalid, does not exist, or does not point to an array or array-of-tables.
 func (d *Document) Len(path string) int {
-	segments, err := parsePath(path)
+	segments, err := ParsePath(path)
 	if err != nil {
 		return -1
 	}

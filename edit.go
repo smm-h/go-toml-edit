@@ -26,7 +26,7 @@ func (d *Document) SetCreate(path string, value any) error {
 }
 
 func (d *Document) setInternal(path string, value any, create bool) error {
-	segments, err := parsePath(path)
+	segments, err := ParsePath(path)
 	if err != nil {
 		return err
 	}
@@ -50,10 +50,10 @@ func (d *Document) setInternal(path string, value any, create bool) error {
 		return err
 	}
 
-	switch lastSeg.Type {
-	case keySegment:
+	switch lastSeg.Kind {
+	case SegmentKey:
 		return setKeyInParent(parent, lastSeg.Key, valNode)
-	case indexSegment:
+	case SegmentIndex:
 		return setIndexInParent(parent, lastSeg.Index, valNode)
 	default:
 		return newError(KindBadPath, "unknown segment type")
@@ -62,7 +62,7 @@ func (d *Document) setInternal(path string, value any, create bool) error {
 
 // resolveParentForEdit resolves the parent container for an edit operation.
 // When create is true, missing intermediate tables are auto-created.
-func (d *Document) resolveParentForEdit(segments []pathSegment, create bool) (Node, error) {
+func (d *Document) resolveParentForEdit(segments []PathSegment, create bool) (Node, error) {
 	if len(segments) == 0 {
 		return d, nil
 	}
@@ -83,12 +83,12 @@ func (d *Document) resolveParentForEdit(segments []pathSegment, create bool) (No
 
 // resolveOrCreateParent walks the path segments, creating intermediate tables
 // as needed. Returns the final parent container.
-func (d *Document) resolveOrCreateParent(segments []pathSegment) (Node, error) {
+func (d *Document) resolveOrCreateParent(segments []PathSegment) (Node, error) {
 	var current Node = d
 	var currentTablePath []string
 
 	for _, seg := range segments {
-		if seg.Type != keySegment {
+		if seg.Kind != SegmentKey {
 			// For index segments, the collection must already exist.
 			next, err := resolveIndexSegment(d, current, currentTablePath, seg.Index)
 			if err != nil {
@@ -154,7 +154,7 @@ func (d *Document) createIntermediateTable(current Node, currentTablePath []stri
 // documents, inline tables) without unwrapping KeyValueNodes whose value is an
 // inline table or array. This allows the edit operations to find the right
 // parent for insertion.
-func resolveNodeForEdit(doc *Document, segments []pathSegment) (Node, error) {
+func resolveNodeForEdit(doc *Document, segments []PathSegment) (Node, error) {
 	if len(segments) == 0 {
 		return doc, nil
 	}
@@ -163,8 +163,8 @@ func resolveNodeForEdit(doc *Document, segments []pathSegment) (Node, error) {
 	var currentTablePath []string
 
 	for i, seg := range segments {
-		switch seg.Type {
-		case keySegment:
+		switch seg.Kind {
+		case SegmentKey:
 			node, tablePath, err := resolveKeySegment(doc, current, currentTablePath, seg.Key, segments, i)
 			if err != nil {
 				return nil, err
@@ -172,7 +172,7 @@ func resolveNodeForEdit(doc *Document, segments []pathSegment) (Node, error) {
 			current = node
 			currentTablePath = tablePath
 
-		case indexSegment:
+		case SegmentIndex:
 			node, err := resolveIndexSegment(doc, current, currentTablePath, seg.Index)
 			if err != nil {
 				return nil, err
@@ -280,7 +280,7 @@ func (d *Document) Delete(path string) error {
 }
 
 func (d *Document) deleteAt(path string) error {
-	segments, err := parsePath(path)
+	segments, err := ParsePath(path)
 	if err != nil {
 		return err
 	}
@@ -298,10 +298,10 @@ func (d *Document) deleteAt(path string) error {
 		return nil
 	}
 
-	switch lastSeg.Type {
-	case keySegment:
+	switch lastSeg.Kind {
+	case SegmentKey:
 		return d.deleteKeyFromParent(parent, lastSeg.Key)
-	case indexSegment:
+	case SegmentIndex:
 		return deleteIndexFromParent(parent, lastSeg.Index)
 	default:
 		return newError(KindBadPath, "unknown segment type")
@@ -436,7 +436,7 @@ func (d *Document) RenameKey(path string, newKey string) error {
 }
 
 func (d *Document) renameKeyAt(path string, newKey string) error {
-	segments, err := parsePath(path)
+	segments, err := ParsePath(path)
 	if err != nil {
 		return err
 	}
@@ -446,7 +446,7 @@ func (d *Document) renameKeyAt(path string, newKey string) error {
 
 	// All segments must be key segments for rename to make sense.
 	lastSeg := segments[len(segments)-1]
-	if lastSeg.Type != keySegment {
+	if lastSeg.Kind != SegmentKey {
 		return newError(KindWrongContainer, "cannot rename an array index")
 	}
 
@@ -511,7 +511,7 @@ func (d *Document) NewTable(path string) error {
 }
 
 func (d *Document) newTableAt(path string) error {
-	segments, err := parsePath(path)
+	segments, err := ParsePath(path)
 	if err != nil {
 		return err
 	}
@@ -522,7 +522,7 @@ func (d *Document) newTableAt(path string) error {
 	// Build the key path from segments.
 	keyPath := make([]string, 0, len(segments))
 	for _, seg := range segments {
-		if seg.Type != keySegment {
+		if seg.Kind != SegmentKey {
 			return newError(KindBadPath, "NewTable path must contain only key segments, not indices")
 		}
 		keyPath = append(keyPath, seg.Key)
@@ -532,7 +532,7 @@ func (d *Document) newTableAt(path string) error {
 	for _, child := range d.Children {
 		if tbl, ok := child.(*TableNode); ok {
 			if pathsEqual(tbl.KeyPath, keyPath) {
-				return newError(KindConflict, "table [%s] already exists", joinPath(keyPath))
+				return newError(KindConflict, "table [%s] already exists", pathFromKeys(keyPath))
 			}
 		}
 	}
@@ -556,7 +556,7 @@ func (d *Document) NewArrayTable(path string) error {
 }
 
 func (d *Document) newArrayTableAt(path string) error {
-	segments, err := parsePath(path)
+	segments, err := ParsePath(path)
 	if err != nil {
 		return err
 	}
@@ -566,7 +566,7 @@ func (d *Document) newArrayTableAt(path string) error {
 
 	keyPath := make([]string, 0, len(segments))
 	for _, seg := range segments {
-		if seg.Type != keySegment {
+		if seg.Kind != SegmentKey {
 			return newError(KindBadPath, "NewArrayTable path must contain only key segments, not indices")
 		}
 		keyPath = append(keyPath, seg.Key)

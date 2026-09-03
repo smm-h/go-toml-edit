@@ -129,7 +129,7 @@ func TestAudit_EmptyPathGet(t *testing.T) {
 		t.Fatalf("parse error: %v", err)
 	}
 
-	// Get with empty path should return nil (parsePath returns error for "")
+	// Get with empty path should return nil (ParsePath returns error for "")
 	node := doc.Get("")
 	if node != nil {
 		t.Errorf("Get(\"\") should return nil, got %T", node)
@@ -174,7 +174,7 @@ host = "localhost"
 }
 
 func TestAudit_PathToDocumentRoot(t *testing.T) {
-	// parsePath("") returns error, so there's no way to request the root via Get
+	// ParsePath("") returns error, so there's no way to request the root via Get
 	// But Resolve with empty string should error cleanly
 	doc, err := Parse([]byte(`key = "val"`))
 	if err != nil {

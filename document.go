@@ -4,7 +4,7 @@ import "time"
 
 // resolveNode resolves a parsed path against the document's AST, returning
 // the target node. For KeyValueNodes the unwrapped value is returned.
-func resolveNode(doc *Document, segments []pathSegment) (Node, error) {
+func resolveNode(doc *Document, segments []PathSegment) (Node, error) {
 	if len(segments) == 0 {
 		return doc, nil
 	}
@@ -15,8 +15,8 @@ func resolveNode(doc *Document, segments []pathSegment) (Node, error) {
 	var currentTablePath []string
 
 	for i, seg := range segments {
-		switch seg.Type {
-		case keySegment:
+		switch seg.Kind {
+		case SegmentKey:
 			node, tablePath, err := resolveKeySegment(doc, current, currentTablePath, seg.Key, segments, i)
 			if err != nil {
 				return nil, err
@@ -24,7 +24,7 @@ func resolveNode(doc *Document, segments []pathSegment) (Node, error) {
 			current = node
 			currentTablePath = tablePath
 
-		case indexSegment:
+		case SegmentIndex:
 			node, err := resolveIndexSegment(doc, current, currentTablePath, seg.Index)
 			if err != nil {
 				return nil, err
@@ -48,7 +48,7 @@ func resolveKeySegment(
 	current Node,
 	currentTablePath []string,
 	key string,
-	segments []pathSegment,
+	segments []PathSegment,
 	segIndex int,
 ) (Node, []string, error) {
 	switch scope := current.(type) {
@@ -169,7 +169,7 @@ func resolveKeyInTable(doc *Document, scope *TableNode, currentTablePath []strin
 		return view, targetPath, nil
 	}
 
-	return nil, nil, newError(KindNotFound, "key %q not found in table [%s]", key, joinPath(scope.KeyPath))
+	return nil, nil, newError(KindNotFound, "key %q not found in table [%s]", key, pathFromKeys(scope.KeyPath))
 }
 
 // resolveKeyInArrayTable searches an array table's children for a key.
@@ -192,7 +192,7 @@ func resolveKeyInArrayTable(doc *Document, scope *ArrayTableNode, currentTablePa
 		}
 	}
 	if scopeIdx == -1 {
-		return nil, nil, newError(KindNotFound, "key %q not found in array table [[%s]]", key, joinPath(scope.KeyPath))
+		return nil, nil, newError(KindNotFound, "key %q not found in array table [[%s]]", key, pathFromKeys(scope.KeyPath))
 	}
 
 	// Check for sub-tables scoped to this array entry: scan forward from
@@ -261,7 +261,7 @@ func resolveKeyInArrayTable(doc *Document, scope *ArrayTableNode, currentTablePa
 		}, targetPath, nil
 	}
 
-	return nil, nil, newError(KindNotFound, "key %q not found in array table [[%s]]", key, joinPath(scope.KeyPath))
+	return nil, nil, newError(KindNotFound, "key %q not found in array table [[%s]]", key, pathFromKeys(scope.KeyPath))
 }
 
 // resolveKeyInInlineTable searches an inline table's children for a key.
@@ -381,18 +381,6 @@ func pathsEqual(a, b []string) bool {
 		}
 	}
 	return true
-}
-
-// joinPath joins a key path with dots for error messages.
-func joinPath(parts []string) string {
-	result := ""
-	for i, p := range parts {
-		if i > 0 {
-			result += "."
-		}
-		result += p
-	}
-	return result
 }
 
 // hasPrefix returns true if path starts with prefix.
@@ -561,7 +549,7 @@ func resolveKeyInDottedView(doc *Document, view *dottedKeyView, key string) (Nod
 // array indices (e.g. "items[0]"), and supports negative indices (e.g. "items[-1]"
 // for the last element). Use Resolve for the same operation with error details.
 func (d *Document) Get(path string) Node {
-	segments, err := parsePath(path)
+	segments, err := ParsePath(path)
 	if err != nil {
 		return nil
 	}
@@ -578,7 +566,7 @@ func (d *Document) Get(path string) Node {
 // for a path naming nothing, and KindWrongContainer for a step that does not
 // apply to what it addresses.
 func (d *Document) Resolve(path string) (Node, error) {
-	segments, err := parsePath(path)
+	segments, err := ParsePath(path)
 	if err != nil {
 		return nil, d.diag(err, path)
 	}

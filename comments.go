@@ -42,7 +42,7 @@ func (d *Document) SetLeadingComments(path string, comments []string) error {
 // comments. For key-value paths this is the KeyValueNode (not the unwrapped
 // value). For table paths it's the TableNode or ArrayTableNode.
 func (d *Document) resolveCommentTarget(path string) (Node, error) {
-	segments, err := parsePath(path)
+	segments, err := ParsePath(path)
 	if err != nil {
 		return nil, err
 	}
@@ -65,7 +65,7 @@ func (d *Document) resolveCommentTarget(path string) (Node, error) {
 	// For value nodes (string, int, etc.), we need the parent KV node.
 	// Resolve the parent, then find the KV with the matching key.
 	lastSeg := segments[len(segments)-1]
-	if lastSeg.Type != keySegment {
+	if lastSeg.Kind != SegmentKey {
 		// Index segments: the resolved node is what we have.
 		return node, nil
 	}

@@ -299,7 +299,7 @@ func buildPathFromParts(prefix string, parts []string) string {
 		if result != "" {
 			result += "."
 		}
-		result += quoteKeyIfNeeded(part)
+		result += quotePathKey(part)
 	}
 	return result
 }
@@ -320,45 +320,15 @@ func buildArrayTablePath(prefix string, keyPath []string, idx int) string {
 		if result != "" {
 			result += "."
 		}
-		result += quoteKeyIfNeeded(part)
+		result += quotePathKey(part)
 	}
 	// Last part gets the index
 	last := keyPath[len(keyPath)-1]
 	if result != "" {
 		result += "."
 	}
-	result += quoteKeyIfNeeded(last) + fmt.Sprintf("[%d]", idx)
+	result += quotePathKey(last) + fmt.Sprintf("[%d]", idx)
 	return result
-}
-
-// quoteKeyIfNeeded wraps a key in quotes if it contains characters that
-// would be ambiguous in a dot-path (dots, brackets, spaces, etc.).
-func quoteKeyIfNeeded(key string) string {
-	if key == "" {
-		return `""`
-	}
-	for i := 0; i < len(key); i++ {
-		if key[i] > 0x7F || !isBareKeyChar(key[i]) {
-			return `"` + escapeKey(key) + `"`
-		}
-	}
-	return key
-}
-
-// escapeKey escapes quotes and backslashes in a key for quoting.
-func escapeKey(key string) string {
-	var b strings.Builder
-	for _, r := range key {
-		switch r {
-		case '"':
-			b.WriteString(`\"`)
-		case '\\':
-			b.WriteString(`\\`)
-		default:
-			b.WriteRune(r)
-		}
-	}
-	return b.String()
 }
 
 // joinKeyPath joins key parts with dots for use as a map key.
