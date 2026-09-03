@@ -321,7 +321,7 @@ func (p *parser) parseTable(leadingWS []byte, leadingComments [][]byte, triviaRa
 	p.skipWhitespace()
 
 	// parse key path
-	keyPath, _, keyPos, err := p.parseKeyPath()
+	keyPath, _, keySpans, keyPos, err := p.parseKeyPath()
 	if err != nil {
 		return nil, err
 	}
@@ -350,7 +350,8 @@ func (p *parser) parseTable(leadingWS []byte, leadingComments [][]byte, triviaRa
 	headerRaw = append(triviaRaw, headerRaw...)
 
 	tbl := &TableNode{
-		KeyPath: keyPath,
+		KeyPath:  keyPath,
+		keySpans: keySpans,
 	}
 	tbl.setRaw(headerRaw)
 	// The table span covers only the [header], not the children.
@@ -386,7 +387,7 @@ func (p *parser) parseArrayTable(leadingWS []byte, leadingComments [][]byte, tri
 	p.skipWhitespace()
 
 	// parse key path
-	keyPath, _, keyPos, err := p.parseKeyPath()
+	keyPath, _, keySpans, keyPos, err := p.parseKeyPath()
 	if err != nil {
 		return nil, err
 	}
@@ -415,7 +416,8 @@ func (p *parser) parseArrayTable(leadingWS []byte, leadingComments [][]byte, tri
 	headerRaw = append(triviaRaw, headerRaw...)
 
 	atbl := &ArrayTableNode{
-		KeyPath: keyPath,
+		KeyPath:  keyPath,
+		keySpans: keySpans,
 	}
 	atbl.setRaw(headerRaw)
 	// The array-table span covers only the [[header]], not the children.
@@ -550,6 +552,7 @@ func (p *parser) parseKey() (*KeyNode, Position, error) {
 	// parseSimpleKey consumes exactly one token; track the last key token so
 	// the span ends at the final key part (excluding trailing whitespace).
 	lastTok := p.tokens[p.pos-1]
+	key.partSpans = append(key.partSpans, spanFromToken(lastTok))
 
 	// Additional dotted parts
 	for {
@@ -569,6 +572,7 @@ func (p *parser) parseKey() (*KeyNode, Position, error) {
 		key.RawParts = append(key.RawParts, rawPart)
 		key.Styles = append(key.Styles, style)
 		lastTok = p.tokens[p.pos-1]
+		key.partSpans = append(key.partSpans, spanFromToken(lastTok))
 	}
 
 	key.setRaw(p.rawFromTokenRange(startPos, p.pos))
@@ -599,19 +603,21 @@ func (p *parser) parseSimpleKey() (decoded string, raw []byte, style StringStyle
 }
 
 // parseKeyPath parses a dotted key for table headers (without consuming =).
-// Returns the decoded parts, raw parts, the source position of the first key
-// token, and any error.
-func (p *parser) parseKeyPath() ([]string, [][]byte, Position, error) {
+// Returns the decoded parts, raw parts, the source range of each part, the
+// source position of the first key token, and any error.
+func (p *parser) parseKeyPath() ([]string, [][]byte, []Span, Position, error) {
 	var parts []string
 	var rawParts [][]byte
+	var partSpans []Span
 
 	firstTok := p.peek()
 	part, rawPart, _, err := p.parseSimpleKey()
 	if err != nil {
-		return nil, nil, Position{}, err
+		return nil, nil, nil, Position{}, err
 	}
 	parts = append(parts, part)
 	rawParts = append(rawParts, rawPart)
+	partSpans = append(partSpans, spanFromToken(p.tokens[p.pos-1]))
 
 	for {
 		p.skipWhitespace()
@@ -623,13 +629,14 @@ func (p *parser) parseKeyPath() ([]string, [][]byte, Position, error) {
 
 		part, rawPart, _, err = p.parseSimpleKey()
 		if err != nil {
-			return nil, nil, Position{}, err
+			return nil, nil, nil, Position{}, err
 		}
 		parts = append(parts, part)
 		rawParts = append(rawParts, rawPart)
+		partSpans = append(partSpans, spanFromToken(p.tokens[p.pos-1]))
 	}
 
-	return parts, rawParts, tokenStart(firstTok), nil
+	return parts, rawParts, partSpans, tokenStart(firstTok), nil
 }
 
 // --- value parsing ---

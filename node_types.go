@@ -43,6 +43,10 @@ type TableNode struct {
 	nodeBase
 	KeyPath  []string
 	Children []Node
+
+	// keySpans is the source range of each part of KeyPath, in order. It is
+	// empty for a table created programmatically.
+	keySpans []Span
 }
 
 // Type returns NodeTable.
@@ -56,6 +60,10 @@ type ArrayTableNode struct {
 	nodeBase
 	KeyPath  []string
 	Children []Node
+
+	// keySpans is the source range of each part of KeyPath, in order. It is
+	// empty for an array table created programmatically.
+	keySpans []Span
 }
 
 // Type returns NodeArrayTable.
@@ -83,6 +91,20 @@ type KeyNode struct {
 	Parts    []string      // semantic parts (e.g. ["server", "host"])
 	RawParts [][]byte      // original bytes for each part
 	Styles   []StringStyle // quoting style per part
+
+	// partSpans is the source range of each part, in order. It is empty for a
+	// key created programmatically.
+	partSpans []Span
+}
+
+// partSpan returns the source range of key part i, or the zero Span when the
+// key carries no per-part spans (a key created programmatically) or i is out
+// of range.
+func (n *KeyNode) partSpan(i int) Span {
+	if i < 0 || i >= len(n.partSpans) {
+		return Span{}
+	}
+	return n.partSpans[i]
 }
 
 // Type returns NodeKey.
