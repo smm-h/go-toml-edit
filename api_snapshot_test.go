@@ -111,6 +111,9 @@ func TestAPISnapshotBaselineIntact(t *testing.T) {
 	if len(lines) < 2 || !strings.HasPrefix(lines[0], "# Exported API of package ") {
 		t.Fatalf("%s does not look like a snapshot", apiSnapshotBaseline)
 	}
+	if lines[1] != "# Source: v0.3.0" {
+		t.Fatalf("%s no longer labels itself v0.3.0 (got %q); the frozen baseline must never be regenerated", apiSnapshotBaseline, lines[1])
+	}
 	var entries int
 	for _, line := range lines {
 		if line != "" && !strings.HasPrefix(line, "#") {
