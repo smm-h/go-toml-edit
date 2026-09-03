@@ -67,7 +67,7 @@ first-header-wins, last-entry addressing, inline folding, per-key spans,
 hard internal errors on impossibilities), with `Record`/`Entry` per the
 API block (including `Kind()`, `RecordsSpan()`, comma-ok `Node()`).
 Uncached at this stage (every access rebuilds; caching arrives in Phase
-8). Path resolution re-based on the layer: `Get` deleted; `Resolve` errors
+7). Path resolution re-based on the layer: `Get` deleted; `Resolve` errors
 on logical-only paths with the wrong-container kind; `Lookup`/`Has`
 answer concrete-node existence; edit paths keep collection addressing;
 virtual view types retired from resolution (deleted fully in Phase 11).
