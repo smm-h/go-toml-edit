@@ -40,8 +40,8 @@ go test -fuzz FuzzParse # fuzz the parser
 
 ## Testing strategy
 
-- 13 audit test files (`*_audit_test.go`) cover parser, serializer, comments, edits, diff, merge, unmarshal, walk, format, cursor
-- TOML 1.0 compliance: 205 valid + 474 invalid cases from the official toml-test suite
+- Audit test files (`*_audit_test.go`) cover parser, serializer, comments, edits, diff, merge, unmarshal, walk, format, cursor
+- TOML 1.0 compliance: the full valid and invalid corpora from the official toml-test suite, with the 1.1-only cases skipped (the skip set is derived from toml-test's own version-filtered listing, and the case counts are asserted in the test)
 - Round-trip fidelity: `Parse(x).Bytes()` must equal `x` for any valid TOML
 - Fuzz testing for parser robustness
 
