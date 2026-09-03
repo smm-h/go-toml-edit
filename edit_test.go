@@ -707,12 +707,12 @@ func TestSet_RoundTrip_Comprehensive(t *testing.T) {
 	for _, c := range checks {
 		node, ok := doc2.Lookup(c.path)
 		if !ok {
-			t.Errorf("Get(%q) returned nil after round-trip", c.path)
+			t.Errorf("Lookup(%q) returned nil after round-trip", c.path)
 			continue
 		}
 		got := node.Value()
 		if got != c.want {
-			t.Errorf("Get(%q) = %v (%T), want %v (%T)", c.path, got, got, c.want, c.want)
+			t.Errorf("Lookup(%q) = %v (%T), want %v (%T)", c.path, got, got, c.want, c.want)
 		}
 	}
 }

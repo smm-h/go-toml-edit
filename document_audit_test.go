@@ -132,7 +132,7 @@ func TestAudit_EmptyPathGet(t *testing.T) {
 	// Get with empty path should return nil (ParsePath returns error for "")
 	node, ok := doc.Lookup("")
 	if ok {
-		t.Errorf("Get(\"\") should return nil, got %T", node)
+		t.Errorf("Lookup(\"\") should return nil, got %T", node)
 	}
 }
 
@@ -163,10 +163,10 @@ host = "localhost"
 		t.Fatalf("parse error: %v", err)
 	}
 
-	// Get("server") should return the TableNode
+	// Lookup("server") should answer with the TableNode
 	node, ok := doc.Lookup("server")
 	if !ok {
-		t.Fatal("Get(\"server\") returned nil")
+		t.Fatal("Lookup(\"server\") returned nil")
 	}
 	if _, ok := node.(*TableNode); !ok {
 		t.Errorf("expected *TableNode, got %T", node)
@@ -203,7 +203,7 @@ name = "b"
 	// Index 5 out of bounds
 	node, ok := doc.Lookup("items[5]")
 	if ok {
-		t.Errorf("Get(\"items[5]\") should return nil for out-of-bounds, got %T", node)
+		t.Errorf("Lookup(\"items[5]\") should return nil for out-of-bounds, got %T", node)
 	}
 
 	// Resolve should give proper error
@@ -226,7 +226,7 @@ name = "a"
 	// -2 on length-1 array
 	node, ok := doc.Lookup("items[-2]")
 	if ok {
-		t.Errorf("Get(\"items[-2]\") should return nil for out-of-bounds, got %T", node)
+		t.Errorf("Lookup(\"items[-2]\") should return nil for out-of-bounds, got %T", node)
 	}
 }
 
@@ -242,7 +242,7 @@ arr = []
 
 	node, ok := doc.Lookup("section.arr[-1]")
 	if ok {
-		t.Errorf("Get(\"section.arr[-1]\") should return nil for empty array, got %T", node)
+		t.Errorf("Lookup(\"section.arr[-1]\") should return nil for empty array, got %T", node)
 	}
 
 	_, resolveErr := doc.Resolve("section.arr[-1]")
@@ -456,7 +456,7 @@ name = "Gadget"
 // --- Dotted key intermediate access ---
 
 func TestAudit_DottedKeyIntermediateAccess(t *testing.T) {
-	// a.b.c = val -- Get("a.b") should return a dottedKeyView (intermediate)
+	// a.b.c = val -- the tables the dotted key implies have no node of their own
 	input := `a.b.c = "deep"`
 	doc, err := Parse([]byte(input))
 	if err != nil {
@@ -647,7 +647,7 @@ func TestAudit_IndexIntoNonArray(t *testing.T) {
 
 	node, ok := doc.Lookup("val[0]")
 	if ok {
-		t.Errorf("Get(\"val[0]\") on a string should return nil, got %T", node)
+		t.Errorf("Lookup(\"val[0]\") on a string should return nil, got %T", node)
 	}
 
 	_, resolveErr := doc.Resolve("val[0]")
@@ -667,7 +667,7 @@ func TestAudit_KeyLookupInNonTable(t *testing.T) {
 
 	node, ok := doc.Lookup("val.sub")
 	if ok {
-		t.Errorf("Get(\"val.sub\") on an integer should return nil, got %T", node)
+		t.Errorf("Lookup(\"val.sub\") on an integer should return nil, got %T", node)
 	}
 }
 
@@ -688,7 +688,7 @@ x = 2
 
 	node, ok := doc.Lookup("entries[0]")
 	if !ok {
-		t.Fatal("Get(\"entries[0]\") returned nil")
+		t.Fatal("Lookup(\"entries[0]\") returned nil")
 	}
 	if _, ok := node.(*ArrayTableNode); !ok {
 		t.Errorf("expected *ArrayTableNode, got %T", node)

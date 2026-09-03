@@ -426,25 +426,25 @@ func TestEdgeSetThenGetConsistency(t *testing.T) {
 		}
 		node, ok := doc.Lookup(tc.path)
 		if !ok {
-			t.Fatalf("Get(%q) returned nil after Set", tc.path)
+			t.Fatalf("Lookup(%q) returned nil after Set", tc.path)
 		}
 		got := node.Value()
 		switch expected := tc.val.(type) {
 		case string:
 			if s, ok := got.(string); !ok || s != expected {
-				t.Fatalf("Get(%q) = %v, want %v", tc.path, got, expected)
+				t.Fatalf("Lookup(%q) = %v, want %v", tc.path, got, expected)
 			}
 		case int:
 			if n, ok := got.(int64); !ok || n != int64(expected) {
-				t.Fatalf("Get(%q) = %v, want %v", tc.path, got, expected)
+				t.Fatalf("Lookup(%q) = %v, want %v", tc.path, got, expected)
 			}
 		case bool:
 			if b, ok := got.(bool); !ok || b != expected {
-				t.Fatalf("Get(%q) = %v, want %v", tc.path, got, expected)
+				t.Fatalf("Lookup(%q) = %v, want %v", tc.path, got, expected)
 			}
 		case float64:
 			if f, ok := got.(float64); !ok || f != expected {
-				t.Fatalf("Get(%q) = %v, want %v", tc.path, got, expected)
+				t.Fatalf("Lookup(%q) = %v, want %v", tc.path, got, expected)
 			}
 		}
 	}

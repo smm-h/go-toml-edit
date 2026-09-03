@@ -4,7 +4,7 @@ import "testing"
 
 // --- Issue 1: Compound table paths not fully resolvable ---
 // A table declared as [a.b.c.d] should make a.b.c.d.key resolvable via
-// Get("a.b.c.d.key"). The resolver must synthesize implicit intermediate
+// GetString("a.b.c.d.key"). Resolution must synthesize implicit intermediate
 // tables for compound key paths.
 
 func TestCompoundTablePath_DeepGet(t *testing.T) {

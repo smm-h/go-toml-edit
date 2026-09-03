@@ -47,7 +47,7 @@ func TestGet_ServerHost(t *testing.T) {
 	doc := parseTestDoc(t)
 	node, ok := doc.Lookup("server.host")
 	if !ok {
-		t.Fatal("Get(\"server.host\") returned nil")
+		t.Fatal("Lookup(\"server.host\") returned nil")
 	}
 	s, ok := node.(*StringNode)
 	if !ok {
@@ -172,7 +172,7 @@ func TestGet_DatesUpdated(t *testing.T) {
 	doc := parseTestDoc(t)
 	node, ok := doc.Lookup("dates.updated")
 	if !ok {
-		t.Fatal("Get(\"dates.updated\") returned nil")
+		t.Fatal("Lookup(\"dates.updated\") returned nil")
 	}
 	if _, ok := node.(*LocalDateTimeNode); !ok {
 		t.Errorf("expected *LocalDateTimeNode, got %T", node)
@@ -183,7 +183,7 @@ func TestGet_DatesBirthday(t *testing.T) {
 	doc := parseTestDoc(t)
 	node, ok := doc.Lookup("dates.birthday")
 	if !ok {
-		t.Fatal("Get(\"dates.birthday\") returned nil")
+		t.Fatal("Lookup(\"dates.birthday\") returned nil")
 	}
 	if _, ok := node.(*LocalDateNode); !ok {
 		t.Errorf("expected *LocalDateNode, got %T", node)
@@ -194,7 +194,7 @@ func TestGet_DatesAlarm(t *testing.T) {
 	doc := parseTestDoc(t)
 	node, ok := doc.Lookup("dates.alarm")
 	if !ok {
-		t.Fatal("Get(\"dates.alarm\") returned nil")
+		t.Fatal("Lookup(\"dates.alarm\") returned nil")
 	}
 	if _, ok := node.(*LocalTimeNode); !ok {
 		t.Errorf("expected *LocalTimeNode, got %T", node)

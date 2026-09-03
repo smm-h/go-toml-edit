@@ -316,7 +316,7 @@ func TestSpanEditPolicy(t *testing.T) {
 	// The replacement value node was created programmatically: invalid span.
 	aVal, ok := doc.Lookup("a")
 	if !ok {
-		t.Fatalf("Get(a) returned nil")
+		t.Fatalf("Lookup(a) returned nil")
 	}
 	if aVal.Span().IsValid() {
 		t.Errorf("edited value span = %+v, want invalid (zero) span", aVal.Span())
@@ -325,7 +325,7 @@ func TestSpanEditPolicy(t *testing.T) {
 	// Untouched nodes keep their parse-time spans.
 	bVal, ok := doc.Lookup("b")
 	if !ok {
-		t.Fatalf("Get(b) returned nil")
+		t.Fatalf("Lookup(b) returned nil")
 	}
 	assertSpan(t, "untouched value", bVal.Span(), 2, 5, 2, 6)
 }
