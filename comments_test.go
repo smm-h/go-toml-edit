@@ -13,7 +13,7 @@ port = 8080
 name = "mydb"
 `
 
-func parseCommentsTestDoc(t *testing.T) *DocumentNode {
+func parseCommentsTestDoc(t *testing.T) *Document {
 	t.Helper()
 	doc, err := Parse([]byte(commentsTestDocument))
 	if err != nil {

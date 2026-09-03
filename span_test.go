@@ -35,7 +35,7 @@ name = "b"
 # trailing comment
 `
 
-func mustParseSpanDoc(t *testing.T) *DocumentNode {
+func mustParseSpanDoc(t *testing.T) *Document {
 	t.Helper()
 	doc, err := Parse([]byte(spanTestDoc))
 	if err != nil {
@@ -59,7 +59,7 @@ func assertSpan(t *testing.T, label string, got Span, startLine, startCol, endLi
 }
 
 // rootKV returns the i-th root-level KeyValueNode of the span test document.
-func rootKV(t *testing.T, doc *DocumentNode, i int) *KeyValueNode {
+func rootKV(t *testing.T, doc *Document, i int) *KeyValueNode {
 	t.Helper()
 	kv, ok := doc.Children[i].(*KeyValueNode)
 	if !ok {

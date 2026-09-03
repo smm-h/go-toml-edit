@@ -39,9 +39,9 @@ func Marshal(v any) ([]byte, error) {
 	return b, nil
 }
 
-// mapToDocument builds a DocumentNode from a reflect.Value of map kind.
-func mapToDocument(rv reflect.Value) (*DocumentNode, error) {
-	doc := &DocumentNode{}
+// mapToDocument builds a Document from a reflect.Value of map kind.
+func mapToDocument(rv reflect.Value) (*Document, error) {
+	doc := &Document{}
 	doc.markDirty()
 
 	keys := sortedMapKeys(rv)

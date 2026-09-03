@@ -5,7 +5,7 @@ import (
 	"testing"
 )
 
-func parseDiffDoc(t *testing.T, input string) *DocumentNode {
+func parseDiffDoc(t *testing.T, input string) *Document {
 	t.Helper()
 	doc, err := Parse([]byte(input))
 	if err != nil {

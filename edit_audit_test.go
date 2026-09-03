@@ -327,7 +327,7 @@ name = "mydb"
 	}
 }
 
-// --- Audit Focus 5: Rename edge cases ---
+// --- Audit Focus 5: RenameKey edge cases ---
 
 func TestAudit_RenameQuotedKey(t *testing.T) {
 	src := `[server]
@@ -340,9 +340,9 @@ port = 8080
 	}
 
 	// Rename a key that was originally quoted
-	err = doc.Rename(`server."host.name"`, "hostname")
+	err = doc.RenameKey(`server."host.name"`, "hostname")
 	if err != nil {
-		t.Fatalf("Rename error: %v", err)
+		t.Fatalf("RenameKey error: %v", err)
 	}
 
 	val, ok := doc.GetString("server.hostname")
@@ -363,9 +363,9 @@ host = "localhost"
 	}
 
 	// Rename to a key that contains a dot (needs quoting)
-	err = doc.Rename("server.host", "host.name")
+	err = doc.RenameKey("server.host", "host.name")
 	if err != nil {
-		t.Fatalf("Rename error: %v", err)
+		t.Fatalf("RenameKey error: %v", err)
 	}
 
 	out := string(doc.Bytes())
@@ -392,9 +392,9 @@ host = "localhost"  # server address
 		t.Fatalf("parse error: %v", err)
 	}
 
-	err = doc.Rename("server.host", "address")
+	err = doc.RenameKey("server.host", "address")
 	if err != nil {
-		t.Fatalf("Rename error: %v", err)
+		t.Fatalf("RenameKey error: %v", err)
 	}
 
 	out := string(doc.Bytes())
@@ -473,9 +473,9 @@ a = 1
 		t.Fatalf("Set error: %v", err)
 	}
 
-	err = doc.Rename("newtable.key1", "renamed_key")
+	err = doc.RenameKey("newtable.key1", "renamed_key")
 	if err != nil {
-		t.Fatalf("Rename error: %v", err)
+		t.Fatalf("RenameKey error: %v", err)
 	}
 
 	val, ok := doc.GetString("newtable.renamed_key")
@@ -653,9 +653,9 @@ func TestAudit_RenameArrayIndexReturnsError(t *testing.T) {
 		t.Fatalf("parse error: %v", err)
 	}
 
-	err = doc.Rename("arr[0]", "newname")
+	err = doc.RenameKey("arr[0]", "newname")
 	if err == nil {
-		t.Error("Rename with index segment should return error")
+		t.Error("RenameKey with index segment should return error")
 	}
 }
 
@@ -987,7 +987,7 @@ inline = {x = 1, y = 2}
 
 // --- Helper ---
 
-func roundTripAudit(t *testing.T, doc *DocumentNode) *DocumentNode {
+func roundTripAudit(t *testing.T, doc *Document) *Document {
 	t.Helper()
 	out := doc.Bytes()
 	doc2, err := Parse(out)

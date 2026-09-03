@@ -10,7 +10,7 @@ import (
 
 // --- test helpers ---
 
-func mustParse(t *testing.T, input string) *DocumentNode {
+func mustParse(t *testing.T, input string) *Document {
 	t.Helper()
 	doc, err := Parse([]byte(input))
 	if err != nil {

@@ -31,9 +31,9 @@ func Unmarshal(data []byte, v any) error {
 
 // Decode decodes the document's content into v.
 // v must be a non-nil pointer to a struct or map[string]any. Unlike Unmarshal,
-// Decode operates on an already-parsed DocumentNode, which is useful when you
+// Decode operates on an already-parsed Document, which is useful when you
 // need both the AST (for editing) and the decoded values.
-func (d *DocumentNode) Decode(v any) error {
+func (d *Document) Decode(v any) error {
 	rv := reflect.ValueOf(v)
 	if rv.Kind() != reflect.Pointer || rv.IsNil() {
 		return fmt.Errorf("toml: Decode requires a non-nil pointer, got %T", v)
@@ -45,7 +45,7 @@ func (d *DocumentNode) Decode(v any) error {
 // decoder holds state during decoding.
 type decoder struct{}
 
-func (dec *decoder) decodeDocument(doc *DocumentNode, rv reflect.Value) error {
+func (dec *decoder) decodeDocument(doc *Document, rv reflect.Value) error {
 	rv = dec.indirect(rv, false)
 	switch rv.Kind() {
 	case reflect.Struct:
@@ -67,7 +67,7 @@ func (dec *decoder) decodeDocument(doc *DocumentNode, rv reflect.Value) error {
 
 // decodeDocumentToStruct walks the document's top-level Children and dispatches each
 // into the target struct.
-func (dec *decoder) decodeDocumentToStruct(doc *DocumentNode, rv reflect.Value) error {
+func (dec *decoder) decodeDocumentToStruct(doc *Document, rv reflect.Value) error {
 	fm := newFieldMapping(rv.Type())
 
 	// Collect top-level array-table paths so we can skip their sub-tables.
@@ -105,7 +105,7 @@ func (dec *decoder) decodeDocumentToStruct(doc *DocumentNode, rv reflect.Value) 
 }
 
 // decodeDocumentToMap walks the document's top-level Children and adds each into the map.
-func (dec *decoder) decodeDocumentToMap(doc *DocumentNode, rv reflect.Value) error {
+func (dec *decoder) decodeDocumentToMap(doc *Document, rv reflect.Value) error {
 	if rv.IsNil() {
 		rv.Set(reflect.MakeMap(rv.Type()))
 	}
@@ -349,7 +349,7 @@ func (dec *decoder) decodeDottedKVIntoMap(kv *KeyValueNode, remaining []string, 
 
 // --- Table node into struct ---
 
-func (dec *decoder) decodeTableNodeIntoStruct(doc *DocumentNode, tbl *TableNode, fm *fieldMapping, rv reflect.Value) error {
+func (dec *decoder) decodeTableNodeIntoStruct(doc *Document, tbl *TableNode, fm *fieldMapping, rv reflect.Value) error {
 	if len(tbl.KeyPath) == 0 {
 		return nil
 	}
@@ -406,7 +406,7 @@ func (dec *decoder) decodeTableNodeIntoStruct(doc *DocumentNode, tbl *TableNode,
 
 // --- Table node into map ---
 
-func (dec *decoder) decodeTableNodeIntoMap(doc *DocumentNode, tbl *TableNode, rv reflect.Value) error {
+func (dec *decoder) decodeTableNodeIntoMap(doc *Document, tbl *TableNode, rv reflect.Value) error {
 	if rv.IsNil() {
 		rv.Set(reflect.MakeMap(rv.Type()))
 	}
@@ -443,7 +443,7 @@ func (dec *decoder) decodeTableChildrenIntoMap(tbl *TableNode, rv reflect.Value)
 
 // --- Array table into struct ---
 
-func (dec *decoder) decodeArrayTableNodeIntoStruct(doc *DocumentNode, atbl *ArrayTableNode, fm *fieldMapping, rv reflect.Value) error {
+func (dec *decoder) decodeArrayTableNodeIntoStruct(doc *Document, atbl *ArrayTableNode, fm *fieldMapping, rv reflect.Value) error {
 	if len(atbl.KeyPath) == 0 {
 		return nil
 	}
@@ -512,7 +512,7 @@ func (dec *decoder) decodeArrayTableNodeIntoStruct(doc *DocumentNode, atbl *Arra
 }
 
 // decodeArrayTableSubTables finds sub-tables scoped to a specific array table entry and decodes them.
-func (dec *decoder) decodeArrayTableSubTables(doc *DocumentNode, atbl *ArrayTableNode, rv reflect.Value, pathPrefix string) error {
+func (dec *decoder) decodeArrayTableSubTables(doc *Document, atbl *ArrayTableNode, rv reflect.Value, pathPrefix string) error {
 	scopeIdx := -1
 	for i, child := range doc.Children {
 		if child == atbl {
@@ -559,7 +559,7 @@ func (dec *decoder) decodeArrayTableSubTables(doc *DocumentNode, atbl *ArrayTabl
 	return nil
 }
 
-func (dec *decoder) decodeSubTableIntoStruct(doc *DocumentNode, tbl *TableNode, relPath []string, fm *fieldMapping, rv reflect.Value, pathPrefix string) error {
+func (dec *decoder) decodeSubTableIntoStruct(doc *Document, tbl *TableNode, relPath []string, fm *fieldMapping, rv reflect.Value, pathPrefix string) error {
 	current := rv
 	currentFM := fm
 	path := pathPrefix
@@ -586,7 +586,7 @@ func (dec *decoder) decodeSubTableIntoStruct(doc *DocumentNode, tbl *TableNode, 
 	return dec.decodeChildrenIntoStruct(tbl.Children, current, path)
 }
 
-func (dec *decoder) decodeSubArrayTableIntoStruct(doc *DocumentNode, atbl *ArrayTableNode, relPath []string, fm *fieldMapping, rv reflect.Value, pathPrefix string) error {
+func (dec *decoder) decodeSubArrayTableIntoStruct(doc *Document, atbl *ArrayTableNode, relPath []string, fm *fieldMapping, rv reflect.Value, pathPrefix string) error {
 	current := rv
 	currentFM := fm
 	path := pathPrefix
@@ -649,7 +649,7 @@ func (dec *decoder) decodeSubArrayTableIntoStruct(doc *DocumentNode, atbl *Array
 
 // --- Array table into map ---
 
-func (dec *decoder) decodeArrayTableNodeIntoMap(doc *DocumentNode, atbl *ArrayTableNode, rv reflect.Value, slices map[string][]any) error {
+func (dec *decoder) decodeArrayTableNodeIntoMap(doc *Document, atbl *ArrayTableNode, rv reflect.Value, slices map[string][]any) error {
 	if rv.IsNil() {
 		rv.Set(reflect.MakeMap(rv.Type()))
 	}
@@ -680,7 +680,7 @@ func (dec *decoder) decodeArrayTableNodeIntoMap(doc *DocumentNode, atbl *ArrayTa
 	return nil
 }
 
-func (dec *decoder) decodeArrayTableSubTablesIntoMap(doc *DocumentNode, atbl *ArrayTableNode, entryMap map[string]any) {
+func (dec *decoder) decodeArrayTableSubTablesIntoMap(doc *Document, atbl *ArrayTableNode, entryMap map[string]any) {
 	scopeIdx := -1
 	for i, child := range doc.Children {
 		if child == atbl {
@@ -1142,7 +1142,7 @@ func parseTag(tag string) (string, string) {
 // collectArrayTablePaths returns the set of single-component array-table KeyPaths
 // found in the document. These are used to identify sub-tables that should be
 // skipped by the top-level loop (they are handled within array-table processing).
-func collectArrayTablePaths(doc *DocumentNode) [][]string {
+func collectArrayTablePaths(doc *Document) [][]string {
 	var paths [][]string
 	seen := map[string]bool{}
 	for _, child := range doc.Children {

@@ -349,8 +349,8 @@ func TestEdgeMultipleOperationsThenRoundTrip(t *testing.T) {
 	}
 
 	// Rename a value
-	if err := doc.Rename("products[0].name", "title"); err != nil {
-		t.Fatalf("Rename failed: %v", err)
+	if err := doc.RenameKey("products[0].name", "title"); err != nil {
+		t.Fatalf("RenameKey failed: %v", err)
 	}
 
 	// Create a new table

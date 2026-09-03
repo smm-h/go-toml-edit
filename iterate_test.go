@@ -22,7 +22,7 @@ name = "Doohickey"
 price = 29.99
 `
 
-func parseIterateTestDoc(t *testing.T) *DocumentNode {
+func parseIterateTestDoc(t *testing.T) *Document {
 	t.Helper()
 	doc, err := Parse([]byte(iterateTestDocument))
 	if err != nil {

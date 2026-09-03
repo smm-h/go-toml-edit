@@ -34,7 +34,7 @@ inline = {x = 1, y = 2}
 array = [1, 2, 3]
 `
 
-func parseTestDoc(t *testing.T) *DocumentNode {
+func parseTestDoc(t *testing.T) *Document {
 	t.Helper()
 	doc, err := Parse([]byte(testDocument))
 	if err != nil {

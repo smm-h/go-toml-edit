@@ -44,7 +44,7 @@ type Change struct {
 // them. Container nodes (inline tables, arrays) are not compared directly;
 // instead their individual elements are compared. Changes are sorted by path
 // (alphabetical), then by kind (Removed, Modified, Added).
-func Diff(a, b *DocumentNode) []Change {
+func Diff(a, b *Document) []Change {
 	aLeaves := collectLeaves(a)
 	bLeaves := collectLeaves(b)
 
@@ -92,7 +92,7 @@ func Diff(a, b *DocumentNode) []Change {
 
 // collectLeaves walks a document and returns a map of path -> semantic value
 // for all leaf (scalar) nodes.
-func collectLeaves(doc *DocumentNode) map[string]any {
+func collectLeaves(doc *Document) map[string]any {
 	leaves := make(map[string]any)
 	if doc == nil {
 		return leaves

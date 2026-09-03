@@ -38,7 +38,7 @@ const (
 // entries (e.g. "servers[0].host"). Return ErrSkipTable from fn to skip the
 // children of the current inline table or array. Return any other non-nil
 // error to stop the walk immediately.
-func (d *DocumentNode) Walk(fn func(path string, node Node) error, mode WalkMode) error {
+func (d *Document) Walk(fn func(path string, node Node) error, mode WalkMode) error {
 	// Phase 1: root-level KVs (before any table header)
 	for _, child := range d.Children {
 		switch child := child.(type) {

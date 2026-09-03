@@ -22,17 +22,17 @@ const (
 	IntegerBinary                     // IntegerBinary is base-2 (e.g. 0b1010).
 )
 
-// DocumentNode is the root node of a TOML document.
-type DocumentNode struct {
+// Document is the root node of a TOML document.
+type Document struct {
 	nodeBase
 	Children []Node
 }
 
 // Type returns NodeDocument.
-func (n *DocumentNode) Type() NodeType { return NodeDocument }
+func (n *Document) Type() NodeType { return NodeDocument }
 
 // Value returns the document's child nodes.
-func (n *DocumentNode) Value() any { return n.Children }
+func (n *Document) Value() any { return n.Children }
 
 // TableNode represents a [table] header and its children.
 type TableNode struct {

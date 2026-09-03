@@ -15,7 +15,7 @@ func (p Position) IsValid() bool { return p.Line >= 1 }
 // the position of the node's first byte, End is the position immediately
 // after its last byte.
 //
-// Spans reflect the most recent Parse. Edit operations (Set, Delete, Rename,
+// Spans reflect the most recent Parse. Edit operations (Set, Delete, RenameKey,
 // Merge, ...) do not update spans: nodes created programmatically carry the
 // zero Span (IsValid reports false), and nodes whose content was edited keep
 // the span from the last parse. To obtain fresh spans after editing,

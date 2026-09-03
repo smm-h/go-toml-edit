@@ -8,7 +8,7 @@ import "iter"
 // non-array node. Use with a range loop:
 //
 //	for i, node := range doc.Items("servers") { ... }
-func (d *DocumentNode) Items(path string) iter.Seq2[int, Node] {
+func (d *Document) Items(path string) iter.Seq2[int, Node] {
 	return func(yield func(int, Node) bool) {
 		segments, err := parsePath(path)
 		if err != nil {
@@ -24,7 +24,7 @@ func (d *DocumentNode) Items(path string) iter.Seq2[int, Node] {
 
 // Len returns the number of elements at the path. Returns -1 if the path is
 // invalid, does not exist, or does not point to an array or array-of-tables.
-func (d *DocumentNode) Len(path string) int {
+func (d *Document) Len(path string) int {
 	segments, err := parsePath(path)
 	if err != nil {
 		return -1

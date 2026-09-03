@@ -9,15 +9,15 @@ import (
 	"unicode/utf8"
 )
 
-// Parse lexes and parses TOML source bytes into a DocumentNode AST.
+// Parse lexes and parses TOML source bytes into a Document AST.
 //
-// The returned DocumentNode preserves all whitespace, comments, and formatting
+// The returned Document preserves all whitespace, comments, and formatting
 // from the original source. Serializing it back with Bytes produces the exact
 // original bytes (round-trip fidelity).
 //
 // Returns a *ParseError on any lexing or parsing error, including duplicate
 // key detection and invalid TOML syntax.
-func Parse(src []byte) (*DocumentNode, error) {
+func Parse(src []byte) (*Document, error) {
 	tokens, err := lex(src)
 	if err != nil {
 		return nil, err
@@ -184,8 +184,8 @@ func (p *parser) consumeTrailingNewline() []byte {
 
 // --- document parsing ---
 
-func (p *parser) parseDocument() (*DocumentNode, error) {
-	doc := &DocumentNode{}
+func (p *parser) parseDocument() (*Document, error) {
+	doc := &Document{}
 	tracker := newDefinitionTracker()
 
 	for p.peekType() != TokenEOF {
@@ -258,12 +258,12 @@ func (p *parser) emitOrphanTrivia(parent interface{ addChild(Node) }, comments [
 	}
 }
 
-// childAdder is implemented by DocumentNode, TableNode, ArrayTableNode.
+// childAdder is implemented by Document, TableNode, ArrayTableNode.
 type childAdder interface {
 	addChild(Node)
 }
 
-func (n *DocumentNode) addChild(c Node)   { n.Children = append(n.Children, c) }
+func (n *Document) addChild(c Node)       { n.Children = append(n.Children, c) }
 func (n *TableNode) addChild(c Node)      { n.Children = append(n.Children, c) }
 func (n *ArrayTableNode) addChild(c Node) { n.Children = append(n.Children, c) }
 

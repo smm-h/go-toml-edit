@@ -515,7 +515,7 @@ func TestBytesDirtyNodeWithComments(t *testing.T) {
 	kv.markDirty()
 	kv.nodeTrivia.InlineComment = []byte("# the name")
 
-	doc := &DocumentNode{Children: []Node{kv}}
+	doc := &Document{Children: []Node{kv}}
 
 	got := string(doc.Bytes())
 	if !strings.Contains(got, "# the name") {
@@ -537,7 +537,7 @@ func TestBytesDirtyNodeWithLeadingComments(t *testing.T) {
 		[]byte("# port configuration\n"),
 	}
 
-	doc := &DocumentNode{Children: []Node{kv}}
+	doc := &Document{Children: []Node{kv}}
 
 	got := string(doc.Bytes())
 	if !strings.Contains(got, "# port configuration\n") {
@@ -549,7 +549,7 @@ func TestBytesDirtyNodeWithLeadingComments(t *testing.T) {
 }
 
 // =============================================================================
-// 5. New nodes: construct a DocumentNode with programmatic children, verify output
+// 5. New nodes: construct a Document with programmatic children, verify output
 // =============================================================================
 
 func TestBytesNewDocument(t *testing.T) {
@@ -568,7 +568,7 @@ func TestBytesNewDocument(t *testing.T) {
 	verKV := &KeyValueNode{Key: verKey, Val: verVal}
 	verKV.markDirty()
 
-	doc := &DocumentNode{Children: []Node{titleKV, verKV}}
+	doc := &Document{Children: []Node{titleKV, verKV}}
 	got := string(doc.Bytes())
 
 	// Verify it contains expected output
@@ -601,7 +601,7 @@ func TestBytesNewDocumentWithTable(t *testing.T) {
 	hostKV.markDirty()
 	tbl.Children = []Node{hostKV}
 
-	doc := &DocumentNode{Children: []Node{tbl}}
+	doc := &Document{Children: []Node{tbl}}
 	got := string(doc.Bytes())
 
 	if !strings.Contains(got, "[server]") {
@@ -630,7 +630,7 @@ func TestBytesNewDocumentWithArrayTable(t *testing.T) {
 	nameKV.markDirty()
 	atbl.Children = []Node{nameKV}
 
-	doc := &DocumentNode{Children: []Node{atbl}}
+	doc := &Document{Children: []Node{atbl}}
 	got := string(doc.Bytes())
 
 	if !strings.Contains(got, "[[items]]") {
@@ -845,7 +845,7 @@ func TestBytesOutputParseable(t *testing.T) {
 	portKV.markDirty()
 	tbl.Children = []Node{portKV}
 
-	doc := &DocumentNode{Children: []Node{titleKV, debugKV, piKV, tbl}}
+	doc := &Document{Children: []Node{titleKV, debugKV, piKV, tbl}}
 	out := doc.Bytes()
 
 	// Parse the output
@@ -900,7 +900,7 @@ func TestBytesOutputParseable(t *testing.T) {
 // =============================================================================
 
 func TestBytesEmptyDocument(t *testing.T) {
-	doc := &DocumentNode{}
+	doc := &Document{}
 	got := doc.Bytes()
 	if len(got) != 0 {
 		t.Errorf("expected empty bytes, got %q", got)
@@ -952,7 +952,7 @@ func TestBytesMultipleArrayTablesDirty(t *testing.T) {
 	name2KV.markDirty()
 	atbl2.Children = []Node{name2KV}
 
-	doc := &DocumentNode{Children: []Node{atbl1, atbl2}}
+	doc := &Document{Children: []Node{atbl1, atbl2}}
 	got := string(doc.Bytes())
 
 	// Count occurrences of [[items]]
@@ -986,7 +986,7 @@ func TestRenderKeyValueDottedDirty(t *testing.T) {
 	kv := &KeyValueNode{Key: key, Val: val}
 	kv.markDirty()
 
-	doc := &DocumentNode{Children: []Node{kv}}
+	doc := &Document{Children: []Node{kv}}
 	got := string(doc.Bytes())
 	if !strings.Contains(got, "a.b.c = 42") {
 		t.Errorf("expected dotted key, got %q", got)

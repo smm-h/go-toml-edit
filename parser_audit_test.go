@@ -822,19 +822,19 @@ tags = [
 	}
 }
 
-// --- DocumentNode.Raw() ---
+// --- Document.Raw() ---
 
-func TestAuditDocumentNodeRaw(t *testing.T) {
-	// DocumentNode itself doesn't carry Raw bytes -- the children do.
+func TestAuditDocumentRaw(t *testing.T) {
+	// Document itself doesn't carry Raw bytes -- the children do.
 	// Verify collectRawBytes works by walking children.
 	input := "key = 1\n"
 	doc, err := Parse([]byte(input))
 	if err != nil {
 		t.Fatal(err)
 	}
-	// DocumentNode.Raw() is nil/empty
+	// Document.Raw() is nil/empty
 	if len(doc.Raw()) != 0 {
-		t.Logf("DocumentNode.Raw() has %d bytes -- this is fine if raw walk still works", len(doc.Raw()))
+		t.Logf("Document.Raw() has %d bytes -- this is fine if raw walk still works", len(doc.Raw()))
 	}
 }
 

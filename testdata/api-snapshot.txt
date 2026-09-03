@@ -60,9 +60,9 @@ const WalkLeaves WalkMode = 0
 var ErrSkipTable error
 
 func DefaultFormatConfig() FormatConfig
-func Diff(a *DocumentNode, b *DocumentNode) []Change
+func Diff(a *Document, b *Document) []Change
 func Marshal(v any) ([]byte, error)
-func Parse(src []byte) (*DocumentNode, error)
+func Parse(src []byte) (*Document, error)
 func Unmarshal(data []byte, v any) error
 func WithIndentWidth(n int) FormatOption
 func WithLineWidth(n int) FormatOption
@@ -147,38 +147,38 @@ type DateTimeNode struct
 	method (*DateTimeNode) Type() NodeType
 	method (*DateTimeNode) Value() any
 
-type DocumentNode struct
+type Document struct
 	field Children []Node
-	method (*DocumentNode) Bytes() []byte
-	method (*DocumentNode) Comment() string
-	method (*DocumentNode) Decode(v any) error
-	method (*DocumentNode) Delete(path string) error
-	method (*DocumentNode) Format(opts ...FormatOption) []byte
-	method (*DocumentNode) Get(path string) Node
-	method (*DocumentNode) GetBool(path string) (bool, bool)
-	method (*DocumentNode) GetFloat(path string) (float64, bool)
-	method (*DocumentNode) GetInt(path string) (int64, bool)
-	method (*DocumentNode) GetString(path string) (string, bool)
-	method (*DocumentNode) GetTime(path string) (time.Time, bool)
-	method (*DocumentNode) Items(path string) iter.Seq2[int, Node]
-	method (*DocumentNode) Key(name string) *Cursor
-	method (*DocumentNode) LeadingComments() []string
-	method (*DocumentNode) Len(path string) int
-	method (*DocumentNode) Merge(other *DocumentNode) error
-	method (*DocumentNode) MergeDefaults(path string, defaults map[string]any) error
-	method (*DocumentNode) NewArrayTable(path string) error
-	method (*DocumentNode) NewTable(path string) error
-	method (*DocumentNode) Raw() []byte
-	method (*DocumentNode) Rename(path string, newKey string) error
-	method (*DocumentNode) Resolve(path string) (Node, error)
-	method (*DocumentNode) Set(path string, value any) error
-	method (*DocumentNode) SetComment(path string, comment string) error
-	method (*DocumentNode) SetCreate(path string, value any) error
-	method (*DocumentNode) SetLeadingComments(path string, comments []string) error
-	method (*DocumentNode) Span() Span
-	method (*DocumentNode) Type() NodeType
-	method (*DocumentNode) Value() any
-	method (*DocumentNode) Walk(fn func(path string, node Node) error, mode WalkMode) error
+	method (*Document) Bytes() []byte
+	method (*Document) Comment() string
+	method (*Document) Decode(v any) error
+	method (*Document) Delete(path string) error
+	method (*Document) Format(opts ...FormatOption) []byte
+	method (*Document) Get(path string) Node
+	method (*Document) GetBool(path string) (bool, bool)
+	method (*Document) GetFloat(path string) (float64, bool)
+	method (*Document) GetInt(path string) (int64, bool)
+	method (*Document) GetString(path string) (string, bool)
+	method (*Document) GetTime(path string) (time.Time, bool)
+	method (*Document) Items(path string) iter.Seq2[int, Node]
+	method (*Document) Key(name string) *Cursor
+	method (*Document) LeadingComments() []string
+	method (*Document) Len(path string) int
+	method (*Document) Merge(other *Document) error
+	method (*Document) MergeDefaults(path string, defaults map[string]any) error
+	method (*Document) NewArrayTable(path string) error
+	method (*Document) NewTable(path string) error
+	method (*Document) Raw() []byte
+	method (*Document) RenameKey(path string, newKey string) error
+	method (*Document) Resolve(path string) (Node, error)
+	method (*Document) Set(path string, value any) error
+	method (*Document) SetComment(path string, comment string) error
+	method (*Document) SetCreate(path string, value any) error
+	method (*Document) SetLeadingComments(path string, comments []string) error
+	method (*Document) Span() Span
+	method (*Document) Type() NodeType
+	method (*Document) Value() any
+	method (*Document) Walk(fn func(path string, node Node) error, mode WalkMode) error
 
 type FloatNode struct
 	field Val float64

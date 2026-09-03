@@ -8,7 +8,7 @@ import "fmt"
 // For table paths, the comment is set on the table header line.
 // Returns an error if the path does not exist or targets a member of an
 // inline table (TOML forbids comments inside inline tables).
-func (d *DocumentNode) SetComment(path string, comment string) error {
+func (d *Document) SetComment(path string, comment string) error {
 	node, err := d.resolveCommentTarget(path)
 	if err != nil {
 		return err
@@ -26,7 +26,7 @@ func (d *DocumentNode) SetComment(path string, comment string) error {
 // path. Each string should NOT include the "# " prefix -- it will be added
 // automatically. For table paths, the comments are set on the table header.
 // Returns an error if the path does not exist.
-func (d *DocumentNode) SetLeadingComments(path string, comments []string) error {
+func (d *Document) SetLeadingComments(path string, comments []string) error {
 	node, err := d.resolveCommentTarget(path)
 	if err != nil {
 		return err
@@ -43,7 +43,7 @@ func (d *DocumentNode) SetLeadingComments(path string, comments []string) error 
 // resolveCommentTarget resolves a path to the node that should receive
 // comments. For key-value paths this is the KeyValueNode (not the unwrapped
 // value). For table paths it's the TableNode or ArrayTableNode.
-func (d *DocumentNode) resolveCommentTarget(path string) (Node, error) {
+func (d *Document) resolveCommentTarget(path string) (Node, error) {
 	segments, err := parsePath(path)
 	if err != nil {
 		return nil, fmt.Errorf("path syntax error: %w", err)
@@ -104,10 +104,10 @@ func isInsideInlineTable(node Node) bool {
 }
 
 // findKVInParent searches for a KeyValueNode with the given key in a parent.
-func findKVInParent(parent Node, doc *DocumentNode, key string) *KeyValueNode {
+func findKVInParent(parent Node, doc *Document, key string) *KeyValueNode {
 	var children []Node
 	switch p := parent.(type) {
-	case *DocumentNode:
+	case *Document:
 		children = p.Children
 	case *TableNode:
 		children = p.Children

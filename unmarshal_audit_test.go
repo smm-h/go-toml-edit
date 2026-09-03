@@ -762,11 +762,11 @@ name = "second"
 }
 
 // ==========================================================================
-// Additional edge cases: Decode method (DocumentNode.Decode)
+// Additional edge cases: Decode method (Document.Decode)
 // ==========================================================================
 
 func TestAudit_DecodeNonPointer(t *testing.T) {
-	doc := &DocumentNode{}
+	doc := &Document{}
 	type Config struct{}
 	var cfg Config
 	err := doc.Decode(cfg) // not &cfg
@@ -776,7 +776,7 @@ func TestAudit_DecodeNonPointer(t *testing.T) {
 }
 
 func TestAudit_DecodeNilPointer(t *testing.T) {
-	doc := &DocumentNode{}
+	doc := &Document{}
 	var cfg *struct{ Name string }
 	err := doc.Decode(cfg)
 	if err == nil {

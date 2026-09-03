@@ -15,18 +15,18 @@ import (
 // time.Time, LocalDateTime, LocalDate, LocalTime, []any, map[string]any, and
 // any type implementing the Node interface. Use SetCreate to auto-create
 // intermediate tables.
-func (d *DocumentNode) Set(path string, value any) error {
+func (d *Document) Set(path string, value any) error {
 	return d.setInternal(path, value, false)
 }
 
 // SetCreate is like Set but auto-creates intermediate [table] headers when they
 // do not exist. Missing tables are appended to the document. This is convenient
 // for inserting values into deeply nested paths that may not yet exist.
-func (d *DocumentNode) SetCreate(path string, value any) error {
+func (d *Document) SetCreate(path string, value any) error {
 	return d.setInternal(path, value, true)
 }
 
-func (d *DocumentNode) setInternal(path string, value any, create bool) error {
+func (d *Document) setInternal(path string, value any, create bool) error {
 	segments, err := parsePath(path)
 	if err != nil {
 		return fmt.Errorf("path syntax error: %w", err)
@@ -63,7 +63,7 @@ func (d *DocumentNode) setInternal(path string, value any, create bool) error {
 
 // resolveParentForEdit resolves the parent container for an edit operation.
 // When create is true, missing intermediate tables are auto-created.
-func (d *DocumentNode) resolveParentForEdit(segments []pathSegment, create bool) (Node, error) {
+func (d *Document) resolveParentForEdit(segments []pathSegment, create bool) (Node, error) {
 	if len(segments) == 0 {
 		return d, nil
 	}
@@ -84,7 +84,7 @@ func (d *DocumentNode) resolveParentForEdit(segments []pathSegment, create bool)
 
 // resolveOrCreateParent walks the path segments, creating intermediate tables
 // as needed. Returns the final parent container.
-func (d *DocumentNode) resolveOrCreateParent(segments []pathSegment) (Node, error) {
+func (d *Document) resolveOrCreateParent(segments []pathSegment) (Node, error) {
 	var current Node = d
 	var currentTablePath []string
 
@@ -127,11 +127,11 @@ func (d *DocumentNode) resolveOrCreateParent(segments []pathSegment) (Node, erro
 
 // createIntermediateTable creates a new [table] for the given key under the
 // current scope. Returns the updated table path.
-func (d *DocumentNode) createIntermediateTable(current Node, currentTablePath []string, key string) ([]string, error) {
+func (d *Document) createIntermediateTable(current Node, currentTablePath []string, key string) ([]string, error) {
 	var newPath []string
 
 	switch scope := current.(type) {
-	case *DocumentNode:
+	case *Document:
 		newPath = []string{key}
 	case *TableNode:
 		newPath = append(append([]string(nil), scope.KeyPath...), key)
@@ -155,7 +155,7 @@ func (d *DocumentNode) createIntermediateTable(current Node, currentTablePath []
 // documents, inline tables) without unwrapping KeyValueNodes whose value is an
 // inline table or array. This allows the edit operations to find the right
 // parent for insertion.
-func resolveNodeForEdit(doc *DocumentNode, segments []pathSegment) (Node, error) {
+func resolveNodeForEdit(doc *Document, segments []pathSegment) (Node, error) {
 	if len(segments) == 0 {
 		return doc, nil
 	}
@@ -191,7 +191,7 @@ func resolveNodeForEdit(doc *DocumentNode, segments []pathSegment) (Node, error)
 // setKeyInParent sets or replaces a key-value in a parent container.
 func setKeyInParent(parent Node, key string, valNode Node) error {
 	switch p := parent.(type) {
-	case *DocumentNode:
+	case *Document:
 		return setKeyInChildren(&p.Children, key, valNode, false)
 	case *TableNode:
 		return setKeyInChildren(&p.Children, key, valNode, false)
@@ -276,7 +276,7 @@ func newKeyValueNode(key string, val Node) *KeyValueNode {
 // Delete removes the node at the given path from the document. It handles
 // key-value pairs, tables, array-of-tables, and array elements. Returns nil
 // (no error) if the path does not exist, making it safe to call unconditionally.
-func (d *DocumentNode) Delete(path string) error {
+func (d *Document) Delete(path string) error {
 	segments, err := parsePath(path)
 	if err != nil {
 		return fmt.Errorf("path syntax error: %w", err)
@@ -306,9 +306,9 @@ func (d *DocumentNode) Delete(path string) error {
 }
 
 // deleteKeyFromParent removes a key from a parent container.
-func (d *DocumentNode) deleteKeyFromParent(parent Node, key string) error {
+func (d *Document) deleteKeyFromParent(parent Node, key string) error {
 	switch p := parent.(type) {
-	case *DocumentNode:
+	case *Document:
 		deleteKeyFromChildren(&p.Children, key)
 		d.deleteTableOrArrayTableByFirstKey(key)
 		return nil
@@ -343,7 +343,7 @@ func deleteKeyFromChildren(children *[]Node, key string) {
 
 // deleteTableOrArrayTableByFirstKey removes a table or array-table from the
 // document's top-level children by matching the key path.
-func (d *DocumentNode) deleteTableOrArrayTableByFirstKey(key string) {
+func (d *Document) deleteTableOrArrayTableByFirstKey(key string) {
 	targetPath := []string{key}
 	i := 0
 	for i < len(d.Children) {
@@ -365,7 +365,7 @@ func (d *DocumentNode) deleteTableOrArrayTableByFirstKey(key string) {
 }
 
 // deleteSubTableByKey removes a sub-table from the document's children.
-func (d *DocumentNode) deleteSubTableByKey(parentPath []string, key string) {
+func (d *Document) deleteSubTableByKey(parentPath []string, key string) {
 	targetPath := append(append([]string(nil), parentPath...), key)
 	i := 0
 	for i < len(d.Children) {
@@ -424,11 +424,11 @@ func deleteIndexFromParent(parent Node, index int) error {
 	}
 }
 
-// Rename changes the key name of the node at the given path to newKey.
+// RenameKey changes the key name of the node at the given path to newKey.
 // Returns an error if the path does not exist, if newKey conflicts with an
 // existing sibling key, or if the last path segment is an array index (only
 // key segments can be renamed).
-func (d *DocumentNode) Rename(path string, newKey string) error {
+func (d *Document) RenameKey(path string, newKey string) error {
 	segments, err := parsePath(path)
 	if err != nil {
 		return fmt.Errorf("path syntax error: %w", err)
@@ -458,7 +458,7 @@ func renameKeyInParent(parent Node, oldKey, newKey string) error {
 	var children *[]Node
 
 	switch p := parent.(type) {
-	case *DocumentNode:
+	case *Document:
 		children = &p.Children
 	case *TableNode:
 		children = &p.Children
@@ -499,7 +499,7 @@ func renameKeyInParent(parent Node, oldKey, newKey string) error {
 // NewTable creates a new [table] header at the given path and appends it to
 // the document. The path must consist of key segments only (no array indices).
 // Returns an error if a table with that exact path already exists.
-func (d *DocumentNode) NewTable(path string) error {
+func (d *Document) NewTable(path string) error {
 	segments, err := parsePath(path)
 	if err != nil {
 		return fmt.Errorf("path syntax error: %w", err)
@@ -540,7 +540,7 @@ func (d *DocumentNode) NewTable(path string) error {
 // Multiple entries with the same path are valid in TOML and represent
 // successive elements of the array. The path must consist of key segments
 // only (no array indices).
-func (d *DocumentNode) NewArrayTable(path string) error {
+func (d *Document) NewArrayTable(path string) error {
 	segments, err := parsePath(path)
 	if err != nil {
 		return fmt.Errorf("path syntax error: %w", err)

@@ -21,7 +21,7 @@ port = 8080
 	// 8080 true
 }
 
-func ExampleDocumentNode_Set() {
+func ExampleDocument_Set() {
 	doc, err := tomledit.Parse([]byte(`[server]
 host = "localhost"
 port = 8080
@@ -38,7 +38,7 @@ port = 8080
 	// 9090 true
 }
 
-func ExampleDocumentNode_SetCreate() {
+func ExampleDocument_SetCreate() {
 	doc, err := tomledit.Parse([]byte(`title = "example"
 `))
 	if err != nil {
@@ -54,7 +54,7 @@ func ExampleDocumentNode_SetCreate() {
 	// db.example.com true
 }
 
-func ExampleDocumentNode_Delete() {
+func ExampleDocument_Delete() {
 	doc, err := tomledit.Parse([]byte(`[server]
 host = "localhost"
 port = 8080
@@ -72,7 +72,7 @@ debug = true
 	// false false
 }
 
-func ExampleDocumentNode_Format() {
+func ExampleDocument_Format() {
 	doc, err := tomledit.Parse([]byte(`name="Alice"
 [server]
 host="localhost"
@@ -91,7 +91,7 @@ port=8080
 	//   port = 8080
 }
 
-func ExampleDocumentNode_Key() {
+func ExampleDocument_Key() {
 	doc, err := tomledit.Parse([]byte(`[database]
 host = "localhost"
 port = 5432
@@ -136,7 +136,7 @@ port = 443
 	// 443
 }
 
-func ExampleDocumentNode_Walk() {
+func ExampleDocument_Walk() {
 	doc, err := tomledit.Parse([]byte(`name = "example"
 
 [server]
@@ -176,7 +176,7 @@ email = "bob@example.com"
 	// modified: name
 }
 
-func ExampleDocumentNode_Merge() {
+func ExampleDocument_Merge() {
 	base, _ := tomledit.Parse([]byte(`[server]
 host = "localhost"
 `))

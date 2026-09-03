@@ -10,7 +10,7 @@ import (
 // each node in the correct order to reproduce the original source.
 func collectRawBytes(node Node) []byte {
 	switch n := node.(type) {
-	case *DocumentNode:
+	case *Document:
 		var out []byte
 		for _, c := range n.Children {
 			out = append(out, collectRawBytes(c)...)

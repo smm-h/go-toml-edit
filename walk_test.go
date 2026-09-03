@@ -6,7 +6,7 @@ import (
 	"testing"
 )
 
-func parseWalkDoc(t *testing.T, input string) *DocumentNode {
+func parseWalkDoc(t *testing.T, input string) *Document {
 	t.Helper()
 	doc, err := Parse([]byte(input))
 	if err != nil {
@@ -15,7 +15,7 @@ func parseWalkDoc(t *testing.T, input string) *DocumentNode {
 	return doc
 }
 
-func collectPaths(t *testing.T, doc *DocumentNode) []string {
+func collectPaths(t *testing.T, doc *Document) []string {
 	t.Helper()
 	var paths []string
 	err := doc.Walk(func(path string, node Node) error {
@@ -33,7 +33,7 @@ type pathNode struct {
 	node Node
 }
 
-func collectPathNodes(t *testing.T, doc *DocumentNode) []pathNode {
+func collectPathNodes(t *testing.T, doc *Document) []pathNode {
 	t.Helper()
 	var result []pathNode
 	err := doc.Walk(func(path string, node Node) error {

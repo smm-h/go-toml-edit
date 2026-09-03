@@ -12,7 +12,7 @@ import (
 // whether the traversal succeeded.
 type Cursor struct {
 	node Node
-	doc  *DocumentNode
+	doc  *Document
 	err  error
 	// tablePath tracks the logical table path for sub-table resolution.
 	tablePath []string
@@ -21,7 +21,7 @@ type Cursor struct {
 // Key returns a Cursor navigated to the named child of the document root.
 // This is the entry point for the fluent cursor API. Chain additional Key or
 // At calls to traverse deeper, then extract the value with String, Int, etc.
-func (d *DocumentNode) Key(name string) *Cursor {
+func (d *Document) Key(name string) *Cursor {
 	c := &Cursor{node: d, doc: d}
 	return c.Key(name)
 }

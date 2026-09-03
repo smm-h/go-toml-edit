@@ -7,7 +7,7 @@ import (
 
 // resolveNode resolves a parsed path against the document's AST, returning
 // the target node. For KeyValueNodes the unwrapped value is returned.
-func resolveNode(doc *DocumentNode, segments []pathSegment) (Node, error) {
+func resolveNode(doc *Document, segments []pathSegment) (Node, error) {
 	if len(segments) == 0 {
 		return doc, nil
 	}
@@ -47,7 +47,7 @@ func resolveNode(doc *DocumentNode, segments []pathSegment) (Node, error) {
 // resolveKeySegment handles a key lookup within the current scope.
 // It returns the resolved node, the updated table path, and any error.
 func resolveKeySegment(
-	doc *DocumentNode,
+	doc *Document,
 	current Node,
 	currentTablePath []string,
 	key string,
@@ -55,7 +55,7 @@ func resolveKeySegment(
 	segIndex int,
 ) (Node, []string, error) {
 	switch scope := current.(type) {
-	case *DocumentNode:
+	case *Document:
 		return resolveKeyInDocument(doc, scope, nil, key)
 
 	case *TableNode:
@@ -90,7 +90,7 @@ func resolveKeySegment(
 }
 
 // resolveKeyInDocument searches the document's top-level children for a key.
-func resolveKeyInDocument(doc *DocumentNode, scope *DocumentNode, tablePath []string, key string) (Node, []string, error) {
+func resolveKeyInDocument(doc *Document, scope *Document, tablePath []string, key string) (Node, []string, error) {
 	// Check top-level KVs -- collect all matching dotted keys with this prefix
 	node, tablePath2, err := resolveKeyInKVList(doc, scope.Children, tablePath, key)
 	if err == nil {
@@ -133,7 +133,7 @@ func resolveKeyInDocument(doc *DocumentNode, scope *DocumentNode, tablePath []st
 }
 
 // resolveKeyInTable searches a table's children and sub-tables for a key.
-func resolveKeyInTable(doc *DocumentNode, scope *TableNode, currentTablePath []string, key string) (Node, []string, error) {
+func resolveKeyInTable(doc *Document, scope *TableNode, currentTablePath []string, key string) (Node, []string, error) {
 	// Check direct children (KVs) -- collect all matching dotted keys
 	node, tablePath, err := resolveKeyInKVList(doc, scope.Children, currentTablePath, key)
 	if err == nil {
@@ -179,7 +179,7 @@ func resolveKeyInTable(doc *DocumentNode, scope *TableNode, currentTablePath []s
 // Sub-tables are scoped to the specific array entry: only TableNode/ArrayTableNode
 // children that appear after this ArrayTableNode in doc.Children, and before the
 // next ArrayTableNode with the same key path, belong to this entry.
-func resolveKeyInArrayTable(doc *DocumentNode, scope *ArrayTableNode, currentTablePath []string, key string) (Node, []string, error) {
+func resolveKeyInArrayTable(doc *Document, scope *ArrayTableNode, currentTablePath []string, key string) (Node, []string, error) {
 	// Check direct children (KVs) -- collect all matching dotted keys
 	node, tablePath, err := resolveKeyInKVList(doc, scope.Children, currentTablePath, key)
 	if err == nil {
@@ -277,7 +277,7 @@ func resolveKeyInInlineTable(scope *InlineTableNode, key string) (Node, []string
 }
 
 // resolveIndexSegment handles an index lookup into an array or array-of-tables.
-func resolveIndexSegment(doc *DocumentNode, current Node, currentTablePath []string, index int) (Node, error) {
+func resolveIndexSegment(doc *Document, current Node, currentTablePath []string, index int) (Node, error) {
 	switch scope := current.(type) {
 	case *ArrayNode:
 		idx, err := normalizeIndex(index, len(scope.Elements))
@@ -328,7 +328,7 @@ type dottedKeyView struct {
 	nullNode
 	kv        *KeyValueNode
 	partIndex int
-	doc       *DocumentNode
+	doc       *Document
 }
 
 func (d *dottedKeyView) Type() NodeType { return NodeKeyValue }
@@ -341,7 +341,7 @@ type dottedKeyGroup struct {
 	nullNode
 	kvs   []*KeyValueNode
 	depth int // how many leading parts have been consumed
-	doc   *DocumentNode
+	doc   *Document
 }
 
 func (g *dottedKeyGroup) Type() NodeType { return NodeTable }
@@ -352,7 +352,7 @@ func (g *dottedKeyGroup) Value() any     { return g.kvs }
 // create this view; resolving "b" in it will match the remaining KeyPath.
 type compoundTableView struct {
 	nullNode
-	doc    *DocumentNode
+	doc    *Document
 	prefix []string // the path segments consumed so far
 	// The tables/array-tables whose KeyPaths start with this prefix
 	tables    []*TableNode
@@ -367,7 +367,7 @@ func (c *compoundTableView) Value() any     { return nil }
 type arrayTableCollection struct {
 	nullNode
 	entries []*ArrayTableNode
-	doc     *DocumentNode
+	doc     *Document
 }
 
 func (a *arrayTableCollection) Type() NodeType { return NodeArrayTable }
@@ -415,7 +415,7 @@ func hasPrefix(path, prefix []string) bool {
 // It collects all KVs whose first part matches key. If there's a single
 // exact match (Parts == [key]), it returns the value. If there are multiple
 // dotted keys sharing the prefix, it returns a dottedKeyGroup.
-func resolveKeyInKVList(doc *DocumentNode, children []Node, tablePath []string, key string) (Node, []string, error) {
+func resolveKeyInKVList(doc *Document, children []Node, tablePath []string, key string) (Node, []string, error) {
 	var matching []*KeyValueNode
 	for _, child := range children {
 		if kv, ok := child.(*KeyValueNode); ok {
@@ -439,7 +439,7 @@ func resolveKeyInKVList(doc *DocumentNode, children []Node, tablePath []string, 
 }
 
 // resolveKeyInDottedGroup handles key lookups within a dottedKeyGroup.
-func resolveKeyInDottedGroup(doc *DocumentNode, group *dottedKeyGroup, key string) (Node, []string, error) {
+func resolveKeyInDottedGroup(doc *Document, group *dottedKeyGroup, key string) (Node, []string, error) {
 	var matching []*KeyValueNode
 	for _, kv := range group.kvs {
 		if group.depth < len(kv.Key.Parts) && kv.Key.Parts[group.depth] == key {
@@ -464,7 +464,7 @@ func resolveKeyInDottedGroup(doc *DocumentNode, group *dottedKeyGroup, key strin
 // buildCompoundView checks if any TableNode or ArrayTableNode has a KeyPath
 // that starts with the given prefix. If so, returns a compoundTableView
 // representing the implicit intermediate table.
-func buildCompoundView(doc *DocumentNode, scopeChildren []Node, prefix []string) *compoundTableView {
+func buildCompoundView(doc *Document, scopeChildren []Node, prefix []string) *compoundTableView {
 	var tables []*TableNode
 	var arrayTbls []*ArrayTableNode
 	for _, child := range doc.Children {
@@ -491,7 +491,7 @@ func buildCompoundView(doc *DocumentNode, scopeChildren []Node, prefix []string)
 }
 
 // resolveKeyInCompoundView handles key lookups within a compoundTableView.
-func resolveKeyInCompoundView(doc *DocumentNode, view *compoundTableView, key string) (Node, []string, error) {
+func resolveKeyInCompoundView(doc *Document, view *compoundTableView, key string) (Node, []string, error) {
 	targetPath := append(append([]string(nil), view.prefix...), key)
 
 	// Check for exact table match
@@ -538,7 +538,7 @@ func resolveKeyInCompoundView(doc *DocumentNode, view *compoundTableView, key st
 }
 
 // resolveKeyInDottedView handles key lookups within a dottedKeyView.
-func resolveKeyInDottedView(doc *DocumentNode, view *dottedKeyView, key string) (Node, []string, error) {
+func resolveKeyInDottedView(doc *Document, view *dottedKeyView, key string) (Node, []string, error) {
 	if view.partIndex >= len(view.kv.Key.Parts) {
 		// We've consumed all parts; delegate to the value
 		return resolveKeySegment(doc, view.kv.Val, nil, key, nil, 0)
@@ -553,7 +553,7 @@ func resolveKeyInDottedView(doc *DocumentNode, view *dottedKeyView, key string) 
 	return nil, nil, fmt.Errorf("key %q not found", key)
 }
 
-// --- Public API methods on DocumentNode ---
+// --- Public API methods on Document ---
 
 // Get resolves the dot-separated path against the document and returns the
 // target node. For key-value pairs, the value node is returned (not the
@@ -563,7 +563,7 @@ func resolveKeyInDottedView(doc *DocumentNode, view *dottedKeyView, key string) 
 // Path syntax uses dots to separate keys (e.g. "server.host"), brackets for
 // array indices (e.g. "items[0]"), and supports negative indices (e.g. "items[-1]"
 // for the last element). Use Resolve for the same operation with error details.
-func (d *DocumentNode) Get(path string) Node {
+func (d *Document) Get(path string) Node {
 	segments, err := parsePath(path)
 	if err != nil {
 		return nil
@@ -579,7 +579,7 @@ func (d *DocumentNode) Get(path string) Node {
 // target node. Unlike Get, it returns descriptive errors for both path syntax
 // errors and resolution failures, making it suitable for cases where the caller
 // needs to distinguish "not found" from "invalid path".
-func (d *DocumentNode) Resolve(path string) (Node, error) {
+func (d *Document) Resolve(path string) (Node, error) {
 	segments, err := parsePath(path)
 	if err != nil {
 		return nil, fmt.Errorf("path syntax error: %w", err)
@@ -593,7 +593,7 @@ func (d *DocumentNode) Resolve(path string) (Node, error) {
 
 // GetString resolves the path and returns the string value. Returns ("", false)
 // if the path is not found or the value is not a string.
-func (d *DocumentNode) GetString(path string) (string, bool) {
+func (d *Document) GetString(path string) (string, bool) {
 	node := d.Get(path)
 	if node == nil {
 		return "", false
@@ -606,7 +606,7 @@ func (d *DocumentNode) GetString(path string) (string, bool) {
 
 // GetInt resolves the path and returns the integer value. Returns (0, false)
 // if the path is not found or the value is not an integer.
-func (d *DocumentNode) GetInt(path string) (int64, bool) {
+func (d *Document) GetInt(path string) (int64, bool) {
 	node := d.Get(path)
 	if node == nil {
 		return 0, false
@@ -619,7 +619,7 @@ func (d *DocumentNode) GetInt(path string) (int64, bool) {
 
 // GetBool resolves the path and returns the boolean value. Returns (false, false)
 // if the path is not found or the value is not a boolean.
-func (d *DocumentNode) GetBool(path string) (bool, bool) {
+func (d *Document) GetBool(path string) (bool, bool) {
 	node := d.Get(path)
 	if node == nil {
 		return false, false
@@ -632,7 +632,7 @@ func (d *DocumentNode) GetBool(path string) (bool, bool) {
 
 // GetFloat resolves the path and returns the float64 value. Returns (0, false)
 // if the path is not found or the value is not a float.
-func (d *DocumentNode) GetFloat(path string) (float64, bool) {
+func (d *Document) GetFloat(path string) (float64, bool) {
 	node := d.Get(path)
 	if node == nil {
 		return 0, false
@@ -645,7 +645,7 @@ func (d *DocumentNode) GetFloat(path string) (float64, bool) {
 
 // GetTime resolves the path and returns a time.Time value. Returns (time.Time{}, false)
 // if the path is not found or the value is not an offset date-time.
-func (d *DocumentNode) GetTime(path string) (time.Time, bool) {
+func (d *Document) GetTime(path string) (time.Time, bool) {
 	node := d.Get(path)
 	if node == nil {
 		return time.Time{}, false

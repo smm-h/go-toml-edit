@@ -332,7 +332,7 @@ func TestFormatDefaultConfigValues(t *testing.T) {
 // =============================================================================
 
 func TestFormatEmptyDocument(t *testing.T) {
-	doc := &DocumentNode{}
+	doc := &Document{}
 	got := string(doc.Format())
 	if got != "\n" {
 		t.Errorf("empty document format should be single newline, got %q", got)

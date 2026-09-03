@@ -25,7 +25,7 @@ import "github.com/smm-h/go-toml-edit"
 
 ### From a byte slice
 
-The primary entry point is `tomledit.Parse`, which takes a `[]byte` containing TOML source text and returns a `*DocumentNode` AST that preserves every byte of the original input including comments, whitespace, and quoting styles. Parse errors are returned as `*tomledit.ParseError` values with line and column information for precise diagnostics.
+The primary entry point is `tomledit.Parse`, which takes a `[]byte` containing TOML source text and returns a `*Document` AST that preserves every byte of the original input including comments, whitespace, and quoting styles. Parse errors are returned as `*tomledit.ParseError` values with line and column information for precise diagnostics.
 
 ```go
 input := []byte(`
@@ -249,10 +249,10 @@ err = doc.Delete("nonexistent.key")  // no-op, no error
 
 ## Renaming keys
 
-`Rename` changes the key name of a node at a given path, updating the key's internal parts and raw representation while marking the node as dirty for re-rendering. It returns an error if the target name already exists among sibling keys or the path is not found in the document.
+`RenameKey` changes the key name of a node at a given path, updating the key's internal parts and raw representation while marking the node as dirty for re-rendering. It returns an error if the target name already exists among sibling keys or the path is not found in the document.
 
 ```go
-err := doc.Rename("server.host", "bind_address")
+err := doc.RenameKey("server.host", "bind_address")
 // server.host is now server.bind_address
 ```
 
@@ -450,7 +450,7 @@ err := doc.MergeDefaults("", map[string]any{
 
 ### Merge
 
-Merge all values from another parsed `*DocumentNode` into the current document, using the same recursive semantics as `MergeDefaults` where only missing keys are set and existing values are never overwritten. Comments from the source document are also carried over: leading comments are appended to the target's existing comments, and inline comments fill in where the target has none.
+Merge all values from another parsed `*Document` into the current document, using the same recursive semantics as `MergeDefaults` where only missing keys are set and existing values are never overwritten. Comments from the source document are also carried over: leading comments are appended to the target's existing comments, and inline comments fill in where the target has none.
 
 ```go
 base, _ := tomledit.Parse([]byte(`[server]
@@ -499,7 +499,7 @@ Struct fields are matched by `toml` tag, then by exact field name, then by case-
 
 ### Decode
 
-`Decode` operates on an already-parsed `*DocumentNode`, decoding its values into a Go struct or map without re-parsing the TOML source. Use this when you need both the AST for comment-preserving edits and the decoded Go values for application logic, avoiding the overhead of parsing the source twice.
+`Decode` operates on an already-parsed `*Document`, decoding its values into a Go struct or map without re-parsing the TOML source. Use this when you need both the AST for comment-preserving edits and the decoded Go values for application logic, avoiding the overhead of parsing the source twice.
 
 ```go
 doc, err := tomledit.Parse(data)
@@ -635,7 +635,7 @@ func main() {
     doc.SetComment("database.host", "primary database server")
 
     // Rename a key
-    doc.Rename("server.host", "bind_address")
+    doc.RenameKey("server.host", "bind_address")
 
     // Write back, preserving all original comments and formatting
     err = os.WriteFile("config.toml", doc.Bytes(), 0644)

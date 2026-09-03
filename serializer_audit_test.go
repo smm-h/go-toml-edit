@@ -492,7 +492,7 @@ func TestAuditKeyRenderingRoundTrip(t *testing.T) {
 	kv := &KeyValueNode{Key: key, Val: val}
 	kv.markDirty()
 
-	doc := &DocumentNode{Children: []Node{kv}}
+	doc := &Document{Children: []Node{kv}}
 	got := string(doc.Bytes())
 
 	doc2, err := Parse([]byte(got))
@@ -723,7 +723,7 @@ func TestAuditCompleteDocumentRoundTrip(t *testing.T) {
 	nameKV2.markDirty()
 	item2.Children = []Node{nameKV2}
 
-	doc := &DocumentNode{Children: []Node{titleKV, serverTbl, item1, item2}}
+	doc := &Document{Children: []Node{titleKV, serverTbl, item1, item2}}
 	out := doc.Bytes()
 
 	doc2, err := Parse(out)
@@ -815,7 +815,7 @@ func TestAuditTriviaLeadingWhitespace(t *testing.T) {
 	kv.markDirty()
 	kv.nodeTrivia.LeadingWhitespace = []byte("  ")
 
-	doc := &DocumentNode{Children: []Node{kv}}
+	doc := &Document{Children: []Node{kv}}
 	got := string(doc.Bytes())
 	if !strings.HasPrefix(got, "  x = 1") {
 		t.Errorf("leading whitespace not preserved: %q", got)
@@ -831,7 +831,7 @@ func TestAuditTriviaTrailingNewlineCRLF(t *testing.T) {
 	kv.markDirty()
 	kv.nodeTrivia.TrailingNewline = []byte("\r\n")
 
-	doc := &DocumentNode{Children: []Node{kv}}
+	doc := &Document{Children: []Node{kv}}
 	got := doc.Bytes()
 	if !strings.HasSuffix(string(got), "\r\n") {
 		t.Errorf("CRLF trailing newline not preserved: %q", string(got))
@@ -850,7 +850,7 @@ func TestAuditTriviaMultipleLeadingComments(t *testing.T) {
 		[]byte("# line 2\n"),
 	}
 
-	doc := &DocumentNode{Children: []Node{kv}}
+	doc := &Document{Children: []Node{kv}}
 	got := string(doc.Bytes())
 	if !strings.Contains(got, "# line 1\n# line 2\n") {
 		t.Errorf("multiple leading comments not preserved: %q", got)
@@ -963,7 +963,7 @@ func TestAuditBareKeyUnicode(t *testing.T) {
 			v.markDirty()
 			kv := &KeyValueNode{Key: k, Val: v}
 			kv.markDirty()
-			doc := &DocumentNode{Children: []Node{kv}}
+			doc := &Document{Children: []Node{kv}}
 			out := string(doc.Bytes())
 			_, err := Parse([]byte(out))
 			if err != nil {
@@ -1012,11 +1012,11 @@ func TestAuditRenderKeyPartsClean(t *testing.T) {
 // =============================================================================
 
 func TestAuditRenderValueUnknownReturnsNil(t *testing.T) {
-	doc := &DocumentNode{}
+	doc := &Document{}
 	doc.markDirty()
 	got := renderValue(doc)
 	if got != nil {
-		t.Errorf("renderValue(DocumentNode) should return nil, got %q", got)
+		t.Errorf("renderValue(Document) should return nil, got %q", got)
 	}
 }
 

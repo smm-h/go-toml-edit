@@ -15,7 +15,7 @@ import (
 // modified via Set, Delete, or other editing operations, only the affected
 // nodes are re-rendered from their semantic values; unmodified nodes retain
 // their original formatting.
-func (d *DocumentNode) Bytes() []byte {
+func (d *Document) Bytes() []byte {
 	var buf []byte
 	for _, child := range d.Children {
 		buf = append(buf, serializeNode(child)...)

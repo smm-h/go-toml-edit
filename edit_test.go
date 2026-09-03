@@ -23,7 +23,7 @@ name = "Gadget"
 price = 19.99
 `
 
-func parseEditTestDoc(t *testing.T) *DocumentNode {
+func parseEditTestDoc(t *testing.T) *Document {
 	t.Helper()
 	doc, err := Parse([]byte(editTestDocument))
 	if err != nil {
@@ -34,7 +34,7 @@ func parseEditTestDoc(t *testing.T) *DocumentNode {
 
 // roundTrip serializes the document, re-parses it, and returns the new doc.
 // It also verifies the output is valid TOML.
-func roundTrip(t *testing.T, doc *DocumentNode) *DocumentNode {
+func roundTrip(t *testing.T, doc *Document) *Document {
 	t.Helper()
 	out := doc.Bytes()
 	doc2, err := Parse(out)
@@ -146,11 +146,11 @@ func TestSet_AllPrimitiveTypes(t *testing.T) {
 	tests := []struct {
 		key   string
 		value any
-		check func(t *testing.T, doc *DocumentNode)
+		check func(t *testing.T, doc *Document)
 	}{
 		{
 			key: "server.str", value: "hello",
-			check: func(t *testing.T, doc *DocumentNode) {
+			check: func(t *testing.T, doc *Document) {
 				v, ok := doc.GetString("server.str")
 				if !ok || v != "hello" {
 					t.Errorf("string: expected \"hello\", got %q (ok=%v)", v, ok)
@@ -159,7 +159,7 @@ func TestSet_AllPrimitiveTypes(t *testing.T) {
 		},
 		{
 			key: "server.num", value: 42,
-			check: func(t *testing.T, doc *DocumentNode) {
+			check: func(t *testing.T, doc *Document) {
 				v, ok := doc.GetInt("server.num")
 				if !ok || v != 42 {
 					t.Errorf("int: expected 42, got %d (ok=%v)", v, ok)
@@ -168,7 +168,7 @@ func TestSet_AllPrimitiveTypes(t *testing.T) {
 		},
 		{
 			key: "server.pi", value: 3.14,
-			check: func(t *testing.T, doc *DocumentNode) {
+			check: func(t *testing.T, doc *Document) {
 				v, ok := doc.GetFloat("server.pi")
 				if !ok || v != 3.14 {
 					t.Errorf("float: expected 3.14, got %f (ok=%v)", v, ok)
@@ -177,7 +177,7 @@ func TestSet_AllPrimitiveTypes(t *testing.T) {
 		},
 		{
 			key: "server.flag", value: true,
-			check: func(t *testing.T, doc *DocumentNode) {
+			check: func(t *testing.T, doc *Document) {
 				v, ok := doc.GetBool("server.flag")
 				if !ok || v != true {
 					t.Errorf("bool: expected true, got %v (ok=%v)", v, ok)
@@ -186,7 +186,7 @@ func TestSet_AllPrimitiveTypes(t *testing.T) {
 		},
 		{
 			key: "server.created", value: time.Date(2024, 1, 15, 10, 30, 0, 0, time.UTC),
-			check: func(t *testing.T, doc *DocumentNode) {
+			check: func(t *testing.T, doc *Document) {
 				v, ok := doc.GetTime("server.created")
 				if !ok {
 					t.Error("time: GetTime returned false")
@@ -436,13 +436,13 @@ func TestDelete_RoundTrip(t *testing.T) {
 	}
 }
 
-// --- Rename tests ---
+// --- RenameKey tests ---
 
 func TestRename_ExistingKey(t *testing.T) {
 	doc := parseEditTestDoc(t)
-	err := doc.Rename("server.host", "address")
+	err := doc.RenameKey("server.host", "address")
 	if err != nil {
-		t.Fatalf("Rename returned error: %v", err)
+		t.Fatalf("RenameKey returned error: %v", err)
 	}
 
 	// Old key should be gone.
@@ -465,25 +465,25 @@ func TestRename_ExistingKey(t *testing.T) {
 
 func TestRename_ToExistingKey(t *testing.T) {
 	doc := parseEditTestDoc(t)
-	err := doc.Rename("server.host", "port")
+	err := doc.RenameKey("server.host", "port")
 	if err == nil {
-		t.Fatal("Rename to existing key should return error")
+		t.Fatal("RenameKey to existing key should return error")
 	}
 }
 
 func TestRename_NonExistent(t *testing.T) {
 	doc := parseEditTestDoc(t)
-	err := doc.Rename("server.nonexistent", "x")
+	err := doc.RenameKey("server.nonexistent", "x")
 	if err == nil {
-		t.Fatal("Rename of non-existent key should return error")
+		t.Fatal("RenameKey of non-existent key should return error")
 	}
 }
 
 func TestRename_RoundTrip(t *testing.T) {
 	doc := parseEditTestDoc(t)
-	err := doc.Rename("server.host", "address")
+	err := doc.RenameKey("server.host", "address")
 	if err != nil {
-		t.Fatalf("Rename returned error: %v", err)
+		t.Fatalf("RenameKey returned error: %v", err)
 	}
 	doc2 := roundTrip(t, doc)
 

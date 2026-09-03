@@ -13,8 +13,8 @@ func TestNodeTypes(t *testing.T) {
 		checkVal func(t *testing.T, v any)
 	}{
 		{
-			name:     "DocumentNode",
-			node:     &DocumentNode{Children: []Node{&CommentNode{Text: "hi"}}},
+			name:     "Document",
+			node:     &Document{Children: []Node{&CommentNode{Text: "hi"}}},
 			wantType: NodeDocument,
 			checkVal: func(t *testing.T, v any) {
 				children := v.([]Node)

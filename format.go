@@ -55,7 +55,7 @@ func WithTableBlankLine(b bool) FormatOption {
 // with consistent formatting, ignoring all raw bytes. This is useful for
 // enforcing a canonical style. Pass zero or more FormatOption values (e.g.
 // WithIndentWidth, WithLineWidth) to customize the output.
-func (d *DocumentNode) Format(opts ...FormatOption) []byte {
+func (d *Document) Format(opts ...FormatOption) []byte {
 	cfg := DefaultFormatConfig()
 	for _, opt := range opts {
 		opt(&cfg)
@@ -66,7 +66,7 @@ func (d *DocumentNode) Format(opts ...FormatOption) []byte {
 }
 
 // formatDocument walks all document children and formats them.
-func formatDocument(buf *bytes.Buffer, doc *DocumentNode, cfg *FormatConfig) {
+func formatDocument(buf *bytes.Buffer, doc *Document, cfg *FormatConfig) {
 	// Track whether we've emitted any content, to know whether to insert
 	// blank lines before table headers.
 	emittedContent := false

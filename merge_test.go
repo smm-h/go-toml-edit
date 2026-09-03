@@ -6,7 +6,7 @@ import (
 )
 
 // Helper to parse and fail on error.
-func parseMergeDoc(t *testing.T, input string) *DocumentNode {
+func parseMergeDoc(t *testing.T, input string) *Document {
 	t.Helper()
 	doc, err := Parse([]byte(input))
 	if err != nil {

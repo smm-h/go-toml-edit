@@ -8,14 +8,14 @@ import "fmt"
 // Maps (map[string]any) merge recursively: only missing keys are set. Scalars
 // and arrays are atomic: existing keys are never overwritten. This is useful
 // for applying default configuration values to a user-provided TOML file.
-func (d *DocumentNode) MergeDefaults(path string, defaults map[string]any) error {
+func (d *Document) MergeDefaults(path string, defaults map[string]any) error {
 	return d.mergeMap(path, defaults)
 }
 
 // mergeMap recursively merges a map[string]any into the document at the given
 // path prefix. Keys that already exist in the document are skipped unless the
 // value is itself a map, in which case it recurses.
-func (d *DocumentNode) mergeMap(prefix string, m map[string]any) error {
+func (d *Document) mergeMap(prefix string, m map[string]any) error {
 	for key, val := range m {
 		fullPath := key
 		if prefix != "" {
@@ -65,13 +65,13 @@ func (d *DocumentNode) mergeMap(prefix string, m map[string]any) error {
 //
 // Array-of-tables are treated atomically: if d already has entries for a
 // given path, all of other's entries for that path are skipped.
-func (d *DocumentNode) Merge(other *DocumentNode) error {
+func (d *Document) Merge(other *Document) error {
 	return mergeChildren(d, other, other, "")
 }
 
 // mergeChildren walks the source scope's children (KVs) and sub-tables,
 // merging them into the target document at the given path prefix.
-func mergeChildren(target *DocumentNode, source *DocumentNode, scope Node, prefix string) error {
+func mergeChildren(target *Document, source *Document, scope Node, prefix string) error {
 	children := scopeChildren(scope)
 
 	// Process KV children in the source scope.
@@ -211,7 +211,7 @@ func mergeChildren(target *DocumentNode, source *DocumentNode, scope Node, prefi
 
 // mergeSubTable creates a new table at subPrefix in target and copies all KVs
 // from the source table node.
-func mergeSubTable(target *DocumentNode, source *DocumentNode, tbl *TableNode, subPrefix string) error {
+func mergeSubTable(target *Document, source *Document, tbl *TableNode, subPrefix string) error {
 	for _, child := range tbl.Children {
 		kv, ok := child.(*KeyValueNode)
 		if !ok {
@@ -241,7 +241,7 @@ func mergeSubTable(target *DocumentNode, source *DocumentNode, tbl *TableNode, s
 }
 
 // mergeArrayTableEntry creates a new [[array-table]] entry in the target.
-func mergeArrayTableEntry(target *DocumentNode, _ *DocumentNode, atn *ArrayTableNode, subPrefix string) error {
+func mergeArrayTableEntry(target *Document, _ *Document, atn *ArrayTableNode, subPrefix string) error {
 	if err := target.NewArrayTable(subPrefix); err != nil {
 		return fmt.Errorf("creating array table %q: %w", subPrefix, err)
 	}
@@ -266,7 +266,7 @@ func mergeArrayTableEntry(target *DocumentNode, _ *DocumentNode, atn *ArrayTable
 // scopeChildren returns the children of a scope node.
 func scopeChildren(scope Node) []Node {
 	switch s := scope.(type) {
-	case *DocumentNode:
+	case *Document:
 		return s.Children
 	case *TableNode:
 		return s.Children
@@ -282,7 +282,7 @@ func scopeChildren(scope Node) []Node {
 // scopeKeyPath returns the key path of a scope node.
 func scopeKeyPath(scope Node) []string {
 	switch s := scope.(type) {
-	case *DocumentNode:
+	case *Document:
 		return nil
 	case *TableNode:
 		return s.KeyPath
@@ -356,7 +356,7 @@ func nodeToValue(n Node) any {
 
 // copyComments copies leading and inline comments from a source KV node to
 // the target document at the given path.
-func copyComments(target *DocumentNode, path string, srcKV *KeyValueNode) {
+func copyComments(target *Document, path string, srcKV *KeyValueNode) {
 	srcLeading := srcKV.LeadingComments()
 	srcInline := srcKV.Comment()
 
@@ -377,7 +377,7 @@ func copyComments(target *DocumentNode, path string, srcKV *KeyValueNode) {
 }
 
 // mergeCommentsOnExisting appends source comments to existing target comments.
-func mergeCommentsOnExisting(target *DocumentNode, path string, srcKV *KeyValueNode) {
+func mergeCommentsOnExisting(target *Document, path string, srcKV *KeyValueNode) {
 	srcLeading := srcKV.LeadingComments()
 	srcInline := srcKV.Comment()
 
@@ -414,7 +414,7 @@ func mergeCommentsOnExisting(target *DocumentNode, path string, srcKV *KeyValueN
 }
 
 // mergeTableComments merges comments from a source table header to target.
-func mergeTableComments(target *DocumentNode, path string, srcTbl *TableNode) {
+func mergeTableComments(target *Document, path string, srcTbl *TableNode) {
 	srcLeading := srcTbl.LeadingComments()
 	srcInline := srcTbl.Comment()
 

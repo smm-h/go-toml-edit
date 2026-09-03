@@ -35,7 +35,7 @@ Each node also stores its `raw` bytes -- the exact slice of the original source 
 The renderer (`render.go`) serializes the AST back to bytes by walking the node tree and checking each node's dirty flag, which determines whether the node's original raw bytes can be copied directly or whether the node must be re-rendered from its semantic value with standard formatting.
 
 - **Clean nodes** (never modified): the renderer copies `node.Raw()` directly into the output. This is what guarantees byte-for-byte round-trip fidelity.
-- **Dirty nodes** (created or modified by Set, Delete, Rename, etc.): the renderer regenerates the bytes from the node's semantic value (e.g., re-rendering an integer from its `int64`, a string from its `string` with the appropriate quoting style).
+- **Dirty nodes** (created or modified by Set, Delete, RenameKey, etc.): the renderer regenerates the bytes from the node's semantic value (e.g., re-rendering an integer from its `int64`, a string from its `string` with the appropriate quoting style).
 
 The check is recursive: if a key-value pair's value is an array, and one element of that array was modified, the array node is dirty even though the key-value pair's key is clean. The function `isSubtreeDirty` walks the tree to determine this.
 
@@ -62,7 +62,7 @@ type Node interface {
 
 ### Concrete node types
 
-The document root is a `DocumentNode` whose `Children` slice contains the top-level entries: `KeyValueNode`, `TableNode`, `ArrayTableNode`, and `CommentNode`. Each node type carries its own trivia and raw bytes, and specialized fields capture TOML-specific semantics such as key quoting styles, integer bases, string styles, and array trailing comments.
+The document root is a `Document` whose `Children` slice contains the top-level entries: `KeyValueNode`, `TableNode`, `ArrayTableNode`, and `CommentNode`. Each node type carries its own trivia and raw bytes, and specialized fields capture TOML-specific semantics such as key quoting styles, integer bases, string styles, and array trailing comments.
 
 - **TableNode** represents a `[table]` header. It has a `KeyPath` (e.g., `["server", "database"]` for `[server.database]`) and a `Children` slice of its key-value pairs.
 - **ArrayTableNode** represents an `[[array-table]]` header. Same structure as TableNode, but multiple entries with the same KeyPath form successive elements of the array.
@@ -90,7 +90,7 @@ Paths use dot-separated keys with bracket indices (`server.host`, `items[0]`, `i
 
 Resolution (`document.go`) walks the AST from the document root. At each step, it dispatches on the current node type:
 
-- **DocumentNode**: searches top-level KVs, then tables, then array-tables, then builds compound views for implicit intermediate tables.
+- **Document**: searches top-level KVs, then tables, then array-tables, then builds compound views for implicit intermediate tables.
 - **TableNode**: searches its direct children, then sub-tables in the document whose KeyPath extends this table's KeyPath.
 - **ArrayTableNode**: same as TableNode, but scoped to the entries between this `[[table]]` header and the next one with the same KeyPath.
 - **InlineTableNode**: searches its children directly.
@@ -102,7 +102,7 @@ This layered resolution is what makes path-based access work transparently regar
 
 ### Dirty tracking
 
-Every node has a `dirty` boolean. Parsing produces all-clean nodes. Edit operations (`Set`, `Delete`, `Rename`, `SetComment`, `SetLeadingComments`) mark affected nodes as dirty. New nodes created by `Set` or `SetCreate` are born dirty (they have no raw bytes to preserve).
+Every node has a `dirty` boolean. Parsing produces all-clean nodes. Edit operations (`Set`, `Delete`, `RenameKey`, `SetComment`, `SetLeadingComments`) mark affected nodes as dirty. New nodes created by `Set` or `SetCreate` are born dirty (they have no raw bytes to preserve).
 
 Dirty tracking is per-node, not per-document. When you call `Set("server.port", 9090)`, only the port's value node and its parent `KeyValueNode` are marked dirty. The `[server]` header, the `host` key-value pair, and all comments remain clean and will be emitted from their raw bytes.
 
@@ -116,9 +116,9 @@ Go values are converted to AST nodes by `valueToNode`: strings become `StringNod
 
 `Delete` removes the node at a path. It handles key-value pairs, entire tables (including their sub-tables), array-of-tables entries, and array elements. Delete is idempotent: deleting a non-existent path returns nil (no error).
 
-### Rename
+### RenameKey
 
-`Rename` changes the key name of a node at a path. It updates the key's `Parts` and `RawParts`, marks both the key and its parent as dirty, and checks for conflicts with existing sibling keys.
+`RenameKey` changes the key name of a node at a path. It updates the key's `Parts` and `RawParts`, marks both the key and its parent as dirty, and checks for conflicts with existing sibling keys.
 
 ## Comment preservation
 
@@ -129,7 +129,7 @@ Comments are preserved at three levels in the AST, ensuring that every comment i
 3. **Standalone comments**: `CommentNode` entries in the document or table children list, representing comments that are not attached to any key-value pair (e.g., comments at the end of a file, or comments between tables with no following key-value pair).
 4. **Array comments**: arrays have both per-element comments (via element trivia) and `TrailingComments` (comments after the last element but before the closing `]`).
 
-The `SetComment` and `SetLeadingComments` methods on `DocumentNode` allow programmatic modification of comments at any path. They resolve to the appropriate node (the `KeyValueNode` for key-value paths, the `TableNode` for table paths) and update its trivia. Setting comments inside inline tables is rejected because the TOML specification does not allow comments within inline tables.
+The `SetComment` and `SetLeadingComments` methods on `Document` allow programmatic modification of comments at any path. They resolve to the appropriate node (the `KeyValueNode` for key-value paths, the `TableNode` for table paths) and update its trivia. Setting comments inside inline tables is rejected because the TOML specification does not allow comments within inline tables.
 
 During `Merge`, comments from the source document are preserved: for new keys, comments are copied along with the value; for existing keys, source leading comments are appended to the target's leading comments, and source inline comments fill in only where the target has none.
 
@@ -186,5 +186,5 @@ The `Cursor` API provides fluent, nil-safe navigation: `doc.Key("server").Key("h
 - **Inline table comments**: TOML 1.0 forbids comments inside inline tables. `SetComment` returns an error if the target is inside an inline table.
 - **Trivia attachment**: the parser attaches trivia to the next content node. A comment at the very end of a file (after all tables) becomes a standalone `CommentNode`. A comment between two tables is attached as leading trivia to the second table. This heuristic is correct for most real-world files but can produce surprising results for unusual comment placement.
 - **Dirty re-rendering style**: when a dirty node is re-rendered, it uses standard formatting (`key = value`, basic string quoting). The original formatting choices (e.g., literal strings, hex integers, alignment whitespace) are lost for that node. Unmodified sibling nodes retain their formatting.
-- **No partial key preservation on dirty KVs**: when a key-value pair is marked dirty (e.g., its value was changed via Set), the renderer re-renders the entire line. If the key was originally quoted with literal strings (`'host'`), the re-rendered key preserves the original quoting only if the key node itself is clean. If the key was also modified (e.g., via Rename), it is re-rendered with standard bare-key or basic-string quoting.
+- **No partial key preservation on dirty KVs**: when a key-value pair is marked dirty (e.g., its value was changed via Set), the renderer re-renders the entire line. If the key was originally quoted with literal strings (`'host'`), the re-rendered key preserves the original quoting only if the key node itself is clean. If the key was also modified (e.g., via RenameKey), it is re-rendered with standard bare-key or basic-string quoting.
 - **Marshal limitations**: `Marshal` only accepts map types as the root value. Struct encoding is not supported. Nested maps produce one level of `[section]` headers; deeper nesting uses inline tables.
