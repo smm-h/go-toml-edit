@@ -950,8 +950,8 @@ func TestAuditBareKeyUnicode(t *testing.T) {
 	// unicode.IsLetter() includes accented chars, CJK, etc.
 	// This documents whether unicode bare keys work end-to-end.
 	unicodeKeys := []string{
-		"café",  // cafe with e-acute
-		"é",      // e with acute
+		"café", // cafe with e-acute
+		"é",    // e with acute
 	}
 	for _, key := range unicodeKeys {
 		bare := isBareKey(key)

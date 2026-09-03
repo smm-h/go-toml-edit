@@ -263,9 +263,9 @@ type childAdder interface {
 	addChild(Node)
 }
 
-func (n *DocumentNode) addChild(c Node)    { n.Children = append(n.Children, c) }
-func (n *TableNode) addChild(c Node)       { n.Children = append(n.Children, c) }
-func (n *ArrayTableNode) addChild(c Node)  { n.Children = append(n.Children, c) }
+func (n *DocumentNode) addChild(c Node)   { n.Children = append(n.Children, c) }
+func (n *TableNode) addChild(c Node)      { n.Children = append(n.Children, c) }
+func (n *ArrayTableNode) addChild(c Node) { n.Children = append(n.Children, c) }
 
 func isKeyToken(tt TokenType) bool {
 	return tt == TokenBareKey || tt == TokenBasicString || tt == TokenLiteralString

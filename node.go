@@ -177,9 +177,9 @@ func (nullNode) trivia() *Trivia             { return &Trivia{} }
 
 // LocalDateTime represents a TOML local date-time (no timezone).
 type LocalDateTime struct {
-	Year, Month, Day       int
-	Hour, Minute, Second   int
-	Nanosecond             int
+	Year, Month, Day     int
+	Hour, Minute, Second int
+	Nanosecond           int
 }
 
 // LocalDate represents a TOML local date.

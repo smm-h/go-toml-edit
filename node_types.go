@@ -63,8 +63,8 @@ func (n *ArrayTableNode) Value() any { return n.Children }
 // KeyValueNode represents a key = value pair.
 type KeyValueNode struct {
 	nodeBase
-	Key   *KeyNode
-	Val   Node
+	Key *KeyNode
+	Val Node
 }
 
 // Type returns NodeKeyValue.
@@ -76,8 +76,8 @@ func (n *KeyValueNode) Value() any { return n.Val }
 // KeyNode represents a (possibly dotted) key.
 type KeyNode struct {
 	nodeBase
-	Parts    []string   // semantic parts (e.g. ["server", "host"])
-	RawParts [][]byte   // original bytes for each part
+	Parts    []string      // semantic parts (e.g. ["server", "host"])
+	RawParts [][]byte      // original bytes for each part
 	Styles   []StringStyle // quoting style per part
 }
 

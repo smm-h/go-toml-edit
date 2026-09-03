@@ -10,7 +10,7 @@ type lexContext int
 
 const (
 	ctxKey   lexContext = iota // expecting a key (after newline, after [, after {, after , in table)
-	ctxValue                  // expecting a value (after =)
+	ctxValue                   // expecting a value (after =)
 )
 
 // scopeKind identifies whether a nesting level is an array or inline table.

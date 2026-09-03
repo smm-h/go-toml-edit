@@ -340,13 +340,13 @@ name = "banana"
 `)
 	paths := collectPaths(t, doc)
 	expectedSet := map[string]bool{
-		"name":                 true,
-		"version":              true,
-		"owner.first":          true,
-		"owner.last":           true,
-		"owner.address.city":   true,
-		"fruits[0].name":       true,
-		"fruits[1].name":       true,
+		"name":               true,
+		"version":            true,
+		"owner.first":        true,
+		"owner.last":         true,
+		"owner.address.city": true,
+		"fruits[0].name":     true,
+		"fruits[1].name":     true,
 	}
 	if len(paths) != len(expectedSet) {
 		t.Fatalf("expected %d paths, got %d: %v", len(expectedSet), len(paths), paths)

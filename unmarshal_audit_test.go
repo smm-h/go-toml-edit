@@ -50,7 +50,7 @@ func TestAudit_UnexportedEmbeddedStruct(t *testing.T) {
 		Val string `toml:"val"`
 	}
 	type Config struct {
-		inner // unexported embedding -- this field itself is unexported
+		inner        // unexported embedding -- this field itself is unexported
 		Name  string `toml:"name"`
 	}
 	input := `

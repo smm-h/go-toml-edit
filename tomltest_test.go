@@ -16,16 +16,16 @@ import (
 // testsToSkip_1_0 lists tests that are TOML 1.1 features, excluded for 1.0.
 // Derived from version.go in toml-test.
 var testsToSkip_1_0 = map[string]bool{
-	"valid/spec-1.1.0":                     true,
-	"invalid/spec-1.1.0":                   true,
-	"valid/string/escape-esc":              true,
-	"valid/string/hex-escape":              true,
-	"invalid/string/bad-hex-esc":           true,
-	"valid/datetime/no-seconds":            true,
-	"valid/inline-table/newline":           true,
-	"valid/inline-table/newline-comment":   true,
-	"invalid/control/multi-cr":             true,
-	"invalid/control/rawmulti-cr":          true,
+	"valid/spec-1.1.0":                   true,
+	"invalid/spec-1.1.0":                 true,
+	"valid/string/escape-esc":            true,
+	"valid/string/hex-escape":            true,
+	"invalid/string/bad-hex-esc":         true,
+	"valid/datetime/no-seconds":          true,
+	"valid/inline-table/newline":         true,
+	"valid/inline-table/newline-comment": true,
+	"invalid/control/multi-cr":           true,
+	"invalid/control/rawmulti-cr":        true,
 }
 
 func shouldSkip(testPath string) bool {

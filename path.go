@@ -10,7 +10,7 @@ import (
 type segmentType int
 
 const (
-	keySegment   segmentType = iota
+	keySegment segmentType = iota
 	indexSegment
 )
 

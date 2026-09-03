@@ -93,9 +93,9 @@ func TestMarshalNestedMap(t *testing.T) {
 
 func TestMarshalSortedKeys(t *testing.T) {
 	input := map[string]any{
-		"zebra":   "z",
-		"alpha":   "a",
-		"middle":  "m",
+		"zebra":  "z",
+		"alpha":  "a",
+		"middle": "m",
 	}
 	b, err := Marshal(input)
 	if err != nil {
@@ -116,8 +116,8 @@ func TestMarshalRoundTrip(t *testing.T) {
 	input := map[string]any{
 		"title": "example",
 		"database": map[string]any{
-			"server": "192.168.1.1",
-			"ports":  []any{int64(8001), int64(8001), int64(8002)},
+			"server":  "192.168.1.1",
+			"ports":   []any{int64(8001), int64(8001), int64(8002)},
 			"enabled": true,
 		},
 	}
@@ -242,7 +242,7 @@ func TestMarshalArrayValue(t *testing.T) {
 
 func TestMarshalQuotedKeys(t *testing.T) {
 	input := map[string]any{
-		"simple":        "bare",
+		"simple":         "bare",
 		"key with space": "quoted",
 	}
 	b, err := Marshal(input)
@@ -298,11 +298,11 @@ func TestMarshalInlineTableDeterministicKeyOrder(t *testing.T) {
 	input := map[string]any{
 		"section": map[string]any{
 			"nested": map[string]any{
-				"zebra":   1,
-				"alpha":   2,
-				"mango":   3,
-				"banana":  4,
-				"cherry":  5,
+				"zebra":  1,
+				"alpha":  2,
+				"mango":  3,
+				"banana": 4,
+				"cherry": 5,
 			},
 		},
 	}

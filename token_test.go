@@ -4,12 +4,12 @@ import "testing"
 
 func TestTokenTypes(t *testing.T) {
 	tests := []struct {
-		name     string
-		typ      TokenType
-		raw      string
-		line     int
-		col      int
-		wantStr  string
+		name    string
+		typ     TokenType
+		raw     string
+		line    int
+		col     int
+		wantStr string
 	}{
 		{"BareKey", TokenBareKey, "name", 1, 1, "BareKey"},
 		{"BasicString", TokenBasicString, `"hello"`, 1, 5, "BasicString"},
