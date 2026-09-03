@@ -176,8 +176,8 @@
         },
         {
           "level": 3,
-          "text": "Rename",
-          "anchor": "rename"
+          "text": "RenameKey",
+          "anchor": "renamekey"
         },
         {
           "level": 2,
@@ -610,8 +610,8 @@
         },
         {
           "level": 3,
-          "text": "`DocumentNode`",
-          "anchor": "documentnode"
+          "text": "`Document`",
+          "anchor": "document"
         },
         {
           "level": 3,
@@ -760,18 +760,18 @@
         },
         {
           "level": 3,
-          "text": "`DocumentNode.SetComment`",
-          "anchor": "documentnodesetcomment"
+          "text": "`Document.SetComment`",
+          "anchor": "documentsetcomment"
         },
         {
           "level": 3,
-          "text": "`DocumentNode.SetLeadingComments`",
-          "anchor": "documentnodesetleadingcomments"
+          "text": "`Document.SetLeadingComments`",
+          "anchor": "documentsetleadingcomments"
         },
         {
           "level": 3,
-          "text": "`DocumentNode.Key`",
-          "anchor": "documentnodekey"
+          "text": "`Document.Key`",
+          "anchor": "documentkey"
         },
         {
           "level": 3,
@@ -865,68 +865,68 @@
         },
         {
           "level": 3,
-          "text": "`DocumentNode.Get`",
-          "anchor": "documentnodeget"
+          "text": "`Document.Get`",
+          "anchor": "documentget"
         },
         {
           "level": 3,
-          "text": "`DocumentNode.Resolve`",
-          "anchor": "documentnoderesolve"
+          "text": "`Document.Resolve`",
+          "anchor": "documentresolve"
         },
         {
           "level": 3,
-          "text": "`DocumentNode.GetString`",
-          "anchor": "documentnodegetstring"
+          "text": "`Document.GetString`",
+          "anchor": "documentgetstring"
         },
         {
           "level": 3,
-          "text": "`DocumentNode.GetInt`",
-          "anchor": "documentnodegetint"
+          "text": "`Document.GetInt`",
+          "anchor": "documentgetint"
         },
         {
           "level": 3,
-          "text": "`DocumentNode.GetBool`",
-          "anchor": "documentnodegetbool"
+          "text": "`Document.GetBool`",
+          "anchor": "documentgetbool"
         },
         {
           "level": 3,
-          "text": "`DocumentNode.GetFloat`",
-          "anchor": "documentnodegetfloat"
+          "text": "`Document.GetFloat`",
+          "anchor": "documentgetfloat"
         },
         {
           "level": 3,
-          "text": "`DocumentNode.GetTime`",
-          "anchor": "documentnodegettime"
+          "text": "`Document.GetTime`",
+          "anchor": "documentgettime"
         },
         {
           "level": 3,
-          "text": "`DocumentNode.Set`",
-          "anchor": "documentnodeset"
+          "text": "`Document.Set`",
+          "anchor": "documentset"
         },
         {
           "level": 3,
-          "text": "`DocumentNode.SetCreate`",
-          "anchor": "documentnodesetcreate"
+          "text": "`Document.SetCreate`",
+          "anchor": "documentsetcreate"
         },
         {
           "level": 3,
-          "text": "`DocumentNode.Delete`",
-          "anchor": "documentnodedelete"
+          "text": "`Document.Delete`",
+          "anchor": "documentdelete"
         },
         {
           "level": 3,
-          "text": "`DocumentNode.Rename`",
-          "anchor": "documentnoderename"
+          "text": "`Document.RenameKey`",
+          "anchor": "documentrenamekey"
         },
         {
           "level": 3,
-          "text": "`DocumentNode.NewTable`",
-          "anchor": "documentnodenewtable"
+          "text": "`Document.NewTable`",
+          "anchor": "documentnewtable"
         },
         {
           "level": 3,
-          "text": "`DocumentNode.NewArrayTable`",
-          "anchor": "documentnodenewarraytable"
+          "text": "`Document.NewArrayTable`",
+          "anchor": "documentnewarraytable"
         },
         {
           "level": 3,
@@ -935,18 +935,18 @@
         },
         {
           "level": 3,
-          "text": "`DocumentNode.Format`",
-          "anchor": "documentnodeformat"
+          "text": "`Document.Format`",
+          "anchor": "documentformat"
         },
         {
           "level": 3,
-          "text": "`DocumentNode.Items`",
-          "anchor": "documentnodeitems"
+          "text": "`Document.Items`",
+          "anchor": "documentitems"
         },
         {
           "level": 3,
-          "text": "`DocumentNode.Len`",
-          "anchor": "documentnodelen"
+          "text": "`Document.Len`",
+          "anchor": "documentlen"
         },
         {
           "level": 3,
@@ -960,13 +960,13 @@
         },
         {
           "level": 3,
-          "text": "`DocumentNode.MergeDefaults`",
-          "anchor": "documentnodemergedefaults"
+          "text": "`Document.MergeDefaults`",
+          "anchor": "documentmergedefaults"
         },
         {
           "level": 3,
-          "text": "`DocumentNode.Merge`",
-          "anchor": "documentnodemerge"
+          "text": "`Document.Merge`",
+          "anchor": "documentmerge"
         },
         {
           "level": 3,
@@ -1005,13 +1005,13 @@
         },
         {
           "level": 3,
-          "text": "`DocumentNode.Type`",
-          "anchor": "documentnodetype"
+          "text": "`Document.Type`",
+          "anchor": "documenttype"
         },
         {
           "level": 3,
-          "text": "`DocumentNode.Value`",
-          "anchor": "documentnodevalue"
+          "text": "`Document.Value`",
+          "anchor": "documentvalue"
         },
         {
           "level": 3,
@@ -1165,8 +1165,8 @@
         },
         {
           "level": 3,
-          "text": "`DocumentNode.Bytes`",
-          "anchor": "documentnodebytes"
+          "text": "`Document.Bytes`",
+          "anchor": "documentbytes"
         },
         {
           "level": 3,
@@ -1185,13 +1185,13 @@
         },
         {
           "level": 3,
-          "text": "`DocumentNode.Decode`",
-          "anchor": "documentnodedecode"
+          "text": "`Document.Decode`",
+          "anchor": "documentdecode"
         },
         {
           "level": 3,
-          "text": "`DocumentNode.Walk`",
-          "anchor": "documentnodewalk"
+          "text": "`Document.Walk`",
+          "anchor": "documentwalk"
         }
       ]
     },
@@ -1562,8 +1562,8 @@
         },
         {
           "level": 3,
-          "text": "`DocumentNode`",
-          "anchor": "documentnode"
+          "text": "`Document`",
+          "anchor": "document"
         },
         {
           "level": 3,
@@ -1712,18 +1712,18 @@
         },
         {
           "level": 3,
-          "text": "`DocumentNode.SetComment`",
-          "anchor": "documentnodesetcomment"
+          "text": "`Document.SetComment`",
+          "anchor": "documentsetcomment"
         },
         {
           "level": 3,
-          "text": "`DocumentNode.SetLeadingComments`",
-          "anchor": "documentnodesetleadingcomments"
+          "text": "`Document.SetLeadingComments`",
+          "anchor": "documentsetleadingcomments"
         },
         {
           "level": 3,
-          "text": "`DocumentNode.Key`",
-          "anchor": "documentnodekey"
+          "text": "`Document.Key`",
+          "anchor": "documentkey"
         },
         {
           "level": 3,
@@ -1817,68 +1817,68 @@
         },
         {
           "level": 3,
-          "text": "`DocumentNode.Get`",
-          "anchor": "documentnodeget"
+          "text": "`Document.Get`",
+          "anchor": "documentget"
         },
         {
           "level": 3,
-          "text": "`DocumentNode.Resolve`",
-          "anchor": "documentnoderesolve"
+          "text": "`Document.Resolve`",
+          "anchor": "documentresolve"
         },
         {
           "level": 3,
-          "text": "`DocumentNode.GetString`",
-          "anchor": "documentnodegetstring"
+          "text": "`Document.GetString`",
+          "anchor": "documentgetstring"
         },
         {
           "level": 3,
-          "text": "`DocumentNode.GetInt`",
-          "anchor": "documentnodegetint"
+          "text": "`Document.GetInt`",
+          "anchor": "documentgetint"
         },
         {
           "level": 3,
-          "text": "`DocumentNode.GetBool`",
-          "anchor": "documentnodegetbool"
+          "text": "`Document.GetBool`",
+          "anchor": "documentgetbool"
         },
         {
           "level": 3,
-          "text": "`DocumentNode.GetFloat`",
-          "anchor": "documentnodegetfloat"
+          "text": "`Document.GetFloat`",
+          "anchor": "documentgetfloat"
         },
         {
           "level": 3,
-          "text": "`DocumentNode.GetTime`",
-          "anchor": "documentnodegettime"
+          "text": "`Document.GetTime`",
+          "anchor": "documentgettime"
         },
         {
           "level": 3,
-          "text": "`DocumentNode.Set`",
-          "anchor": "documentnodeset"
+          "text": "`Document.Set`",
+          "anchor": "documentset"
         },
         {
           "level": 3,
-          "text": "`DocumentNode.SetCreate`",
-          "anchor": "documentnodesetcreate"
+          "text": "`Document.SetCreate`",
+          "anchor": "documentsetcreate"
         },
         {
           "level": 3,
-          "text": "`DocumentNode.Delete`",
-          "anchor": "documentnodedelete"
+          "text": "`Document.Delete`",
+          "anchor": "documentdelete"
         },
         {
           "level": 3,
-          "text": "`DocumentNode.Rename`",
-          "anchor": "documentnoderename"
+          "text": "`Document.RenameKey`",
+          "anchor": "documentrenamekey"
         },
         {
           "level": 3,
-          "text": "`DocumentNode.NewTable`",
-          "anchor": "documentnodenewtable"
+          "text": "`Document.NewTable`",
+          "anchor": "documentnewtable"
         },
         {
           "level": 3,
-          "text": "`DocumentNode.NewArrayTable`",
-          "anchor": "documentnodenewarraytable"
+          "text": "`Document.NewArrayTable`",
+          "anchor": "documentnewarraytable"
         },
         {
           "level": 3,
@@ -1887,18 +1887,18 @@
         },
         {
           "level": 3,
-          "text": "`DocumentNode.Format`",
-          "anchor": "documentnodeformat"
+          "text": "`Document.Format`",
+          "anchor": "documentformat"
         },
         {
           "level": 3,
-          "text": "`DocumentNode.Items`",
-          "anchor": "documentnodeitems"
+          "text": "`Document.Items`",
+          "anchor": "documentitems"
         },
         {
           "level": 3,
-          "text": "`DocumentNode.Len`",
-          "anchor": "documentnodelen"
+          "text": "`Document.Len`",
+          "anchor": "documentlen"
         },
         {
           "level": 3,
@@ -1912,13 +1912,13 @@
         },
         {
           "level": 3,
-          "text": "`DocumentNode.MergeDefaults`",
-          "anchor": "documentnodemergedefaults"
+          "text": "`Document.MergeDefaults`",
+          "anchor": "documentmergedefaults"
         },
         {
           "level": 3,
-          "text": "`DocumentNode.Merge`",
-          "anchor": "documentnodemerge"
+          "text": "`Document.Merge`",
+          "anchor": "documentmerge"
         },
         {
           "level": 3,
@@ -1957,13 +1957,13 @@
         },
         {
           "level": 3,
-          "text": "`DocumentNode.Type`",
-          "anchor": "documentnodetype"
+          "text": "`Document.Type`",
+          "anchor": "documenttype"
         },
         {
           "level": 3,
-          "text": "`DocumentNode.Value`",
-          "anchor": "documentnodevalue"
+          "text": "`Document.Value`",
+          "anchor": "documentvalue"
         },
         {
           "level": 3,
@@ -2117,8 +2117,8 @@
         },
         {
           "level": 3,
-          "text": "`DocumentNode.Bytes`",
-          "anchor": "documentnodebytes"
+          "text": "`Document.Bytes`",
+          "anchor": "documentbytes"
         },
         {
           "level": 3,
@@ -2137,13 +2137,105 @@
         },
         {
           "level": 3,
-          "text": "`DocumentNode.Decode`",
-          "anchor": "documentnodedecode"
+          "text": "`Document.Decode`",
+          "anchor": "documentdecode"
         },
         {
           "level": 3,
-          "text": "`DocumentNode.Walk`",
-          "anchor": "documentnodewalk"
+          "text": "`Document.Walk`",
+          "anchor": "documentwalk"
+        }
+      ]
+    },
+    {
+      "path": "plan.md",
+      "title": "Implementation plan: the strictness-and-fidelity redesign",
+      "type": "doc",
+      "headings": [
+        {
+          "level": 1,
+          "text": "Implementation plan: the strictness-and-fidelity redesign",
+          "anchor": "implementation-plan-the-strictness-and-fidelity-redesign"
+        },
+        {
+          "level": 2,
+          "text": "Phase 0 \u2014 Foundations (COMPLETE)",
+          "anchor": "phase-0-foundations-complete"
+        },
+        {
+          "level": 2,
+          "text": "Phase 1 \u2014 API-snapshot baseline",
+          "anchor": "phase-1-api-snapshot-baseline"
+        },
+        {
+          "level": 2,
+          "text": "Phase 2 \u2014 Mechanical rename pass",
+          "anchor": "phase-2-mechanical-rename-pass"
+        },
+        {
+          "level": 2,
+          "text": "Phase 3 \u2014 Diagnostic contract",
+          "anchor": "phase-3-diagnostic-contract"
+        },
+        {
+          "level": 2,
+          "text": "Phase 4 \u2014 The read-layer and path re-basing",
+          "anchor": "phase-4-the-read-layer-and-path-re-basing"
+        },
+        {
+          "level": 2,
+          "text": "Phase 5 \u2014 The decode engine and descriptor",
+          "anchor": "phase-5-the-decode-engine-and-descriptor"
+        },
+        {
+          "level": 2,
+          "text": "Phase 6 \u2014 Structural operations and the write surface",
+          "anchor": "phase-6-structural-operations-and-the-write-surface"
+        },
+        {
+          "level": 2,
+          "text": "Phase 7 \u2014 Node model",
+          "anchor": "phase-7-node-model"
+        },
+        {
+          "level": 2,
+          "text": "Phase 8 \u2014 Rendering, Set-equality, canonicalization",
+          "anchor": "phase-8-rendering-set-equality-canonicalization"
+        },
+        {
+          "level": 2,
+          "text": "Phase 9 \u2014 Formatter",
+          "anchor": "phase-9-formatter"
+        },
+        {
+          "level": 2,
+          "text": "Phase 10 \u2014 Accessors",
+          "anchor": "phase-10-accessors"
+        },
+        {
+          "level": 2,
+          "text": "Phase 11 \u2014 Ports, deletions, final sweep",
+          "anchor": "phase-11-ports-deletions-final-sweep"
+        },
+        {
+          "level": 2,
+          "text": "Phase 12 \u2014 Documentation truth",
+          "anchor": "phase-12-documentation-truth"
+        },
+        {
+          "level": 2,
+          "text": "Phase 13 \u2014 Pre-release consumer check",
+          "anchor": "phase-13-pre-release-consumer-check"
+        },
+        {
+          "level": 2,
+          "text": "Phase 14 \u2014 Release",
+          "anchor": "phase-14-release"
+        },
+        {
+          "level": 2,
+          "text": "Phase 15 \u2014 Consumer sweep (separate go; after the release)",
+          "anchor": "phase-15-consumer-sweep-separate-go-after-the-release"
         }
       ]
     },
@@ -2371,6 +2463,6 @@
     }
   ],
   "posts": [],
-  "last_gen": "2026-09-03T09:21:41.445665+00:00",
+  "last_gen": "2026-09-03T09:57:27.557868+00:00",
   "theme": "minimal"
 }

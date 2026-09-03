@@ -13,7 +13,7 @@ Hybrid AST with byte ranges. Every node records its span in the original source.
 1. Lexer tokenizes source, producing tokens with byte offsets
 2. Parser builds AST from tokens, attaching trivia (comments, whitespace) to the nearest node
 3. Each node stores its byte range `[start, end)` in the original source
-4. Edit operations (Set, Delete, Rename) mark affected nodes as dirty
+4. Edit operations (Set, Delete, RenameKey) mark affected nodes as dirty
 5. Render: clean nodes copy `src[start:end]`; dirty nodes serialize from their semantic value
 
 ### Source files

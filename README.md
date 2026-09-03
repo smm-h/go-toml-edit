@@ -57,7 +57,7 @@ go get github.com/smm-h/go-toml-edit
 |---------|-------------|-----------------|---------------------|
 | Comment preservation | Yes | No | Read-only (unstable) |
 | Round-trip editing | Yes | No | No |
-| Set/Delete/Rename API | Yes | No | No |
+| Set/Delete/RenameKey API | Yes | No | No |
 | Unmarshal to struct | Yes | Yes | Yes |
 | Marshal from Go values | Maps only (structs in v2) | Yes | Yes |
 | Position spans on AST nodes | Yes | No | No |
@@ -85,7 +85,7 @@ fmt.Println(doc.GetInt("server.port"))    // 8080, true
 doc.Set("server.port", 9090)              // update existing key
 doc.SetCreate("database.host", "db.local") // create key + intermediate table
 doc.Delete("server.debug")                 // remove a key
-doc.Rename("server.host", "address")       // rename a key
+doc.RenameKey("server.host", "address")   // rename a key
 ```
 
 ### Comment Management
