@@ -56,24 +56,44 @@ var (
 var noValue reflect.Value
 
 // --- public entry points ---
-
-// Unmarshal parses TOML data and decodes it into v, which must be a non-nil
-// pointer.
 //
-// Decoding is strict: see Document.Decode, whose rules Unmarshal is exactly.
-// A parse failure is reported alone (parsing cannot continue past a syntax
-// error); decode failures are collected and reported together as an Errors
-// aggregate.
-func Unmarshal(data []byte, v any) error {
+// Decoding RETURNS a value: every entry point below allocates the result
+// itself and hands it back, or hands back diagnostics and nothing else. The
+// caller never supplies the destination, so a failed decode has no half-filled
+// target to inspect -- the partial work is unreachable garbage. DecodeOver is
+// the one form that starts from something the caller describes, and it takes a
+// factory rather than a value, so what it fills is still an allocation of its
+// own.
+
+// Unmarshal parses TOML data and decodes it into a freshly allocated T.
+//
+// Decoding is strict: see Decode, whose rules Unmarshal is exactly. A parse
+// failure is reported alone (parsing cannot continue past a syntax error);
+// decode failures are collected and reported together as an *Errors aggregate.
+//
+// On any failure Unmarshal returns a nil result: there is no state to inspect
+// after an error.
+func Unmarshal[T any](data []byte) (*T, error) {
 	doc, err := Parse(data)
 	if err != nil {
-		return err
+		return nil, err
 	}
-	return doc.Decode(v)
+	return Decode[T](doc)
 }
 
-// Decode decodes the document into v, which must be a non-nil pointer -- to a
-// struct, a map with string keys, or any.
+// Decode decodes the document into a freshly allocated T -- a struct, a map
+// with string keys, any, or any other type the conversion table accepts.
+//
+// The type argument is explicit, because Go infers nothing from a return type:
+//
+//	cfg, err := tomledit.Decode[Config](doc)
+//
+// Decode writes to no memory the caller can observe. It allocates the value it
+// returns, and on any failure it returns (nil, err): there is no partially
+// written target, and nothing to inspect after an error. A target that decodes
+// itself through Unmarshaler or encoding.TextUnmarshaler is handed nodes during
+// the walk, so side effects that implementation has OUTSIDE the value being
+// decoded are its own and outside this guarantee.
 //
 // Struct fields are matched by their "toml" tag, or, with no tag, by their
 // exact field name. Matching is exact: a document key that differs only in
@@ -94,43 +114,93 @@ func Unmarshal(data []byte, v any) error {
 //
 // Every independent violation is collected and reported together as an *Errors
 // aggregate, in document order; it renders as its first diagnostic and exposes
-// the rest through errors.As. Values that decoded before a violation stay
-// decoded: a failed Decode leaves v partially written.
-func (d *Document) Decode(v any) error {
-	dst, err := decodeTarget(v, "Decode")
-	if err != nil {
-		return err
+// the rest through errors.As.
+func Decode[T any](d *Document) (*T, error) {
+	out := new(T)
+	if err := decodeDocument(d, reflect.ValueOf(out).Elem(), nil); err != nil {
+		return nil, err
 	}
+	return out, nil
+}
+
+// DecodeOver decodes the document over a seed: the value the factory builds
+// receives whatever the document supplies, and every key the document does not
+// carry keeps what the seed put there. It is how a set of defaults expressed in
+// Go is overlaid by a configuration file.
+//
+// The seed is a FACTORY, not a value, so that what the decode fills is an
+// allocation of DecodeOver's own and never memory the caller still holds:
+//
+//	cfg, written, err := tomledit.DecodeOver(doc, func() Config { return defaultConfig() })
+//
+// The factory must build its seed afresh on each call. A seed that shares a
+// map, a slice or a pointer with the caller lets the decode write through it,
+// which is exactly what the factory form exists to prevent.
+//
+// The second result names the paths the decode wrote, in document order and in
+// the library's path syntax, so a caller can tell a value the document supplied
+// from one the seed left behind. A value written whole -- an array, an
+// any-typed table, a target that decodes itself -- is one path, not one per
+// element inside it.
+//
+// The rules are Decode's, including strictness and the unobservability of a
+// failure: on any failure DecodeOver returns (nil, nil, err) and the seed it
+// built is unreachable.
+func DecodeOver[T any](d *Document, seed func() T) (*T, []string, error) {
+	if seed == nil {
+		return nil, nil, fmt.Errorf("tomledit: DecodeOver requires a seed factory, got nil")
+	}
+	out := new(T)
+	*out = seed()
+	written := []string{}
+	if err := decodeDocument(d, reflect.ValueOf(out).Elem(), &written); err != nil {
+		return nil, nil, err
+	}
+	return out, written, nil
+}
+
+// decodeDocument decodes a whole document into dst. When written is non-nil the
+// walk records the paths it writes into it.
+func decodeDocument(d *Document, dst reflect.Value, written *[]string) error {
 	root, err := d.readLayer()
 	if err != nil {
 		return d.diag(err, "")
 	}
 	en := newEngine()
+	en.track = written != nil
 	en.decodeRecord(root, d, dst, "")
-	return d.diag(en.result(), "")
-}
-
-// DecodeNode decodes a single node into v, which must be a non-nil pointer. It
-// is Decode scoped to one construct: a table, an array-table entry, an inline
-// table or a document decodes like a table, an array decodes like an array,
-// and a scalar node decodes into a scalar target. A key, a key-value pair and
-// a comment carry no value of their own and are refused.
-//
-// The rules are Decode's, including strictness. A diagnostic names the file the
-// node's document was read from, which the node reaches through the parent
-// links its container maintains; a node not attached to a document names none.
-func DecodeNode(n Node, v any) error {
-	if n == nil {
-		return fmt.Errorf("tomledit: DecodeNode needs a node, got nil")
-	}
-	return documentOf(n).diag(decodeNode(n, v), "")
-}
-
-func decodeNode(n Node, v any) error {
-	dst, err := decodeTarget(v, "DecodeNode")
-	if err != nil {
+	if err := d.diag(en.result(), ""); err != nil {
 		return err
 	}
+	if written != nil {
+		*written = en.written
+	}
+	return nil
+}
+
+// DecodeNode decodes a single node into a freshly allocated T. It is Decode
+// scoped to one construct: a table, an array-table entry, an inline table or a
+// document decodes like a table, an array decodes like an array, and a scalar
+// node decodes into a scalar target. A key, a key-value pair and a comment
+// carry no value of their own and are refused.
+//
+// The rules are Decode's, including strictness and the unobservability of a
+// failure: on any failure DecodeNode returns (nil, err). A diagnostic names the
+// file the node's document was read from, which the node reaches through the
+// parent links its container maintains; a node not attached to a document names
+// none.
+func DecodeNode[T any](n Node) (*T, error) {
+	if n == nil {
+		return nil, fmt.Errorf("tomledit: DecodeNode needs a node, got nil")
+	}
+	out := new(T)
+	if err := documentOf(n).diag(decodeNode(n, reflect.ValueOf(out).Elem()), ""); err != nil {
+		return nil, err
+	}
+	return out, nil
+}
+
+func decodeNode(n Node, dst reflect.Value) error {
 	en := newEngine()
 	switch node := n.(type) {
 	case *Document:
@@ -167,15 +237,6 @@ func decodeNode(n Node, v any) error {
 		en.walkValue(node, d, dst, "", Span{})
 	}
 	return en.result()
-}
-
-// decodeTarget checks a decode target and returns the value to write into.
-func decodeTarget(v any, what string) (reflect.Value, error) {
-	rv := reflect.ValueOf(v)
-	if !rv.IsValid() || rv.Kind() != reflect.Pointer || rv.IsNil() {
-		return reflect.Value{}, fmt.Errorf("tomledit: %s requires a non-nil pointer, got %T", what, v)
-	}
-	return rv.Elem(), nil
 }
 
 // --- the compiled descriptor ---
@@ -269,9 +330,24 @@ type engine struct {
 	diags []*Error
 	fatal error // a target or descriptor the engine cannot work with at all
 
+	// track turns on written-path recording, which only DecodeOver asks for:
+	// a decode that returns the whole value has nothing to distinguish.
+	track   bool
+	written []string
+	whole   int // >0 inside a value already recorded as one path
+
 	types  map[reflect.Type]*desc
 	tables map[reflect.Type]*tableDesc
 	tagged map[reflect.Type]bool // types whose tag rules have been checked
+}
+
+// wrote records that a value was written at path. A value written whole -- an
+// array, an any-typed table, a target that decodes itself -- is one path: the
+// elements inside it were replaced together, not each on their own account.
+func (en *engine) wrote(path string) {
+	if en.track && en.whole == 0 {
+		en.written = append(en.written, path)
+	}
 }
 
 func newEngine() *engine {
@@ -483,6 +559,9 @@ func (en *engine) walkValue(n Node, d *desc, dst reflect.Value, path string, key
 			en.add(cerr.at(pos).within(span).atPath(path))
 			return false
 		}
+		if dst.IsValid() {
+			en.wrote(path)
+		}
 		return true
 	}
 }
@@ -501,10 +580,13 @@ func (en *engine) fill(n int, d *desc, dst reflect.Value, path string, pos Posit
 	switch dst.Kind() {
 	case reflect.Slice:
 		out := reflect.MakeSlice(dst.Type(), n, n)
+		en.whole++
 		for i := 0; i < n; i++ {
 			element(i, out.Index(i))
 		}
+		en.whole--
 		dst.Set(out)
+		en.wrote(path)
 		return true
 	case reflect.Array:
 		if n != dst.Len() {
@@ -512,9 +594,12 @@ func (en *engine) fill(n int, d *desc, dst reflect.Value, path string, pos Posit
 				withValue(n).at(pos).within(span).atPath(path))
 			return false
 		}
+		en.whole++
 		for i := 0; i < n; i++ {
 			element(i, dst.Index(i))
 		}
+		en.whole--
+		en.wrote(path)
 		return true
 	}
 	return false
@@ -530,6 +615,7 @@ func (en *engine) setNative(dst reflect.Value, native func() (any, *Error), path
 	}
 	if dst.IsValid() && value != nil {
 		dst.Set(reflect.ValueOf(value))
+		en.wrote(path)
 	}
 	return true
 }
@@ -551,6 +637,7 @@ func (en *engine) hookTOML(dst reflect.Value, n Node, path string, pos Position,
 		en.add(hookFailure(err, path, pos, span))
 		return false
 	}
+	en.wrote(path)
 	return true
 }
 
@@ -569,6 +656,7 @@ func (en *engine) hookText(dst reflect.Value, text string, path string, pos Posi
 		en.add(hookFailure(err, path, pos, span))
 		return false
 	}
+	en.wrote(path)
 	return true
 }
 

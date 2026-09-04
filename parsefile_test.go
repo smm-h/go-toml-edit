@@ -160,10 +160,10 @@ func TestParseFileDecodeNodeDiagnosticsNameTheFile(t *testing.T) {
 		t.Fatal("server not found")
 	}
 
-	var target struct {
+	type target struct {
 		Port int `toml:"port"`
 	}
-	err = DecodeNode(node, &target)
+	_, err = DecodeNode[target](node)
 	if err == nil {
 		t.Fatal("expected an error decoding a string into an int field")
 	}

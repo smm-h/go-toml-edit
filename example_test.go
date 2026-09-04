@@ -142,13 +142,12 @@ func ExampleUnmarshal() {
 			Port int    `toml:"port"`
 		} `toml:"server"`
 	}
-	var cfg Config
-	err := tomledit.Unmarshal([]byte(`title = "My App"
+	cfg, err := tomledit.Unmarshal[Config]([]byte(`title = "My App"
 
 [server]
 host = "0.0.0.0"
 port = 443
-`), &cfg)
+`))
 	if err != nil {
 		panic(err)
 	}

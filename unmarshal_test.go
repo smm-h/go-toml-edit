@@ -85,8 +85,8 @@ score_u64 = 18000000000
 		ScoreU64 uint64  `toml:"score_u64"`
 	}
 
-	var cfg Config
-	if err := Unmarshal([]byte(input), &cfg); err != nil {
+	cfg, err := Unmarshal[Config]([]byte(input))
+	if err != nil {
 		t.Fatalf("Unmarshal failed: %v", err)
 	}
 
@@ -147,8 +147,8 @@ lt = 10:30:00
 		Lt  LocalTime     `toml:"lt"`
 	}
 
-	var cfg Config
-	if err := Unmarshal([]byte(input), &cfg); err != nil {
+	cfg, err := Unmarshal[Config]([]byte(input))
+	if err != nil {
 		t.Fatalf("Unmarshal failed: %v", err)
 	}
 
@@ -175,8 +175,8 @@ func TestUnmarshal_LocalDateTimeAsTime(t *testing.T) {
 	type Config struct {
 		Ldt time.Time `toml:"ldt"`
 	}
-	var cfg Config
-	if err := Unmarshal([]byte(input), &cfg); err != nil {
+	cfg, err := Unmarshal[Config]([]byte(input))
+	if err != nil {
 		t.Fatalf("Unmarshal failed: %v", err)
 	}
 	expected := time.Date(2024, 6, 15, 14, 30, 0, 0, time.UTC)
@@ -190,8 +190,8 @@ func TestUnmarshal_LocalDateAsTime(t *testing.T) {
 	type Config struct {
 		Ld time.Time `toml:"ld"`
 	}
-	var cfg Config
-	if err := Unmarshal([]byte(input), &cfg); err != nil {
+	cfg, err := Unmarshal[Config]([]byte(input))
+	if err != nil {
 		t.Fatalf("Unmarshal failed: %v", err)
 	}
 	expected := time.Date(2024, 6, 15, 0, 0, 0, 0, time.UTC)
@@ -216,8 +216,8 @@ port = 8080
 		Server Server `toml:"server"`
 	}
 
-	var cfg Config
-	if err := Unmarshal([]byte(input), &cfg); err != nil {
+	cfg, err := Unmarshal[Config]([]byte(input))
+	if err != nil {
 		t.Fatalf("Unmarshal failed: %v", err)
 	}
 
@@ -241,8 +241,8 @@ strings = ["a", "b", "c"]
 		Strings []string `toml:"strings"`
 	}
 
-	var cfg Config
-	if err := Unmarshal([]byte(input), &cfg); err != nil {
+	cfg, err := Unmarshal[Config]([]byte(input))
+	if err != nil {
 		t.Fatalf("Unmarshal failed: %v", err)
 	}
 
@@ -259,8 +259,8 @@ func TestUnmarshal_FixedArray(t *testing.T) {
 	type Config struct {
 		Vals [3]int `toml:"vals"`
 	}
-	var cfg Config
-	if err := Unmarshal([]byte(input), &cfg); err != nil {
+	cfg, err := Unmarshal[Config]([]byte(input))
+	if err != nil {
 		t.Fatalf("Unmarshal failed: %v", err)
 	}
 	if cfg.Vals != [3]int{10, 20, 30} {
@@ -288,8 +288,8 @@ price = 0.05
 		Products []Product `toml:"products"`
 	}
 
-	var cfg Config
-	if err := Unmarshal([]byte(input), &cfg); err != nil {
+	cfg, err := Unmarshal[Config]([]byte(input))
+	if err != nil {
 		t.Fatalf("Unmarshal failed: %v", err)
 	}
 
@@ -318,8 +318,8 @@ key2 = 42
 	type Config struct {
 		Config map[string]any `toml:"config"`
 	}
-	var cfg Config
-	if err := Unmarshal([]byte(input), &cfg); err != nil {
+	cfg, err := Unmarshal[Config]([]byte(input))
+	if err != nil {
 		t.Fatalf("Unmarshal failed: %v", err)
 	}
 	if cfg.Config["key1"] != "value1" {
@@ -339,8 +339,8 @@ team = "backend"
 	type Config struct {
 		Labels map[string]string `toml:"labels"`
 	}
-	var cfg Config
-	if err := Unmarshal([]byte(input), &cfg); err != nil {
+	cfg, err := Unmarshal[Config]([]byte(input))
+	if err != nil {
 		t.Fatalf("Unmarshal failed: %v", err)
 	}
 	if cfg.Labels["env"] != "prod" {
@@ -356,10 +356,11 @@ func TestUnmarshal_TopLevelMap(t *testing.T) {
 name = "test"
 value = 42
 `
-	m := map[string]any{}
-	if err := Unmarshal([]byte(input), &m); err != nil {
+	decoded, err := Unmarshal[map[string]any]([]byte(input))
+	if err != nil {
 		t.Fatalf("Unmarshal failed: %v", err)
 	}
+	m := *decoded
 	if m["name"] != "test" {
 		t.Errorf("m[name] = %v, want test", m["name"])
 	}
@@ -379,8 +380,8 @@ func TestUnmarshal_InlineTable(t *testing.T) {
 	type Config struct {
 		Point Point `toml:"point"`
 	}
-	var cfg Config
-	if err := Unmarshal([]byte(input), &cfg); err != nil {
+	cfg, err := Unmarshal[Config]([]byte(input))
+	if err != nil {
 		t.Fatalf("Unmarshal failed: %v", err)
 	}
 	if cfg.Point.X != 1 || cfg.Point.Y != 2 {
@@ -393,8 +394,8 @@ func TestUnmarshal_InlineTableToMap(t *testing.T) {
 	type Config struct {
 		Point map[string]int64 `toml:"point"`
 	}
-	var cfg Config
-	if err := Unmarshal([]byte(input), &cfg); err != nil {
+	cfg, err := Unmarshal[Config]([]byte(input))
+	if err != nil {
 		t.Fatalf("Unmarshal failed: %v", err)
 	}
 	if cfg.Point["x"] != 1 || cfg.Point["y"] != 2 {
@@ -410,8 +411,8 @@ func TestUnmarshal_StructTags(t *testing.T) {
 		CustomField string `toml:"custom_name"`
 		Skipped     string `toml:"-"`
 	}
-	var cfg Config
-	if err := Unmarshal([]byte(input), &cfg); err != nil {
+	cfg, err := Unmarshal[Config]([]byte(input))
+	if err != nil {
 		t.Fatalf("Unmarshal failed: %v", err)
 	}
 	if cfg.CustomField != "hello" {
@@ -429,16 +430,15 @@ func TestUnmarshal_ExcludedFieldIsUnknown(t *testing.T) {
 	type Config struct {
 		Skipped string `toml:"-"`
 	}
-	var cfg Config
-	err := Unmarshal([]byte(`Skipped = "should not appear"`), &cfg)
+	cfg, err := Unmarshal[Config]([]byte(`Skipped = "should not appear"`))
 	if err == nil {
 		t.Fatalf("Unmarshal accepted a key naming an excluded field: %+v", cfg)
 	}
 	if !errors.Is(err, ErrUnknownKey) {
 		t.Fatalf("err = %v, want an unknown-key diagnostic", err)
 	}
-	if cfg.Skipped != "" {
-		t.Errorf("Skipped = %q, want empty", cfg.Skipped)
+	if cfg != nil {
+		t.Errorf("a refused decode returned %+v, want no value at all", cfg)
 	}
 }
 
@@ -449,15 +449,26 @@ func TestUnmarshal_UnexportedFieldIsUnknown(t *testing.T) {
 		Name   string `toml:"name"`
 		hidden string
 	}
-	var cfg Config
-	err := Unmarshal([]byte("name = \"x\"\nhidden = \"y\"\n"), &cfg)
+	cfg, err := Unmarshal[Config]([]byte("name = \"x\"\nhidden = \"y\"\n"))
 	if err == nil {
 		t.Fatalf("Unmarshal accepted a key naming an unexported field: %+v", cfg)
 	}
 	if !errors.Is(err, ErrUnknownKey) {
 		t.Fatalf("err = %v, want an unknown-key diagnostic", err)
 	}
-	_ = cfg.hidden
+	if cfg != nil {
+		t.Errorf("a refused decode returned %+v, want no value at all", cfg)
+	}
+
+	// The same target without the offending key: the field is outside the
+	// mapping, so nothing writes it.
+	ok, err := Unmarshal[Config]([]byte("name = \"x\"\n"))
+	if err != nil {
+		t.Fatalf("Unmarshal refused a target carrying an unexported field: %v", err)
+	}
+	if ok.hidden != "" {
+		t.Errorf("hidden = %q, want an unexported field nothing writes", ok.hidden)
+	}
 }
 
 // Fails if a toml tag option the package does not read is accepted: an option
@@ -467,8 +478,7 @@ func TestUnmarshal_UnknownTagOptionIsRefused(t *testing.T) {
 	type Config struct {
 		WithEmpty string `toml:"with_empty,omitempty"`
 	}
-	var cfg Config
-	err := Unmarshal([]byte(`with_empty = "value"`), &cfg)
+	_, err := Unmarshal[Config]([]byte(`with_empty = "value"`))
 	if err == nil {
 		t.Fatal("Unmarshal accepted the unknown tag option \"omitempty\"")
 	}
@@ -486,23 +496,26 @@ func TestUnmarshal_TagOnUnexportedFieldIsInert(t *testing.T) {
 		Name   string `toml:"name"`
 		secret string `toml:"secret"`
 	}
-	var cfg Config
-	if err := Unmarshal([]byte("name = \"x\"\n"), &cfg); err != nil {
+	cfg, err := Unmarshal[Config]([]byte("name = \"x\"\n"))
+	if err != nil {
 		t.Fatalf("Unmarshal refused a target carrying a toml tag on an unexported field: %v", err)
 	}
 	if cfg.Name != "x" {
 		t.Errorf("Name = %q, want %q", cfg.Name, "x")
 	}
+	if cfg.secret != "" {
+		t.Errorf("secret = %q, want the tag to bind nothing", cfg.secret)
+	}
 
-	err := Unmarshal([]byte("name = \"x\"\nsecret = \"y\"\n"), &cfg)
+	bound, err := Unmarshal[Config]([]byte("name = \"x\"\nsecret = \"y\"\n"))
 	if err == nil {
 		t.Fatal("Unmarshal bound a document key to an unexported field through its tag")
 	}
 	if !errors.Is(err, ErrUnknownKey) {
 		t.Errorf("err = %v, want an unknown-key diagnostic", err)
 	}
-	if cfg.secret != "" {
-		t.Errorf("secret = %q, want the tag to bind nothing", cfg.secret)
+	if bound != nil {
+		t.Errorf("a refused decode returned %+v, want no value at all", bound)
 	}
 }
 
@@ -513,11 +526,10 @@ func TestUnmarshal_RequiredTagOption(t *testing.T) {
 		Host string `toml:"host,required"`
 		Port int    `toml:"port"`
 	}
-	var cfg Config
-	if err := Unmarshal([]byte("host = \"h\"\nport = 1\n"), &cfg); err != nil {
+	if _, err := Unmarshal[Config]([]byte("host = \"h\"\nport = 1\n")); err != nil {
 		t.Fatalf("Unmarshal failed: %v", err)
 	}
-	err := Unmarshal([]byte("port = 1\n"), &cfg)
+	_, err := Unmarshal[Config]([]byte("port = 1\n"))
 	if err == nil {
 		t.Fatal("Unmarshal accepted a document missing a required key")
 	}
@@ -544,8 +556,8 @@ port = 8080
 		Base
 		Name string `toml:"name"`
 	}
-	var cfg Config
-	if err := Unmarshal([]byte(input), &cfg); err != nil {
+	cfg, err := Unmarshal[Config]([]byte(input))
+	if err != nil {
 		t.Fatalf("Unmarshal failed: %v", err)
 	}
 	if cfg.Name != "test" {
@@ -572,8 +584,8 @@ port = 8080
 	type Config struct {
 		Base Base `toml:"base"`
 	}
-	var cfg Config
-	if err := Unmarshal([]byte(input), &cfg); err != nil {
+	cfg, err := Unmarshal[Config]([]byte(input))
+	if err != nil {
 		t.Fatalf("Unmarshal failed: %v", err)
 	}
 	if cfg.Base.Host != "localhost" {
@@ -592,8 +604,8 @@ count = 42
 		Name  *string `toml:"name"`
 		Count *int    `toml:"count"`
 	}
-	var cfg Config
-	if err := Unmarshal([]byte(input), &cfg); err != nil {
+	cfg, err := Unmarshal[Config]([]byte(input))
+	if err != nil {
 		t.Fatalf("Unmarshal failed: %v", err)
 	}
 	if cfg.Name == nil || *cfg.Name != "test" {
@@ -609,8 +621,8 @@ func TestUnmarshal_DoublePointer(t *testing.T) {
 	type Config struct {
 		Name **string `toml:"name"`
 	}
-	var cfg Config
-	if err := Unmarshal([]byte(input), &cfg); err != nil {
+	cfg, err := Unmarshal[Config]([]byte(input))
+	if err != nil {
 		t.Fatalf("Unmarshal failed: %v", err)
 	}
 	if cfg.Name == nil || *cfg.Name == nil || **cfg.Name != "deep" {
@@ -624,8 +636,8 @@ func TestUnmarshal_NilPointerUntouched(t *testing.T) {
 		Name  *string `toml:"name"`
 		Other string  `toml:"other"`
 	}
-	var cfg Config
-	if err := Unmarshal([]byte(input), &cfg); err != nil {
+	cfg, err := Unmarshal[Config]([]byte(input))
+	if err != nil {
 		t.Fatalf("Unmarshal failed: %v", err)
 	}
 	if cfg.Name != nil {
@@ -653,8 +665,8 @@ arr = [1, 2, 3]
 		Boo any `toml:"boo"`
 		Arr any `toml:"arr"`
 	}
-	var cfg Config
-	if err := Unmarshal([]byte(input), &cfg); err != nil {
+	cfg, err := Unmarshal[Config]([]byte(input))
+	if err != nil {
 		t.Fatalf("Unmarshal failed: %v", err)
 	}
 	if cfg.Str != "hello" {
@@ -683,8 +695,8 @@ func TestUnmarshal_UntaggedFieldMatchesItsExactName(t *testing.T) {
 	type Config struct {
 		Host string // no tag, field name is "Host"
 	}
-	var cfg Config
-	if err := Unmarshal([]byte(input), &cfg); err != nil {
+	cfg, err := Unmarshal[Config]([]byte(input))
+	if err != nil {
 		t.Fatalf("Unmarshal failed: %v", err)
 	}
 	if cfg.Host != "localhost" {
@@ -699,8 +711,7 @@ func TestUnmarshal_CaseDifferingKeyIsUnknown(t *testing.T) {
 	type Config struct {
 		Host string // no tag, field name is "Host"
 	}
-	var cfg Config
-	err := Unmarshal([]byte(input), &cfg)
+	cfg, err := Unmarshal[Config]([]byte(input))
 	if err == nil {
 		t.Fatalf("Unmarshal accepted a case-differing key: %+v", cfg)
 	}
@@ -714,8 +725,8 @@ func TestUnmarshal_CaseDifferingKeyIsUnknown(t *testing.T) {
 	if d.Path != "host" {
 		t.Errorf("Path = %q, want the document's own spelling %q", d.Path, "host")
 	}
-	if cfg.Host != "" {
-		t.Errorf("Host = %q, want it left untouched", cfg.Host)
+	if cfg != nil {
+		t.Errorf("a refused decode returned %+v, want no value at all", cfg)
 	}
 }
 
@@ -726,8 +737,8 @@ func TestUnmarshal_CustomUnmarshaler(t *testing.T) {
 	type Config struct {
 		Val customUnmarshaler `toml:"val"`
 	}
-	var cfg Config
-	if err := Unmarshal([]byte(input), &cfg); err != nil {
+	cfg, err := Unmarshal[Config]([]byte(input))
+	if err != nil {
 		t.Fatalf("Unmarshal failed: %v", err)
 	}
 	if cfg.Val.Data != "custom:world" {
@@ -742,8 +753,8 @@ func TestUnmarshal_TextUnmarshaler(t *testing.T) {
 	type Config struct {
 		Val textUnmarshalerType `toml:"val"`
 	}
-	var cfg Config
-	if err := Unmarshal([]byte(input), &cfg); err != nil {
+	cfg, err := Unmarshal[Config]([]byte(input))
+	if err != nil {
 		t.Fatalf("Unmarshal failed: %v", err)
 	}
 	if cfg.Val.Value != "text:hello" {
@@ -758,8 +769,7 @@ func TestUnmarshal_IntOverflow(t *testing.T) {
 	type Config struct {
 		Val int8 `toml:"val"`
 	}
-	var cfg Config
-	err := Unmarshal([]byte(input), &cfg)
+	_, err := Unmarshal[Config]([]byte(input))
 	if err == nil {
 		t.Fatal("expected overflow error, got nil")
 	}
@@ -770,8 +780,7 @@ func TestUnmarshal_UintOverflow(t *testing.T) {
 	type Config struct {
 		Val uint8 `toml:"val"`
 	}
-	var cfg Config
-	err := Unmarshal([]byte(input), &cfg)
+	_, err := Unmarshal[Config]([]byte(input))
 	if err == nil {
 		t.Fatal("expected overflow error, got nil")
 	}
@@ -782,8 +791,7 @@ func TestUnmarshal_NegativeUint(t *testing.T) {
 	type Config struct {
 		Val uint `toml:"val"`
 	}
-	var cfg Config
-	err := Unmarshal([]byte(input), &cfg)
+	_, err := Unmarshal[Config]([]byte(input))
 	if err == nil {
 		t.Fatal("expected negative-to-uint error, got nil")
 	}
@@ -796,8 +804,7 @@ func TestUnmarshal_TypeMismatch(t *testing.T) {
 	type Config struct {
 		Val string `toml:"val"`
 	}
-	var cfg Config
-	err := Unmarshal([]byte(input), &cfg)
+	_, err := Unmarshal[Config]([]byte(input))
 	if err == nil {
 		t.Fatal("expected type mismatch error, got nil")
 	}
@@ -808,31 +815,9 @@ func TestUnmarshal_TypeMismatchBoolToInt(t *testing.T) {
 	type Config struct {
 		Val int `toml:"val"`
 	}
-	var cfg Config
-	err := Unmarshal([]byte(input), &cfg)
+	_, err := Unmarshal[Config]([]byte(input))
 	if err == nil {
 		t.Fatal("expected type mismatch error, got nil")
-	}
-}
-
-// --- 16. Non-pointer target ---
-
-func TestUnmarshal_NonPointerTarget(t *testing.T) {
-	type Config struct {
-		Name string `toml:"name"`
-	}
-	var cfg Config
-	err := Unmarshal([]byte(`name = "x"`), cfg) // not &cfg
-	if err == nil {
-		t.Fatal("expected error for non-pointer target, got nil")
-	}
-}
-
-func TestUnmarshal_NilPointerTarget(t *testing.T) {
-	var cfg *struct{ Name string }
-	err := Unmarshal([]byte(`name = "x"`), cfg) // nil pointer
-	if err == nil {
-		t.Fatal("expected error for nil pointer target, got nil")
 	}
 }
 
@@ -843,8 +828,8 @@ func TestUnmarshal_EmptyDocument(t *testing.T) {
 		Name  string `toml:"name"`
 		Count int    `toml:"count"`
 	}
-	var cfg Config
-	if err := Unmarshal([]byte(""), &cfg); err != nil {
+	cfg, err := Unmarshal[Config]([]byte(""))
+	if err != nil {
 		t.Fatalf("Unmarshal failed: %v", err)
 	}
 	if cfg.Name != "" {
@@ -869,8 +854,7 @@ also_unknown = 999
 	type Config struct {
 		Name string `toml:"name"`
 	}
-	var cfg Config
-	err := Unmarshal([]byte(input), &cfg)
+	cfg, err := Unmarshal[Config]([]byte(input))
 	if err == nil {
 		t.Fatalf("Unmarshal accepted two unknown keys: %+v", cfg)
 	}
@@ -891,10 +875,11 @@ also_unknown = 999
 	if !reflect.DeepEqual(paths, []string{"unknown", "also_unknown"}) {
 		t.Errorf("diagnostics name %v, want [unknown also_unknown] in document order", paths)
 	}
-	// The known key still decoded: a violation stops the construct it names,
-	// not the walk.
-	if cfg.Name != "test" {
-		t.Errorf("Name = %q, want %q", cfg.Name, "test")
+	// The walk went on past the first unknown key -- both were reported -- but
+	// nothing it decoded on the way is reachable: a failed decode answers with
+	// diagnostics and no value.
+	if cfg != nil {
+		t.Errorf("a refused decode returned %+v, want no value at all", cfg)
 	}
 }
 
@@ -927,8 +912,8 @@ val = "deep"
 	type Config struct {
 		A A `toml:"a"`
 	}
-	var cfg Config
-	if err := Unmarshal([]byte(input), &cfg); err != nil {
+	cfg, err := Unmarshal[Config]([]byte(input))
+	if err != nil {
 		t.Fatalf("Unmarshal failed: %v", err)
 	}
 	if cfg.A.B.C.D.E.Val != "deep" {
@@ -965,8 +950,8 @@ color = "silver"
 	type Config struct {
 		Products []Product `toml:"products"`
 	}
-	var cfg Config
-	if err := Unmarshal([]byte(input), &cfg); err != nil {
+	cfg, err := Unmarshal[Config]([]byte(input))
+	if err != nil {
 		t.Fatalf("Unmarshal failed: %v", err)
 	}
 	if len(cfg.Products) != 2 {
@@ -1004,8 +989,8 @@ a.b.c = "nested"
 	type Config struct {
 		A B `toml:"a"`
 	}
-	var cfg Config
-	if err := Unmarshal([]byte(input), &cfg); err != nil {
+	cfg, err := Unmarshal[Config]([]byte(input))
+	if err != nil {
 		t.Fatalf("Unmarshal failed: %v", err)
 	}
 	if cfg.A.B.C != "nested" {
@@ -1028,12 +1013,12 @@ value = 42
 	want := Config{Name: "test", Value: 42}
 
 	// Via Unmarshal
-	var cfg1 Config
-	if err := Unmarshal([]byte(input), &cfg1); err != nil {
+	cfg1, err := Unmarshal[Config]([]byte(input))
+	if err != nil {
 		t.Fatalf("Unmarshal failed: %v", err)
 	}
-	if !reflect.DeepEqual(cfg1, want) {
-		t.Errorf("Unmarshal decoded %+v, want %+v", cfg1, want)
+	if !reflect.DeepEqual(*cfg1, want) {
+		t.Errorf("Unmarshal decoded %+v, want %+v", *cfg1, want)
 	}
 
 	// Via Parse + Decode
@@ -1041,16 +1026,16 @@ value = 42
 	if err != nil {
 		t.Fatalf("Parse failed: %v", err)
 	}
-	var cfg2 Config
-	if err := doc.Decode(&cfg2); err != nil {
+	cfg2, err := Decode[Config](doc)
+	if err != nil {
 		t.Fatalf("Decode failed: %v", err)
 	}
-	if !reflect.DeepEqual(cfg2, want) {
-		t.Errorf("Decode decoded %+v, want %+v", cfg2, want)
+	if !reflect.DeepEqual(*cfg2, want) {
+		t.Errorf("Decode decoded %+v, want %+v", *cfg2, want)
 	}
 
-	if !reflect.DeepEqual(cfg1, cfg2) {
-		t.Errorf("Unmarshal and Parse+Decode produced different results:\n  Unmarshal: %+v\n  Decode:    %+v", cfg1, cfg2)
+	if !reflect.DeepEqual(*cfg1, *cfg2) {
+		t.Errorf("Unmarshal and Parse+Decode produced different results:\n  Unmarshal: %+v\n  Decode:    %+v", *cfg1, *cfg2)
 	}
 }
 
@@ -1101,8 +1086,8 @@ ip = "10.0.0.2"
 		Servers  []Server `toml:"servers"`
 	}
 
-	var cfg Config
-	if err := Unmarshal([]byte(input), &cfg); err != nil {
+	cfg, err := Unmarshal[Config]([]byte(input))
+	if err != nil {
 		t.Fatalf("Unmarshal failed: %v", err)
 	}
 
@@ -1152,8 +1137,8 @@ func TestUnmarshal_Float32(t *testing.T) {
 	type Config struct {
 		Val float32 `toml:"val"`
 	}
-	var cfg Config
-	if err := Unmarshal([]byte(input), &cfg); err != nil {
+	cfg, err := Unmarshal[Config]([]byte(input))
+	if err != nil {
 		t.Fatalf("Unmarshal failed: %v", err)
 	}
 	if cfg.Val < 3.13 || cfg.Val > 3.15 {
@@ -1166,8 +1151,8 @@ func TestUnmarshal_IntegerToFloat(t *testing.T) {
 	type Config struct {
 		Val float64 `toml:"val"`
 	}
-	var cfg Config
-	if err := Unmarshal([]byte(input), &cfg); err != nil {
+	cfg, err := Unmarshal[Config]([]byte(input))
+	if err != nil {
 		t.Fatalf("Unmarshal failed: %v", err)
 	}
 	if cfg.Val != 42.0 {
@@ -1183,10 +1168,11 @@ name = "test"
 host = "localhost"
 `
 	doc := mustParse(t, input)
-	m := map[string]any{}
-	if err := doc.Decode(&m); err != nil {
+	decoded, err := Decode[map[string]any](doc)
+	if err != nil {
 		t.Fatalf("Decode failed: %v", err)
 	}
+	m := *decoded
 	if m["name"] != "test" {
 		t.Errorf("m[name] = %v, want test", m["name"])
 	}
@@ -1208,8 +1194,8 @@ func TestUnmarshal_InlineTableToInterface(t *testing.T) {
 	type Config struct {
 		Val any `toml:"val"`
 	}
-	var cfg Config
-	if err := Unmarshal([]byte(input), &cfg); err != nil {
+	cfg, err := Unmarshal[Config]([]byte(input))
+	if err != nil {
 		t.Fatalf("Unmarshal failed: %v", err)
 	}
 	m, ok := cfg.Val.(map[string]any)
@@ -1240,8 +1226,8 @@ database.port = 5432
 	type Config struct {
 		Server Server `toml:"server"`
 	}
-	var cfg Config
-	if err := Unmarshal([]byte(input), &cfg); err != nil {
+	cfg, err := Unmarshal[Config]([]byte(input))
+	if err != nil {
 		t.Fatalf("Unmarshal failed: %v", err)
 	}
 	if cfg.Server.Database.Host != "db.example.com" {
@@ -1262,10 +1248,11 @@ val = 1
 name = "b"
 val = 2
 `
-	m := map[string]any{}
-	if err := Unmarshal([]byte(input), &m); err != nil {
+	decoded, err := Unmarshal[map[string]any]([]byte(input))
+	if err != nil {
 		t.Fatalf("Unmarshal failed: %v", err)
 	}
+	m := *decoded
 	items, ok := m["items"]
 	if !ok {
 		t.Fatal("items not found in map")
@@ -1300,8 +1287,8 @@ c = "hello"
 	type Config struct {
 		A A `toml:"a"`
 	}
-	var cfg Config
-	if err := Unmarshal([]byte(input), &cfg); err != nil {
+	cfg, err := Unmarshal[Config]([]byte(input))
+	if err != nil {
 		t.Fatalf("Unmarshal failed: %v", err)
 	}
 	if cfg.A.B.C != "hello" {

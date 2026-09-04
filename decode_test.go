@@ -96,8 +96,7 @@ func TestEngine_ViolationKindsAndPositions(t *testing.T) {
 	if err != nil {
 		t.Fatalf("parse error: %v", err)
 	}
-	var cfg engineConfig
-	err = doc.Decode(&cfg)
+	cfg, err := Decode[engineConfig](doc)
 	if err == nil {
 		t.Fatal("Decode accepted a document full of violations")
 	}
@@ -138,9 +137,10 @@ func TestEngine_ViolationKindsAndPositions(t *testing.T) {
 		}
 	}
 
-	// Everything the document got right still decoded.
-	if cfg.Name != "app" || cfg.Server.Host != "h" {
-		t.Errorf("decoded %+v, want the valid keys written through", cfg)
+	// The keys that decoded cleanly are unreachable: a failed decode answers
+	// with diagnostics and nothing else.
+	if cfg != nil {
+		t.Errorf("a failed decode returned %+v, want no value at all", cfg)
 	}
 }
 
@@ -152,8 +152,8 @@ func TestEngine_NoDescentBelowARefusedConstruct(t *testing.T) {
 	if err != nil {
 		t.Fatalf("parse error: %v", err)
 	}
-	var cfg engineConfig
-	for _, d := range diagnosticsOf(t, doc.Decode(&cfg)) {
+	_, err = Decode[engineConfig](doc)
+	for _, d := range diagnosticsOf(t, err) {
 		if strings.HasPrefix(d.Path, "unknown_table.") {
 			t.Errorf("diagnostic %q comes from inside a refused table", d.Path)
 		}
@@ -204,8 +204,8 @@ func TestEngine_FrontEndsReportIdentically(t *testing.T) {
 	if err != nil {
 		t.Fatalf("parse error: %v", err)
 	}
-	var cfg engineConfig
-	viaStruct := diagnosticsOf(t, doc.Decode(&cfg))
+	_, err = Decode[engineConfig](doc)
+	viaStruct := diagnosticsOf(t, err)
 	viaSpec := diagnosticsOf(t, doc.Validate(engineTestSpec()))
 
 	if len(viaStruct) != len(viaSpec) {
@@ -230,8 +230,7 @@ func TestEngine_AggregateRendersItsFirstDiagnostic(t *testing.T) {
 	if err != nil {
 		t.Fatalf("parse error: %v", err)
 	}
-	var cfg engineConfig
-	err = doc.Decode(&cfg)
+	_, err = Decode[engineConfig](doc)
 	diags := diagnosticsOf(t, err)
 	if err.Error() != diags[0].Error() {
 		t.Errorf("aggregate renders %q, want its first diagnostic %q", err, diags[0])
@@ -256,8 +255,7 @@ func TestEngine_CustomDecoderNeedsANodeToDecode(t *testing.T) {
 	if err != nil {
 		t.Fatalf("parse error: %v", err)
 	}
-	var cfg Config
-	err = doc.Decode(&cfg)
+	cfg, err := Decode[Config](doc)
 	if err == nil {
 		t.Fatalf("Decode ran a custom decoder with no node to hand it: %+v", cfg)
 	}
@@ -299,25 +297,29 @@ after = true
 // a single error that discards everything the walk had already found.
 func TestEngine_HookErrorIsCollectedAndTheWalkContinues(t *testing.T) {
 	tests := []struct {
-		name   string
-		target func() any
+		name string
+		// decode reads the document as this case's target type, which is a
+		// compile-time argument and so is spelled per case.
+		decode func(*Document) error
 	}{
 		{
 			name: "UnmarshalTOML",
-			target: func() any {
-				return &struct {
+			decode: func(d *Document) error {
+				_, err := Decode[struct {
 					Before int              `toml:"before"`
 					Hooked refusingTOMLHook `toml:"hooked"`
-				}{}
+				}](d)
+				return err
 			},
 		},
 		{
 			name: "UnmarshalText",
-			target: func() any {
-				return &struct {
+			decode: func(d *Document) error {
+				_, err := Decode[struct {
 					Before int              `toml:"before"`
 					Hooked refusingTextHook `toml:"hooked"`
-				}{}
+				}](d)
+				return err
 			},
 		},
 	}
@@ -328,7 +330,7 @@ func TestEngine_HookErrorIsCollectedAndTheWalkContinues(t *testing.T) {
 			if err != nil {
 				t.Fatalf("parse error: %v", err)
 			}
-			err = doc.Decode(tt.target())
+			err = tt.decode(doc)
 			if err == nil {
 				t.Fatal("Decode accepted a document whose target's own decoder failed")
 			}
@@ -388,8 +390,8 @@ func TestDecodeNode(t *testing.T) {
 	if err != nil {
 		t.Fatalf("Resolve: %v", err)
 	}
-	var server Server
-	if err := DecodeNode(table, &server); err != nil {
+	server, err := DecodeNode[Server](table)
+	if err != nil {
 		t.Fatalf("DecodeNode on a table: %v", err)
 	}
 	if server.Host != "h" || !reflect.DeepEqual(server.Ports, []int{1, 2}) || server.Inline["x"] != 1 {
@@ -400,33 +402,30 @@ func TestDecodeNode(t *testing.T) {
 	if err != nil {
 		t.Fatalf("Resolve: %v", err)
 	}
-	var host string
-	if err := DecodeNode(node, &host); err != nil {
+	host, err := DecodeNode[string](node)
+	if err != nil {
 		t.Fatalf("DecodeNode on a scalar: %v", err)
 	}
-	if host != "h" {
-		t.Errorf("host = %q, want %q", host, "h")
+	if *host != "h" {
+		t.Errorf("host = %q, want %q", *host, "h")
 	}
 
-	var ports [2]int
 	arr, err := doc.Resolve("server.ports")
 	if err != nil {
 		t.Fatalf("Resolve: %v", err)
 	}
-	if err := DecodeNode(arr, &ports); err != nil {
+	ports, err := DecodeNode[[2]int](arr)
+	if err != nil {
 		t.Fatalf("DecodeNode on an array: %v", err)
 	}
-	if ports != [2]int{1, 2} {
-		t.Errorf("ports = %v, want [1 2]", ports)
+	if *ports != [2]int{1, 2} {
+		t.Errorf("ports = %v, want [1 2]", *ports)
 	}
 
 	// A key carries no value of its own.
 	kv := &KeyNode{parts: []string{"host"}}
-	if err := DecodeNode(kv, &host); err == nil {
+	if _, err := DecodeNode[string](kv); err == nil {
 		t.Error("DecodeNode accepted a key node")
-	}
-	if err := DecodeNode(node, host); err == nil {
-		t.Error("DecodeNode accepted a non-pointer target")
 	}
 }
 
@@ -444,10 +443,9 @@ func TestDecodeNode_IsStrictToo(t *testing.T) {
 	if err != nil {
 		t.Fatalf("Resolve: %v", err)
 	}
-	var server Server
-	err = DecodeNode(table, &server)
+	server, err := DecodeNode[Server](table)
 	if err == nil {
-		t.Fatal("DecodeNode accepted an unknown key")
+		t.Fatalf("DecodeNode accepted an unknown key: %+v", server)
 	}
 	if !errors.Is(err, ErrUnknownKey) {
 		t.Errorf("err = %v, want an unknown-key diagnostic", err)
@@ -469,10 +467,12 @@ type conversionCase struct {
 	name string
 	toml string // the value, as written in a document
 
-	newTarget func() any // a fresh pointer to the Go target
-	want      any        // the value the target holds when it decodes
-	goKind    ErrorKind  // the diagnostic kind, when it does not
-	goFails   bool
+	// decode reads the value as the Go target of this row. The target type is
+	// a compile-time argument, so each row spells its own decodeAs.
+	decode  decodeSide
+	want    any       // the value the target holds when it decodes
+	goKind  ErrorKind // the diagnostic kind, when it does not
+	goFails bool
 
 	field     Field // the descriptor equivalent of the target
 	specKind  ErrorKind
@@ -483,152 +483,152 @@ func conversionCases() []conversionCase {
 	return []conversionCase{
 		{
 			name: "string into a string", toml: `"hi"`,
-			newTarget: func() any { return new(string) }, want: "hi",
+			decode: decodeAs[string](), want: "hi",
 			field: Field{Kind: FieldKindString},
 		},
 		{
 			name: "string into an integer", toml: `"hi"`,
-			newTarget: func() any { return new(int) }, goFails: true, goKind: KindTypeMismatch,
+			decode: decodeAs[int](), goFails: true, goKind: KindTypeMismatch,
 			field: Field{Kind: FieldKindInteger}, specFails: true, specKind: KindTypeMismatch,
 		},
 		{
 			name: "integer into an int", toml: `42`,
-			newTarget: func() any { return new(int) }, want: 42,
+			decode: decodeAs[int](), want: 42,
 			field: Field{Kind: FieldKindInteger},
 		},
 		{
 			name: "integer at the int8 boundary", toml: `127`,
-			newTarget: func() any { return new(int8) }, want: int8(127),
+			decode: decodeAs[int8](), want: int8(127),
 			field: Field{Kind: FieldKindInteger},
 		},
 		{
 			// A width only the Go target declares: the descriptor's integer
 			// field is an int64, which holds it.
 			name: "integer overflowing an int8", toml: `128`,
-			newTarget: func() any { return new(int8) }, goFails: true, goKind: KindInexact,
+			decode: decodeAs[int8](), goFails: true, goKind: KindInexact,
 			field: Field{Kind: FieldKindInteger},
 		},
 		{
 			name: "negative integer into a uint", toml: `-1`,
-			newTarget: func() any { return new(uint) }, goFails: true, goKind: KindInexact,
+			decode: decodeAs[uint](), goFails: true, goKind: KindInexact,
 			field: Field{Kind: FieldKindInteger},
 		},
 		{
 			name: "integer into a float64, exactly", toml: `42`,
-			newTarget: func() any { return new(float64) }, want: 42.0,
+			decode: decodeAs[float64](), want: 42.0,
 			field: Field{Kind: FieldKindFloat},
 		},
 		{
 			// 2^53+1: both front ends refuse it, because both are float64 here.
 			name: "integer no float64 holds exactly", toml: `9007199254740993`,
-			newTarget: func() any { return new(float64) }, goFails: true, goKind: KindInexact,
+			decode: decodeAs[float64](), goFails: true, goKind: KindInexact,
 			field: Field{Kind: FieldKindFloat}, specFails: true, specKind: KindInexact,
 		},
 		{
 			// 2^24+1: exact in a float64, not in a float32.
 			name: "integer no float32 holds exactly", toml: `16777217`,
-			newTarget: func() any { return new(float32) }, goFails: true, goKind: KindInexact,
+			decode: decodeAs[float32](), goFails: true, goKind: KindInexact,
 			field: Field{Kind: FieldKindFloat},
 		},
 		{
 			name: "float into a float64", toml: `3.5`,
-			newTarget: func() any { return new(float64) }, want: 3.5,
+			decode: decodeAs[float64](), want: 3.5,
 			field: Field{Kind: FieldKindFloat},
 		},
 		{
 			name: "float truncated into a float32", toml: `3.141592653589793`,
-			newTarget: func() any { return new(float32) }, want: float32(3.141592653589793),
+			decode: decodeAs[float32](), want: float32(3.141592653589793),
 			field: Field{Kind: FieldKindFloat},
 		},
 		{
 			name: "float overflowing a float32", toml: `3.5e39`,
-			newTarget: func() any { return new(float32) }, goFails: true, goKind: KindInexact,
+			decode: decodeAs[float32](), goFails: true, goKind: KindInexact,
 			field: Field{Kind: FieldKindFloat},
 		},
 		{
 			name: "whole float into an integer", toml: `1.0`,
-			newTarget: func() any { return new(int) }, goFails: true, goKind: KindTypeMismatch,
+			decode: decodeAs[int](), goFails: true, goKind: KindTypeMismatch,
 			field: Field{Kind: FieldKindInteger}, specFails: true, specKind: KindTypeMismatch,
 		},
 		{
 			name: "boolean into a bool", toml: `true`,
-			newTarget: func() any { return new(bool) }, want: true,
+			decode: decodeAs[bool](), want: true,
 			field: Field{Kind: FieldKindBoolean},
 		},
 		{
 			name: "boolean into a string", toml: `true`,
-			newTarget: func() any { return new(string) }, goFails: true, goKind: KindTypeMismatch,
+			decode: decodeAs[string](), goFails: true, goKind: KindTypeMismatch,
 			field: Field{Kind: FieldKindString}, specFails: true, specKind: KindTypeMismatch,
 		},
 		{
 			name: "offset date-time into a time.Time", toml: `1979-05-27T07:32:00Z`,
-			newTarget: func() any { return new(time.Time) }, want: time.Date(1979, 5, 27, 7, 32, 0, 0, time.UTC),
+			decode: decodeAs[time.Time](), want: time.Date(1979, 5, 27, 7, 32, 0, 0, time.UTC),
 			field: Field{Kind: FieldKindOffsetDateTime},
 		},
 		{
 			name: "local date-time into a time.Time", toml: `1979-05-27T07:32:00`,
-			newTarget: func() any { return new(time.Time) }, want: time.Date(1979, 5, 27, 7, 32, 0, 0, time.UTC),
+			decode: decodeAs[time.Time](), want: time.Date(1979, 5, 27, 7, 32, 0, 0, time.UTC),
 			field: Field{Kind: FieldKindLocalDateTime},
 		},
 		{
 			name: "local date-time into an offset date-time field", toml: `1979-05-27T07:32:00`,
-			newTarget: func() any { return new(time.Time) }, want: time.Date(1979, 5, 27, 7, 32, 0, 0, time.UTC),
+			decode: decodeAs[time.Time](), want: time.Date(1979, 5, 27, 7, 32, 0, 0, time.UTC),
 			field: Field{Kind: FieldKindOffsetDateTime}, specFails: true, specKind: KindTypeMismatch,
 		},
 		{
 			name: "local date into a time.Time", toml: `1979-05-27`,
-			newTarget: func() any { return new(time.Time) }, want: time.Date(1979, 5, 27, 0, 0, 0, 0, time.UTC),
+			decode: decodeAs[time.Time](), want: time.Date(1979, 5, 27, 0, 0, 0, 0, time.UTC),
 			field: Field{Kind: FieldKindLocalDate},
 		},
 		{
 			name: "local time into a time.Time", toml: `07:32:00`,
-			newTarget: func() any { return new(time.Time) }, goFails: true, goKind: KindTypeMismatch,
+			decode: decodeAs[time.Time](), goFails: true, goKind: KindTypeMismatch,
 			field: Field{Kind: FieldKindOffsetDateTime}, specFails: true, specKind: KindTypeMismatch,
 		},
 		{
 			name: "local time into a LocalTime", toml: `07:32:00`,
-			newTarget: func() any { return new(LocalTime) }, want: LocalTime{Hour: 7, Minute: 32},
+			decode: decodeAs[LocalTime](), want: LocalTime{Hour: 7, Minute: 32},
 			field: Field{Kind: FieldKindLocalTime},
 		},
 		{
 			name: "array into a slice", toml: `[1, 2, 3]`,
-			newTarget: func() any { return new([]int) }, want: []int{1, 2, 3},
+			decode: decodeAs[[]int](), want: []int{1, 2, 3},
 			field: Field{Kind: FieldKindArray, Elem: &Field{Kind: FieldKindInteger}},
 		},
 		{
 			name: "array into a Go array of its own length", toml: `[1, 2, 3]`,
-			newTarget: func() any { return new([3]int) }, want: [3]int{1, 2, 3},
+			decode: decodeAs[[3]int](), want: [3]int{1, 2, 3},
 			field: Field{Kind: FieldKindArray, Elem: &Field{Kind: FieldKindInteger}},
 		},
 		{
 			name: "array under-filling a Go array", toml: `[1, 2]`,
-			newTarget: func() any { return new([3]int) }, goFails: true, goKind: KindInexact,
+			decode: decodeAs[[3]int](), goFails: true, goKind: KindInexact,
 			field: Field{Kind: FieldKindArray, Elem: &Field{Kind: FieldKindInteger}},
 		},
 		{
 			name: "array with an element of the wrong kind", toml: `[1, "x"]`,
-			newTarget: func() any { return new([]int) }, goFails: true, goKind: KindTypeMismatch,
+			decode: decodeAs[[]int](), goFails: true, goKind: KindTypeMismatch,
 			field:     Field{Kind: FieldKindArray, Elem: &Field{Kind: FieldKindInteger}},
 			specFails: true, specKind: KindTypeMismatch,
 		},
 		{
 			name: "inline table into a struct", toml: `{a = 1}`,
-			newTarget: func() any { return new(convStruct) }, want: convStruct{A: 1},
+			decode: decodeAs[convStruct](), want: convStruct{A: 1},
 			field: Field{Kind: FieldKindTable, Table: &Spec{Fields: map[string]Field{"a": {Kind: FieldKindInteger}}}},
 		},
 		{
 			name: "inline table into a string", toml: `{a = 1}`,
-			newTarget: func() any { return new(string) }, goFails: true, goKind: KindTypeMismatch,
+			decode: decodeAs[string](), goFails: true, goKind: KindTypeMismatch,
 			field: Field{Kind: FieldKindString}, specFails: true, specKind: KindTypeMismatch,
 		},
 		{
 			name: "array into a string", toml: `[1]`,
-			newTarget: func() any { return new(string) }, goFails: true, goKind: KindTypeMismatch,
+			decode: decodeAs[string](), goFails: true, goKind: KindTypeMismatch,
 			field: Field{Kind: FieldKindString}, specFails: true, specKind: KindTypeMismatch,
 		},
 		{
 			name: "anything into any", toml: `[1, "two"]`,
-			newTarget: func() any { return new(any) }, want: []any{int64(1), "two"},
+			decode: decodeAs[any](), want: []any{int64(1), "two"},
 			field: FieldAny(),
 		},
 	}
@@ -651,11 +651,10 @@ func TestConversionTable_BothConsumers(t *testing.T) {
 				t.Fatalf("Resolve: %v", err)
 			}
 
-			target := tc.newTarget()
-			err = DecodeNode(node, target)
+			got, err := tc.decode.read(node)
 			switch {
 			case tc.goFails && err == nil:
-				t.Errorf("the Go target accepted the value: %#v", reflect.ValueOf(target).Elem().Interface())
+				t.Errorf("the Go target accepted the value: %#v", got)
 			case tc.goFails:
 				if diags := diagnosticsOf(t, err); diags[0].Kind != tc.goKind {
 					t.Errorf("the Go target reported %s, want %s (%v)", diags[0].Kind, tc.goKind, err)
@@ -663,7 +662,6 @@ func TestConversionTable_BothConsumers(t *testing.T) {
 			case err != nil:
 				t.Errorf("the Go target refused the value: %v", err)
 			default:
-				got := reflect.ValueOf(target).Elem().Interface()
 				if !sameDecoded(got, tc.want) {
 					t.Errorf("decoded %#v, want %#v", got, tc.want)
 				}
@@ -691,4 +689,227 @@ func sameDecoded(got, want any) bool {
 		return ok && a.Equal(b)
 	}
 	return reflect.DeepEqual(got, want)
+}
+
+// --- the value-returning contract ---
+//
+// A decode returns a value it allocated itself, or diagnostics and nothing
+// else. The tests below pin what that buys: after a failure there is no state
+// anywhere the caller can reach, and the one form that starts from a caller's
+// data takes a factory, so what it fills is still an allocation of its own.
+
+// overlayInner is the pointer-reachable half of the seed below: a failed decode
+// must not have written through the pointer the caller holds.
+type overlayInner struct {
+	Count int `toml:"count"`
+}
+
+// overlaySeed carries one of each thing a decode could write THROUGH rather
+// than into: a map, a pointer, and a slice.
+type overlaySeed struct {
+	Name  string            `toml:"name"`
+	Tags  map[string]string `toml:"tags"`
+	Inner *overlayInner     `toml:"inner"`
+	Ports []int             `toml:"ports"`
+}
+
+// freshOverlaySeed builds a seed from base without sharing anything with it,
+// which is what a seed factory is for.
+func freshOverlaySeed(base overlaySeed) func() overlaySeed {
+	return func() overlaySeed {
+		tags := make(map[string]string, len(base.Tags))
+		for k, v := range base.Tags {
+			tags[k] = v
+		}
+		return overlaySeed{
+			Name:  base.Name,
+			Tags:  tags,
+			Inner: &overlayInner{Count: base.Inner.Count},
+			Ports: append([]int(nil), base.Ports...),
+		}
+	}
+}
+
+// baseOverlaySeed is the value the caller holds in the tests below.
+func baseOverlaySeed() overlaySeed {
+	return overlaySeed{
+		Name:  "seed",
+		Tags:  map[string]string{"env": "dev"},
+		Inner: &overlayInner{Count: 7},
+		Ports: []int{1},
+	}
+}
+
+// Fails if a failed decode leaves anything behind for the caller to find. The
+// engine collects violations, so it keeps walking and keeps writing after the
+// first one -- into an allocation of its own, which it then drops. Nothing the
+// caller holds, and nothing reachable from it through a map or a pointer, may
+// have moved.
+func TestDecode_AFailureLeavesNothingObservable(t *testing.T) {
+	// The document writes name, tags and inner.count cleanly, then violates:
+	// the keys before, beside and after the violation are exactly the ones a
+	// partial write would have left behind.
+	doc := mustParse(t, `name = "from the document"
+ports = [9, 9]
+
+[tags]
+env = "prod"
+
+[inner]
+count = 42
+
+[unknown_table]
+x = 1
+`)
+
+	// The plain form: there is not even a target to ask about.
+	if cfg, err := Decode[overlaySeed](doc); err == nil {
+		t.Fatal("Decode accepted a document with an unknown table")
+	} else if cfg != nil {
+		t.Errorf("a failed Decode returned %+v, want no value at all", cfg)
+	}
+
+	// The seed form: the caller's own value, and everything reachable from it.
+	base := baseOverlaySeed()
+	tags, inner, ports := base.Tags, base.Inner, base.Ports
+	got, written, err := DecodeOver(doc, freshOverlaySeed(base))
+	if err == nil {
+		t.Fatal("DecodeOver accepted a document with an unknown table")
+	}
+	if got != nil || written != nil {
+		t.Errorf("a failed DecodeOver returned (%+v, %v), want no value and no paths", got, written)
+	}
+	if base.Name != "seed" || base.Inner.Count != 7 {
+		t.Errorf("the caller's seed reads %+v, want it untouched", base)
+	}
+	if v := tags["env"]; v != "dev" {
+		t.Errorf("the caller's map reads %q, want the decode never to have reached it", v)
+	}
+	if inner.Count != 7 {
+		t.Errorf("the caller's pointee reads %d, want the decode never to have reached it", inner.Count)
+	}
+	if len(ports) != 1 || ports[0] != 1 {
+		t.Errorf("the caller's slice reads %v, want the decode never to have reached it", ports)
+	}
+}
+
+// Fails if the seed stops surviving where the document is silent, or if the
+// written paths stop naming what the document supplied. Together they are the
+// defaults-overlay pattern: the seed says what the value is when the file says
+// nothing, and the paths say which of it the file replaced.
+func TestDecodeOver_TheSeedSurvivesWhereTheDocumentIsSilent(t *testing.T) {
+	doc := mustParse(t, `name = "from the document"
+ports = [8080]
+
+[inner]
+count = 42
+`)
+
+	base := baseOverlaySeed()
+	got, written, err := DecodeOver(doc, freshOverlaySeed(base))
+	if err != nil {
+		t.Fatalf("DecodeOver failed: %v", err)
+	}
+	if got.Name != "from the document" {
+		t.Errorf("Name = %q, want the document's value", got.Name)
+	}
+	if got.Inner.Count != 42 {
+		t.Errorf("Inner.Count = %d, want the document's value", got.Inner.Count)
+	}
+	if !reflect.DeepEqual(got.Ports, []int{8080}) {
+		t.Errorf("Ports = %v, want the document's array", got.Ports)
+	}
+	// The document never mentions tags, so the seed's own map is what remains.
+	if got.Tags["env"] != "dev" {
+		t.Errorf("Tags = %v, want the seed's map where the document is silent", got.Tags)
+	}
+	// An array is written whole, so it is one path rather than one per element,
+	// and the paths read in document order.
+	want := []string{"name", "ports", "inner.count"}
+	if !reflect.DeepEqual(written, want) {
+		t.Errorf("written = %v, want %v", written, want)
+	}
+
+	// The caller's value is not the decoded one: the factory built a seed of
+	// its own for the decode to fill.
+	if got.Tags["env"] = "touched"; base.Tags["env"] != "dev" {
+		t.Error("writing to the decoded value reached the caller's own map")
+	}
+	if got.Inner == base.Inner {
+		t.Error("the decoded value shares its pointee with the caller's seed")
+	}
+}
+
+// Fails if the seed factory stops being called per decode: two decodes must
+// not share the value they fill, or one caller's result is another's starting
+// point.
+func TestDecodeOver_TheFactoryBuildsAFreshSeedPerCall(t *testing.T) {
+	doc := mustParse(t, "name = \"x\"\n")
+	base := baseOverlaySeed()
+	calls := 0
+	seed := func() overlaySeed {
+		calls++
+		return freshOverlaySeed(base)()
+	}
+
+	first, _, err := DecodeOver(doc, seed)
+	if err != nil {
+		t.Fatalf("DecodeOver failed: %v", err)
+	}
+	second, _, err := DecodeOver(doc, seed)
+	if err != nil {
+		t.Fatalf("DecodeOver failed: %v", err)
+	}
+	if calls != 2 {
+		t.Errorf("the factory ran %d times for two decodes, want 2", calls)
+	}
+	if first == second || first.Inner == second.Inner || &first.Tags == &second.Tags {
+		t.Error("two decodes share the value they filled")
+	}
+	first.Tags["env"] = "touched"
+	if second.Tags["env"] != "dev" {
+		t.Error("writing to one decoded value reached the other")
+	}
+}
+
+// Fails if a missing seed factory is accepted. There is no default seed to fall
+// back to: a decode with nothing to overlay is Decode, which the caller can
+// spell.
+func TestDecodeOver_ANilFactoryIsRefused(t *testing.T) {
+	doc := mustParse(t, "name = \"x\"\n")
+	if _, _, err := DecodeOver[overlaySeed](doc, nil); err == nil {
+		t.Fatal("DecodeOver accepted a nil seed factory")
+	}
+}
+
+// Fails if a value the target decodes ITSELF stops counting as one written
+// path: a hook is handed the whole construct, so the paths inside it were never
+// written on their own account.
+func TestDecodeOver_AValueWrittenWholeIsOnePath(t *testing.T) {
+	type Config struct {
+		Hooked dualUnmarshaler   `toml:"hooked"`
+		Native any               `toml:"native"`
+		Tags   map[string]string `toml:"tags"`
+	}
+	doc := mustParse(t, `[hooked]
+inner = 1
+
+[native]
+a = 1
+b = 2
+
+[tags]
+x = "1"
+y = "2"
+`)
+	_, written, err := DecodeOver(doc, func() Config { return Config{} })
+	if err != nil {
+		t.Fatalf("DecodeOver failed: %v", err)
+	}
+	// The hook and the any-typed table are one path each; the map is written
+	// key by key, because each key is a value of its own.
+	want := []string{"hooked", "native", "tags.x", "tags.y"}
+	if !reflect.DeepEqual(written, want) {
+		t.Errorf("written = %v, want %v", written, want)
+	}
 }

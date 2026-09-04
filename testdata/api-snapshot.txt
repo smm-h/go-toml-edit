@@ -101,7 +101,9 @@ var ErrUnknownKey error
 var ErrUnknownTable error
 var ErrWrongContainer error
 
-func DecodeNode(n Node, v any) error
+func Decode[T any](d *Document) (*T, error)
+func DecodeNode[T any](n Node) (*T, error)
+func DecodeOver[T any](d *Document, seed func() T) (*T, []string, error)
 func DefaultFormatConfig() FormatConfig
 func Diff(a *Document, b *Document) []Change
 func FieldAny() Field
@@ -113,7 +115,7 @@ func ParseFile(path string) (*Document, error)
 func ParsePath(path string) ([]PathSegment, error)
 func QuoteKey(s string) string
 func QuoteString(s string) string
-func Unmarshal(data []byte, v any) error
+func Unmarshal[T any](data []byte) (*T, error)
 func WithIndentWidth(n int) FormatOption
 func WithLineWidth(n int) FormatOption
 func WithTableBlankLine(b bool) FormatOption
@@ -206,7 +208,6 @@ type Document struct
 	method (*Document) Bytes() []byte
 	method (*Document) Children() []Node
 	method (*Document) Comment() string
-	method (*Document) Decode(v any) error
 	method (*Document) Delete(path string) error
 	method (*Document) EnsureDefaults(defaults []Default) (added []string, err error)
 	method (*Document) Format(opts ...FormatOption) []byte

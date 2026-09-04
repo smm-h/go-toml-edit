@@ -29,10 +29,11 @@ func TestMarshalFlatPrimitives(t *testing.T) {
 	}
 
 	// Round-trip: unmarshal back and compare.
-	var got map[string]any
-	if err := Unmarshal(b, &got); err != nil {
+	decoded, err := Unmarshal[map[string]any](b)
+	if err != nil {
 		t.Fatalf("round-trip unmarshal failed: %v\nTOML:\n%s", err, string(b))
 	}
+	got := *decoded
 
 	// Unmarshal decodes integers as int64.
 	checks := map[string]any{
@@ -126,10 +127,11 @@ func TestMarshalRoundTrip(t *testing.T) {
 		t.Fatalf("unexpected error: %v", err)
 	}
 
-	var got map[string]any
-	if err := Unmarshal(b, &got); err != nil {
+	decoded, err := Unmarshal[map[string]any](b)
+	if err != nil {
 		t.Fatalf("round-trip unmarshal failed: %v\nTOML:\n%s", err, string(b))
 	}
+	got := *decoded
 
 	// Check top-level.
 	if got["title"] != "example" {
@@ -224,10 +226,11 @@ func TestMarshalArrayValue(t *testing.T) {
 		t.Fatalf("unexpected error: %v", err)
 	}
 
-	var got map[string]any
-	if err := Unmarshal(b, &got); err != nil {
+	decoded, err := Unmarshal[map[string]any](b)
+	if err != nil {
 		t.Fatalf("round-trip failed: %v\nTOML:\n%s", err, string(b))
 	}
+	got := *decoded
 	tags, ok := got["tags"].([]any)
 	if !ok {
 		t.Fatalf("tags should be []any, got %T", got["tags"])
@@ -275,10 +278,11 @@ func TestMarshalDeeplyNestedMap(t *testing.T) {
 	}
 
 	// Should round-trip correctly regardless of representation.
-	var got map[string]any
-	if err := Unmarshal(b, &got); err != nil {
+	decoded, err := Unmarshal[map[string]any](b)
+	if err != nil {
 		t.Fatalf("round-trip failed: %v\nTOML:\n%s", err, string(b))
 	}
+	got := *decoded
 	outer, ok := got["outer"].(map[string]any)
 	if !ok {
 		t.Fatalf("outer should be map, got %T", got["outer"])

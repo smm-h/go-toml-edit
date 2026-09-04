@@ -345,7 +345,7 @@ name = "a"
 			// diagnostic. The target knows every key but "title".
 			name: "decode: unknown key",
 			run: func(d *Document) error {
-				var cfg struct {
+				_, err := Decode[struct {
 					Tags   []int          `toml:"tags"`
 					Point  map[string]int `toml:"point"`
 					Server struct {
@@ -354,8 +354,8 @@ name = "a"
 					Products []struct {
 						Name string `toml:"name"`
 					} `toml:"products"`
-				}
-				return d.Decode(&cfg)
+				}](d)
+				return err
 			},
 			wantKind: KindUnknownKey,
 			wantSent: ErrUnknownKey,

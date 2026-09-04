@@ -291,8 +291,10 @@ func TestAccessorWidening_NodeLevel(t *testing.T) {
 // type would be, which is what lets the test below compare the two without
 // restating a single row of the conversion table.
 type accessorFamily struct {
-	name      string
-	newTarget func() any // a fresh pointer to the Go target, for DecodeNode
+	name string
+	// decode reads a node through the decode front end as this family's Go
+	// type: what it answers is what every accessor surface is compared against.
+	decode decodeSide
 	// node reads a scalar node; nil is never returned, the surface always
 	// offers every target.
 	node func(Scalar) (any, error)
@@ -302,57 +304,78 @@ type accessorFamily struct {
 	cursor func(*Cursor) (any, error)
 }
 
+// decodeSide is the decode front end for one Go target type: the read itself,
+// and the pointer type the front end would look for hooks on.
+type decodeSide struct {
+	read   func(Node) (any, error)
+	target reflect.Type
+}
+
+// decodeAs builds the decode side for the target type T.
+func decodeAs[T any]() decodeSide {
+	return decodeSide{
+		read: func(n Node) (any, error) {
+			v, err := DecodeNode[T](n)
+			if err != nil {
+				return nil, err
+			}
+			return *v, nil
+		},
+		target: reflect.TypeOf(new(T)),
+	}
+}
+
 func accessorFamilies() []accessorFamily {
 	return []accessorFamily{
 		{
-			name:      "string",
-			newTarget: func() any { return new(string) },
-			node:      func(s Scalar) (any, error) { return s.AsString() },
-			path:      func(d *Document, p string) (any, error) { return d.GetString(p) },
-			cursor:    func(c *Cursor) (any, error) { return c.String() },
+			name:   "string",
+			decode: decodeAs[string](),
+			node:   func(s Scalar) (any, error) { return s.AsString() },
+			path:   func(d *Document, p string) (any, error) { return d.GetString(p) },
+			cursor: func(c *Cursor) (any, error) { return c.String() },
 		},
 		{
-			name:      "int64",
-			newTarget: func() any { return new(int64) },
-			node:      func(s Scalar) (any, error) { return s.AsInt() },
-			path:      func(d *Document, p string) (any, error) { return d.GetInt(p) },
-			cursor:    func(c *Cursor) (any, error) { return c.Int() },
+			name:   "int64",
+			decode: decodeAs[int64](),
+			node:   func(s Scalar) (any, error) { return s.AsInt() },
+			path:   func(d *Document, p string) (any, error) { return d.GetInt(p) },
+			cursor: func(c *Cursor) (any, error) { return c.Int() },
 		},
 		{
-			name:      "float64",
-			newTarget: func() any { return new(float64) },
-			node:      func(s Scalar) (any, error) { return s.AsFloat() },
-			path:      func(d *Document, p string) (any, error) { return d.GetFloat(p) },
-			cursor:    func(c *Cursor) (any, error) { return c.Float() },
+			name:   "float64",
+			decode: decodeAs[float64](),
+			node:   func(s Scalar) (any, error) { return s.AsFloat() },
+			path:   func(d *Document, p string) (any, error) { return d.GetFloat(p) },
+			cursor: func(c *Cursor) (any, error) { return c.Float() },
 		},
 		{
-			name:      "bool",
-			newTarget: func() any { return new(bool) },
-			node:      func(s Scalar) (any, error) { return s.AsBool() },
-			path:      func(d *Document, p string) (any, error) { return d.GetBool(p) },
-			cursor:    func(c *Cursor) (any, error) { return c.Bool() },
+			name:   "bool",
+			decode: decodeAs[bool](),
+			node:   func(s Scalar) (any, error) { return s.AsBool() },
+			path:   func(d *Document, p string) (any, error) { return d.GetBool(p) },
+			cursor: func(c *Cursor) (any, error) { return c.Bool() },
 		},
 		{
-			name:      "time.Time",
-			newTarget: func() any { return new(time.Time) },
-			node:      func(s Scalar) (any, error) { return s.AsTime() },
-			path:      func(d *Document, p string) (any, error) { return d.GetTime(p) },
-			cursor:    func(c *Cursor) (any, error) { return c.Time() },
+			name:   "time.Time",
+			decode: decodeAs[time.Time](),
+			node:   func(s Scalar) (any, error) { return s.AsTime() },
+			path:   func(d *Document, p string) (any, error) { return d.GetTime(p) },
+			cursor: func(c *Cursor) (any, error) { return c.Time() },
 		},
 		{
-			name:      "LocalDateTime",
-			newTarget: func() any { return new(LocalDateTime) },
-			node:      func(s Scalar) (any, error) { return s.AsLocalDateTime() },
+			name:   "LocalDateTime",
+			decode: decodeAs[LocalDateTime](),
+			node:   func(s Scalar) (any, error) { return s.AsLocalDateTime() },
 		},
 		{
-			name:      "LocalDate",
-			newTarget: func() any { return new(LocalDate) },
-			node:      func(s Scalar) (any, error) { return s.AsLocalDate() },
+			name:   "LocalDate",
+			decode: decodeAs[LocalDate](),
+			node:   func(s Scalar) (any, error) { return s.AsLocalDate() },
 		},
 		{
-			name:      "LocalTime",
-			newTarget: func() any { return new(LocalTime) },
-			node:      func(s Scalar) (any, error) { return s.AsLocalTime() },
+			name:   "LocalTime",
+			decode: decodeAs[LocalTime](),
+			node:   func(s Scalar) (any, error) { return s.AsLocalTime() },
 		},
 	}
 }
@@ -386,16 +409,14 @@ func TestConversionTable_AccessorFamilies(t *testing.T) {
 					t.Fatalf("Resolve: %v", err)
 				}
 
-				target := family.newTarget()
-				if _, isString := node.(*StringNode); isString && reflect.TypeOf(target).Implements(textHookType) {
+				if _, isString := node.(*StringNode); isString && family.decode.target.Implements(textHookType) {
 					t.Skip("the decode front end runs the target's own text hook here; an accessor has none")
 				}
-				wantErr := DecodeNode(node, target)
+				want, wantErr := family.decode.read(node)
 				var wantKind ErrorKind
 				if wantErr != nil {
 					wantKind = diagnosticsOf(t, wantErr)[0].Kind
 				}
-				want := reflect.ValueOf(target).Elem().Interface()
 
 				agree := func(surface string, read func() (any, error)) {
 					t.Helper()

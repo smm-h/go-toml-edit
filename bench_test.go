@@ -126,8 +126,7 @@ type benchConfig struct {
 func BenchmarkUnmarshal(b *testing.B) {
 	b.ResetTimer()
 	for i := 0; i < b.N; i++ {
-		var cfg benchConfig
-		if err := Unmarshal(benchInput, &cfg); err != nil {
+		if _, err := Unmarshal[benchConfig](benchInput); err != nil {
 			b.Fatal(err)
 		}
 	}

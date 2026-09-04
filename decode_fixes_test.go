@@ -29,8 +29,8 @@ name = "second"
 	type Config struct {
 		Items map[string]Item `toml:"items"`
 	}
-	var cfg Config
-	if err := Unmarshal([]byte(input), &cfg); err != nil {
+	cfg, err := Unmarshal[Config]([]byte(input))
+	if err != nil {
 		t.Fatalf("Unmarshal: %v", err)
 	}
 	if len(cfg.Items) != 2 {
@@ -54,8 +54,8 @@ name = "first"
 	type Config struct {
 		Items map[string]any `toml:"items"`
 	}
-	var cfg Config
-	if err := Unmarshal([]byte(input), &cfg); err != nil {
+	cfg, err := Unmarshal[Config]([]byte(input))
+	if err != nil {
 		t.Fatalf("Unmarshal: %v", err)
 	}
 	inner, ok := cfg.Items["a"].(map[string]any)
@@ -91,8 +91,8 @@ y = 3
 	type Config struct {
 		A A `toml:"a"`
 	}
-	var cfg Config
-	if err := Unmarshal([]byte(input), &cfg); err != nil {
+	cfg, err := Unmarshal[Config]([]byte(input))
+	if err != nil {
 		t.Fatalf("Unmarshal: %v", err)
 	}
 	if cfg.A.X != 1 {
@@ -118,8 +118,7 @@ a.b = "x"
 	type Config struct {
 		Data map[string]string `toml:"data"`
 	}
-	var cfg Config
-	err := Unmarshal([]byte(input), &cfg)
+	cfg, err := Unmarshal[Config]([]byte(input))
 	if err == nil {
 		t.Fatalf("Unmarshal accepted a table into a string map element: %v", cfg)
 	}
@@ -145,8 +144,7 @@ func TestDecode_FixedArrayLengthIsExact(t *testing.T) {
 	type Config struct {
 		Vals [5]int `toml:"vals"`
 	}
-	var cfg Config
-	err := Unmarshal([]byte("vals = [1, 2]\n"), &cfg)
+	cfg, err := Unmarshal[Config]([]byte("vals = [1, 2]\n"))
 	if err == nil {
 		t.Fatalf("Unmarshal accepted two elements into [5]int: %v", cfg.Vals)
 	}
@@ -179,8 +177,8 @@ func TestDecode_KeyAddressedDiagnosticsSpanTheKey(t *testing.T) {
 	if err != nil {
 		t.Fatalf("parse error: %v", err)
 	}
-	var cfg Config
-	diags := diagnosticsOf(t, doc.Decode(&cfg))
+	_, err = Decode[Config](doc)
+	diags := diagnosticsOf(t, err)
 
 	want := map[string]struct {
 		kind ErrorKind
@@ -292,51 +290,53 @@ type eagerRecursiveClean struct {
 // enough -- which is silence for every other input.
 func TestDecode_TagErrorsAreEagerAcrossTheTypeGraph(t *testing.T) {
 	tests := []struct {
-		name    string
-		input   string
-		target  func() any
+		name  string
+		input string
+		// decode reads the input as the target type: the type argument is
+		// compile-time, so each case spells its own call.
+		decode  func([]byte) error
 		wantIn  string
 		alsoSee string // a document that DOES reach the type, for contrast
 	}{
 		{
 			name:    "a nested struct field",
 			input:   "top = 1\n",
-			target:  func() any { return new(eagerStructField) },
+			decode:  func(b []byte) error { _, err := Unmarshal[eagerStructField](b); return err },
 			wantIn:  "nonsense",
 			alsoSee: "top = 1\n[nested]\nbad = \"x\"\n",
 		},
 		{
 			name:    "a slice element",
 			input:   "top = 1\n",
-			target:  func() any { return new(eagerSliceElement) },
+			decode:  func(b []byte) error { _, err := Unmarshal[eagerSliceElement](b); return err },
 			wantIn:  "nonsense",
 			alsoSee: "top = 1\n[[items]]\nbad = \"x\"\n",
 		},
 		{
 			name:    "a map element",
 			input:   "top = 1\n",
-			target:  func() any { return new(eagerMapElement) },
+			decode:  func(b []byte) error { _, err := Unmarshal[eagerMapElement](b); return err },
 			wantIn:  "nonsense",
 			alsoSee: "top = 1\n[items.a]\nbad = \"x\"\n",
 		},
 		{
 			name:    "a pointer field",
 			input:   "top = 1\n",
-			target:  func() any { return new(eagerPointerField) },
+			decode:  func(b []byte) error { _, err := Unmarshal[eagerPointerField](b); return err },
 			wantIn:  "nonsense",
 			alsoSee: "top = 1\n[nested]\nbad = \"x\"\n",
 		},
 		{
 			name:   "a recursive type",
 			input:  "name = \"x\"\n",
-			target: func() any { return new(eagerRecursiveBad) },
+			decode: func(b []byte) error { _, err := Unmarshal[eagerRecursiveBad](b); return err },
 			wantIn: "nonsense",
 		},
 	}
 
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
-			err := Unmarshal([]byte(tt.input), tt.target())
+			err := tt.decode([]byte(tt.input))
 			if err == nil {
 				t.Fatalf("Unmarshal(%q) accepted a target whose type graph carries a tag defect", tt.input)
 			}
@@ -348,7 +348,7 @@ func TestDecode_TagErrorsAreEagerAcrossTheTypeGraph(t *testing.T) {
 			}
 			// The same defect on a document that does reach the type: the two
 			// inputs must agree, which is the whole point.
-			reached := Unmarshal([]byte(tt.alsoSee), tt.target())
+			reached := tt.decode([]byte(tt.alsoSee))
 			if reached == nil || !strings.Contains(reached.Error(), tt.wantIn) {
 				t.Errorf("a document reaching the type reported %v, want the same tag error", reached)
 			}
@@ -361,31 +361,31 @@ func TestDecode_TagErrorsAreEagerAcrossTheTypeGraph(t *testing.T) {
 // report but text with no effect: the type graph carrying it constructs, and a
 // document key spelling the tag is unknown like any other undeclared key.
 func TestDecode_TagOnUnexportedFieldIsInertAcrossTheTypeGraph(t *testing.T) {
-	var cfg eagerUnexportedTagField
-	if err := Unmarshal([]byte("top = 1\n"), &cfg); err != nil {
+	cfg, err := Unmarshal[eagerUnexportedTagField]([]byte("top = 1\n"))
+	if err != nil {
 		t.Fatalf("Unmarshal refused a type graph carrying a tag on an unexported field: %v", err)
 	}
 	if cfg.Top != 1 {
 		t.Errorf("Top = %d, want 1", cfg.Top)
 	}
 
-	err := Unmarshal([]byte("top = 1\n[nested]\nsecret = \"x\"\n"), &cfg)
+	bound, err := Unmarshal[eagerUnexportedTagField]([]byte("top = 1\n[nested]\nsecret = \"x\"\n"))
 	if err == nil {
 		t.Fatal("Unmarshal bound a document key to an unexported field through its tag")
 	}
 	if !errors.Is(err, ErrUnknownKey) {
 		t.Errorf("err = %v, want an unknown-key diagnostic", err)
 	}
-	if cfg.Nested.secret != "" {
-		t.Errorf("secret = %q, want the tag to bind nothing", cfg.Nested.secret)
+	if bound != nil {
+		t.Errorf("a refused decode returned %+v, want no value at all", bound)
 	}
 }
 
 // Fails if the eager tag walk stops terminating on a type that refers to
 // itself: the clean recursive shape must decode like any other.
 func TestDecode_EagerTagWalkTerminatesOnRecursiveTypes(t *testing.T) {
-	var cfg eagerRecursiveClean
-	if err := Unmarshal([]byte("name = \"root\"\n\n[child]\nname = \"kid\"\n"), &cfg); err != nil {
+	cfg, err := Unmarshal[eagerRecursiveClean]([]byte("name = \"root\"\n\n[child]\nname = \"kid\"\n"))
+	if err != nil {
 		t.Fatalf("Unmarshal failed: %v", err)
 	}
 	if cfg.Name != "root" || cfg.Child == nil || cfg.Child.Name != "kid" {
@@ -403,8 +403,8 @@ func TestDecode_UndecodableFieldTypeStaysLazy(t *testing.T) {
 		Callback func()
 		Ch       chan int
 	}
-	var cfg Config
-	if err := Unmarshal([]byte("top = 1\n"), &cfg); err != nil {
+	cfg, err := Unmarshal[Config]([]byte("top = 1\n"))
+	if err != nil {
 		t.Fatalf("Unmarshal failed on an untouched undecodable field: %v", err)
 	}
 	if cfg.Top != 1 {
