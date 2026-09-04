@@ -2,6 +2,7 @@ package tomledit
 
 import (
 	"errors"
+	"strings"
 	"testing"
 )
 
@@ -40,6 +41,175 @@ func parseOrFail(t *testing.T, src string) *Document {
 		t.Fatalf("parse error: %v", err)
 	}
 	return doc
+}
+
+// --- the audited sequences, and the property they protect ---
+
+// Fails if any of the editing sequences audited during the read-layer work
+// stops being refused, or is refused with a different kind than the one ruled
+// for it. Each built a document the read-layer could not fold, leaving Root()
+// to panic and the document unrepairable through the public surface.
+func TestEditRefusals_TheAuditedSequences(t *testing.T) {
+	tests := []struct {
+		name string
+		src  string
+		run  func(*Document) error
+		want error
+	}{
+		{
+			"NewArrayTable over a table",
+			"[a]\nx = 1\n",
+			func(d *Document) error { return d.NewArrayTable("a") },
+			ErrConflict,
+		},
+		{
+			"NewTable over an array-of-tables",
+			"[[a]]\nx = 1\n",
+			func(d *Document) error { return d.NewTable("a") },
+			ErrConflict,
+		},
+		{
+			"NewTable over a value",
+			"a = 1\n",
+			func(d *Document) error { return d.NewTable("a") },
+			ErrConflict,
+		},
+		{
+			"NewArrayTable over a value",
+			"a = 1\n",
+			func(d *Document) error { return d.NewArrayTable("a") },
+			ErrConflict,
+		},
+		{
+			"Set over a header table",
+			"[a]\nx = 1\n",
+			func(d *Document) error { return d.Set("a", 1) },
+			ErrWrongContainer,
+		},
+		{
+			"Set over a dotted prefix",
+			"a.b = 1\n",
+			func(d *Document) error { return d.Set("a", 1) },
+			ErrWrongContainer,
+		},
+		{
+			"SetCreate over an array-of-tables",
+			"[[s]]\nx = 1\n",
+			func(d *Document) error { return d.SetCreate("s", 1) },
+			ErrWrongContainer,
+		},
+		{
+			"RenameKey onto a table-bound name",
+			"x = 1\n[a]\ny = 2\n",
+			func(d *Document) error { return d.RenameKey("x", "a") },
+			ErrConflict,
+		},
+		{
+			"NewTable under a value",
+			"a = 1\n",
+			func(d *Document) error { return d.NewTable("a.b") },
+			ErrConflict,
+		},
+		{
+			"Set beside a dotted key inside a table",
+			"[t]\na.b = 1\n",
+			func(d *Document) error { return d.Set("t.a", 1) },
+			ErrWrongContainer,
+		},
+		{
+			"NewTable then NewArrayTable of one name",
+			"x = 1\n",
+			func(d *Document) error {
+				if err := d.NewTable("z"); err != nil {
+					return err
+				}
+				return d.NewArrayTable("z")
+			},
+			ErrConflict,
+		},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			doc := parseOrFail(t, tt.src)
+			err := tt.run(doc)
+			if err == nil {
+				t.Fatalf("the sequence was accepted; the document now reads %q", doc.Bytes())
+			}
+			if !errors.Is(err, tt.want) {
+				t.Errorf("the refusal is %v, want %v", err, tt.want)
+			}
+			assertRootDoesNotPanic(t, doc)
+		})
+	}
+}
+
+// Fails if any edit through the public surface leaves the document unfoldable
+// -- the property the refusals exist for, checked over a grid of documents and
+// operations rather than over the audited sequences alone. An operation may
+// refuse or succeed; what it may not do is leave a document whose Root()
+// panics.
+func TestEditRefusals_NoSequenceCanBreakTheFold(t *testing.T) {
+	sources := []string{
+		"",
+		"a = 1\n",
+		"a.b = 1\n",
+		"a = { b = 1 }\n",
+		"[a]\nb = 1\n",
+		"[a.b]\nc = 1\n",
+		"[[a]]\nb = 1\n",
+		"[[a]]\nb = 1\n[[a]]\nb = 2\n",
+		"[[a]]\nb = 1\n[a.c]\nd = 2\n",
+		"x = 1\n[a]\nb = 2\n[[c]]\nd = 3\n",
+	}
+	paths := []string{"a", "b", "a.b", "a.b.c", "a[0]", "a[0].b", "x"}
+
+	for _, src := range sources {
+		for _, path := range paths {
+			operations := []struct {
+				name string
+				run  func(*Document) error
+			}{
+				{"Set", func(d *Document) error { return d.Set(path, 7) }},
+				{"SetCreate", func(d *Document) error { return d.SetCreate(path, 7) }},
+				{"SetCreate table", func(d *Document) error { return d.SetCreate(path, map[string]any{"k": 1}) }},
+				{"Delete", func(d *Document) error { return d.Delete(path) }},
+				{"NewTable", func(d *Document) error { return d.NewTable(path) }},
+				{"NewArrayTable", func(d *Document) error { return d.NewArrayTable(path) }},
+				{"RenameKey to a", func(d *Document) error { return d.RenameKey(path, "a") }},
+				{"RenameKey to fresh", func(d *Document) error { return d.RenameKey(path, "fresh") }},
+				{"AppendToArray", func(d *Document) error { return d.AppendToArray(path, 7) }},
+				{"RemoveFromArray", func(d *Document) error { return d.RemoveFromArray(path, 0) }},
+				{"PermuteChildren", func(d *Document) error { return d.PermuteChildren(path, []int{0}) }},
+				{"SetComment", func(d *Document) error { return d.SetComment(path, "note") }},
+			}
+			for _, op := range operations {
+				name := op.name + " " + path + " on " + strings.ReplaceAll(src, "\n", "|")
+				t.Run(name, func(t *testing.T) {
+					doc := parseOrFail(t, src)
+					_ = op.run(doc)
+					assertRootDoesNotPanic(t, doc)
+					// A document that still folds must also still render as
+					// TOML that parses back.
+					if _, err := Parse(doc.Bytes()); err != nil {
+						t.Fatalf("the document no longer parses: %v\n%q", err, doc.Bytes())
+					}
+				})
+			}
+		}
+	}
+}
+
+// assertRootDoesNotPanic fails the test when reading the document's read-layer
+// panics -- the failure mode every refusal in this file prevents.
+func assertRootDoesNotPanic(t *testing.T, doc *Document) {
+	t.Helper()
+	defer func() {
+		if r := recover(); r != nil {
+			t.Fatalf("Root() panicked: %v\nthe document reads %q", r, doc.Bytes())
+		}
+	}()
+	doc.Root()
 }
 
 // --- the structural creators ---
