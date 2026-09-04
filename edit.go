@@ -542,10 +542,15 @@ func renameKeyInParent(parent layerPos, oldKey, newKey string) error {
 // The header must be able to bind its name. It is refused with KindConflict
 // when anything else in the document already does: a value, an inline table, a
 // table with its own header, an array-of-tables, or a table a dotted key
-// implied (TOML does not allow extending one of those with a header). A table
-// implied only by a LONGER header -- the "a" of an earlier [a.b] -- has no
-// header of its own yet, and this is how it gets one. A prefix of the path
+// implied (TOML does not allow giving one of those a header of its own). A
+// table implied only by a LONGER header -- the "a" of an earlier [a.b] -- has
+// no header of its own yet, and this is how it gets one. A prefix of the path
 // that holds a value is refused on the same terms.
+//
+// The refusal is about the path's FINAL key only. A table a dotted key implied
+// may not be redefined by a header, and it may still hold sub-tables of its
+// own: with "apple.color" written under [fruit], creating [fruit.apple] is
+// refused and [fruit.apple.texture] is not, exactly as TOML has it.
 func (d *Document) NewTable(path string) error {
 	return d.diag(d.newTableAt(path), path)
 }
@@ -570,7 +575,8 @@ func (d *Document) newTableAt(path string) error {
 			return newError(KindConflict, "%q already holds a value", name)
 		case existing.record.dottedImplied:
 			return newError(KindConflict,
-				"%q is a table a dotted key spelled out, and TOML does not allow giving one a header", name)
+				"%q is a table a dotted key spelled out, and TOML does not allow redefining one with a header of its own; a header for a table UNDER it is fine",
+				name)
 		case existing.record.anchored:
 			if _, inline := existing.node.(*InlineTableNode); inline {
 				return newError(KindConflict,
@@ -675,9 +681,11 @@ func headerKeyPath(path string, op string) ([]string, error) {
 }
 
 // headerTarget reports what a header's key path names in the document as it
-// stands: the entry its final key already binds, and whether one does. A
-// prefix that cannot hold a table -- one holding a value, or one a dotted key
-// spelled out -- is a conflict, and so is a document that no longer folds.
+// stands: the entry its final key already binds, and whether one does. Only a
+// prefix that cannot hold a table at all -- one holding a value -- is a
+// conflict, and so is a document that no longer folds. A prefix a dotted key
+// spelled out holds sub-tables perfectly well; what TOML refuses is a header
+// that redefines such a table, which the caller asks about the FINAL key.
 func (d *Document) headerTarget(keyPath []string) (Entry, bool, error) {
 	root, err := foldDocument(d)
 	if err != nil {
@@ -697,11 +705,10 @@ func (d *Document) headerTarget(keyPath []string) (Entry, bool, error) {
 		case e.kind != EntryRecord:
 			return Entry{}, false, newError(KindConflict,
 				"%q holds a value and cannot hold a table", pathFromKeys(keyPath[:i+1]))
-		case e.record.dottedImplied:
-			return Entry{}, false, newError(KindConflict,
-				"%q is a table a dotted key spelled out, and TOML does not allow extending one with a header",
-				pathFromKeys(keyPath[:i+1]))
 		default:
+			// A prefix a dotted key spelled out is descended through like any
+			// other: TOML refuses only a header that REDEFINES such a table,
+			// which is a question about the final key, asked below.
 			cur = e.record
 		}
 	}
