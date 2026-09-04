@@ -96,3 +96,64 @@ func TestTrivia_BlankLinesSurviveReRender(t *testing.T) {
 		})
 	}
 }
+
+// Fails if writing leading comments onto a node that had none duplicates the
+// blank-line run above it. With no comments in between, the run before the
+// comments and the run after them are the same bytes; counting it as both puts
+// a blank line on either side of the comments that were just written.
+func TestTrivia_WritingCommentsKeepsOneBlankRun(t *testing.T) {
+	cases := []struct {
+		name string
+		src  string
+		edit func(*Document) error
+		want string
+	}{
+		{
+			name: "one comment where a blank line stood",
+			src:  "x = 1\n\ny = 2\n",
+			edit: func(d *Document) error { return d.SetLeadingComments("y", []string{"c"}) },
+			want: "x = 1\n\n# c\ny = 2\n",
+		},
+		{
+			name: "two comments where a blank line stood",
+			src:  "x = 1\n\ny = 2\n",
+			edit: func(d *Document) error { return d.SetLeadingComments("y", []string{"a", "b"}) },
+			want: "x = 1\n\n# a\n# b\ny = 2\n",
+		},
+		{
+			name: "a run of blank lines",
+			src:  "x = 1\n\n\n\ny = 2\n",
+			edit: func(d *Document) error { return d.SetLeadingComments("y", []string{"c"}) },
+			want: "x = 1\n\n\n\n# c\ny = 2\n",
+		},
+		{
+			name: "no blank line to begin with",
+			src:  "x = 1\ny = 2\n",
+			edit: func(d *Document) error { return d.SetLeadingComments("y", []string{"c"}) },
+			want: "x = 1\n# c\ny = 2\n",
+		},
+		{
+			name: "replacing existing comments keeps both runs",
+			src:  "x = 1\n\n# old\n\ny = 2\n",
+			edit: func(d *Document) error { return d.SetLeadingComments("y", []string{"new"}) },
+			want: "x = 1\n\n# new\n\ny = 2\n",
+		},
+		{
+			name: "dropping the comments joins the two runs",
+			src:  "x = 1\n\n# old\n\ny = 2\n",
+			edit: func(d *Document) error { return d.SetLeadingComments("y", nil) },
+			want: "x = 1\n\n\ny = 2\n",
+		},
+	}
+	for _, tc := range cases {
+		t.Run(tc.name, func(t *testing.T) {
+			doc := parseOrFail(t, tc.src)
+			if err := tc.edit(doc); err != nil {
+				t.Fatalf("edit: %v", err)
+			}
+			if got := string(doc.Bytes()); got != tc.want {
+				t.Errorf("the blank-line separation came out wrong:\n  got:  %q\n  want: %q", got, tc.want)
+			}
+		})
+	}
+}
