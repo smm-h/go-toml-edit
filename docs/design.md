@@ -34,7 +34,7 @@ Each node also stores its `raw` bytes -- the exact slice of the original source 
 
 The renderer (`render.go`) serializes the AST back to bytes by walking the node tree and checking each node's dirty flag, which determines whether the node's original raw bytes can be copied directly or whether the node must be re-rendered from its semantic value with standard formatting.
 
-- **Clean nodes** (never modified): the renderer copies `node.Raw()` directly into the output. This is what guarantees byte-for-byte round-trip fidelity.
+- **Clean nodes** (never modified): the renderer copies the node's stored bytes directly into the output, reading the field rather than going through `Raw()` -- which answers a caller with a copy. This is what guarantees byte-for-byte round-trip fidelity.
 - **Dirty nodes** (created or modified by Set, Delete, RenameKey, etc.): the renderer regenerates the bytes from the node's semantic value (e.g., re-rendering an integer from its `int64`, a string from its `string` with the appropriate quoting style).
 
 The check is recursive: if a key-value pair's value is an array, and one element of that array was modified, the array node is dirty even though the key-value pair's key is clean. The function `isSubtreeDirty` walks the tree to determine this.
@@ -58,7 +58,7 @@ type Node interface {
 }
 ```
 
-`Type()` returns an enum (`NodeDocument`, `NodeTable`, `NodeKeyValue`, `NodeString`, `NodeInteger`, etc.). `Value()` returns the semantic Go value (e.g., `string`, `int64`, `bool`, `time.Time`). `Raw()` returns the original source bytes. `Span()` returns the source range.
+`Type()` returns an enum (`NodeDocument`, `NodeTable`, `NodeKeyValue`, `NodeString`, `NodeInteger`, etc.). `Value()` returns the semantic Go value (e.g., `string`, `int64`, `bool`, `time.Time`). `Raw()` returns a copy of the original source bytes, so writing into it changes neither the node nor what the document renders. `Span()` returns the source range.
 
 ### Concrete node types
 

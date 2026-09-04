@@ -30,7 +30,7 @@ func serializeNode(n Node) []byte {
 	case *TableNode:
 		var buf []byte
 		if !node.isDirty() {
-			buf = append(buf, node.Raw()...)
+			buf = append(buf, node.rawBytes()...)
 		} else {
 			buf = append(buf, renderTableHeader(node)...)
 		}
@@ -42,7 +42,7 @@ func serializeNode(n Node) []byte {
 	case *ArrayTableNode:
 		var buf []byte
 		if !node.isDirty() {
-			buf = append(buf, node.Raw()...)
+			buf = append(buf, node.rawBytes()...)
 		} else {
 			buf = append(buf, renderArrayTableHeader(node)...)
 		}
@@ -53,13 +53,13 @@ func serializeNode(n Node) []byte {
 
 	case *KeyValueNode:
 		if !node.subtreeDirty() {
-			return node.Raw()
+			return node.rawBytes()
 		}
 		return renderKeyValue(node)
 
 	case *CommentNode:
 		if !node.isDirty() {
-			return node.Raw()
+			return node.rawBytes()
 		}
 		return renderComment(node)
 
@@ -69,7 +69,7 @@ func serializeNode(n Node) []byte {
 		// is one field read, because a node that went dirty said so upward at
 		// the moment it happened.
 		if !n.subtreeDirty() {
-			return n.Raw()
+			return n.rawBytes()
 		}
 		return renderValue(n)
 	}
@@ -460,8 +460,8 @@ func renderKeyValue(n *KeyValueNode) []byte {
 
 // renderKeyParts renders a KeyNode, preferring its raw bytes if clean.
 func renderKeyParts(k *KeyNode) []byte {
-	if !k.isDirty() && len(k.Raw()) > 0 {
-		raw := k.Raw()
+	if !k.isDirty() && len(k.rawBytes()) > 0 {
+		raw := k.rawBytes()
 		// Trim trailing whitespace that may have been captured during parsing.
 		for len(raw) > 0 {
 			last := raw[len(raw)-1]

@@ -94,7 +94,9 @@ type Node interface {
 	// around them.
 	LeadingComments() []string
 
-	// Raw returns the node's bytes as written, comments and spacing included.
+	// Raw returns the node's bytes as written, comments and spacing included,
+	// as a copy: writing into what it returns changes neither what a later
+	// read answers nor what the document renders.
 	Raw() []byte
 
 	// Span returns the source range the node covered in the most recent
@@ -106,6 +108,7 @@ type Node interface {
 	// unexported methods restrict implementation to this package
 	setComment(comment string)
 	setLeadingComments(comments []string)
+	rawBytes() []byte
 	setRaw([]byte)
 	setSpan(Span)
 	isDirty() bool
@@ -163,7 +166,14 @@ type nodeBase struct {
 	span       Span
 }
 
+// Raw answers with a copy. The serializer splices through rawBytes instead, so
+// the copy is paid for only by a caller that asked for the bytes.
 func (n *nodeBase) Raw() []byte {
+	return copyBytes(n.raw)
+}
+
+// rawBytes returns the node's own bytes, for the splicing inside the package.
+func (n *nodeBase) rawBytes() []byte {
 	return n.raw
 }
 

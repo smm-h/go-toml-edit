@@ -122,14 +122,23 @@ func noteValueWrite(n Node) {
 // field these kinds never read. Each of them records the bytes it was written
 // as in the one place that holds them.
 
-func (n *StringNode) Raw() []byte        { return n.val.raw() }
-func (n *IntegerNode) Raw() []byte       { return n.val.raw() }
-func (n *FloatNode) Raw() []byte         { return n.val.raw() }
-func (n *BooleanNode) Raw() []byte       { return n.val.raw() }
-func (n *DateTimeNode) Raw() []byte      { return n.val.raw() }
-func (n *LocalDateTimeNode) Raw() []byte { return n.val.raw() }
-func (n *LocalDateNode) Raw() []byte     { return n.val.raw() }
-func (n *LocalTimeNode) Raw() []byte     { return n.val.raw() }
+func (n *StringNode) Raw() []byte        { return copyBytes(n.val.raw()) }
+func (n *IntegerNode) Raw() []byte       { return copyBytes(n.val.raw()) }
+func (n *FloatNode) Raw() []byte         { return copyBytes(n.val.raw()) }
+func (n *BooleanNode) Raw() []byte       { return copyBytes(n.val.raw()) }
+func (n *DateTimeNode) Raw() []byte      { return copyBytes(n.val.raw()) }
+func (n *LocalDateTimeNode) Raw() []byte { return copyBytes(n.val.raw()) }
+func (n *LocalDateNode) Raw() []byte     { return copyBytes(n.val.raw()) }
+func (n *LocalTimeNode) Raw() []byte     { return copyBytes(n.val.raw()) }
+
+func (n *StringNode) rawBytes() []byte        { return n.val.raw() }
+func (n *IntegerNode) rawBytes() []byte       { return n.val.raw() }
+func (n *FloatNode) rawBytes() []byte         { return n.val.raw() }
+func (n *BooleanNode) rawBytes() []byte       { return n.val.raw() }
+func (n *DateTimeNode) rawBytes() []byte      { return n.val.raw() }
+func (n *LocalDateTimeNode) rawBytes() []byte { return n.val.raw() }
+func (n *LocalDateNode) rawBytes() []byte     { return n.val.raw() }
+func (n *LocalTimeNode) rawBytes() []byte     { return n.val.raw() }
 
 func (n *StringNode) setRaw(b []byte)        { n.val.setLexeme(b) }
 func (n *IntegerNode) setRaw(b []byte)       { n.val.setLexeme(b) }
