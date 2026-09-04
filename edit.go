@@ -8,21 +8,29 @@ import (
 	"unicode/utf8"
 )
 
-// Set updates the value at the given path. If the final key does not exist in
-// an existing parent, it is created as a new key-value pair. Returns an error
-// if intermediate path segments do not exist.
+// Set writes a value at the given path. A key the parent does not carry yet is
+// created there; a path whose parent does not exist is an error, which is what
+// SetCreate relaxes.
 //
 // Supported value types: string, bool, int/int8-64, uint/uint8-64, float32/64,
-// time.Time, LocalDateTime, LocalDate, LocalTime, []any, map[string]any, and
-// any type implementing the Node interface. Use SetCreate to auto-create
-// intermediate tables.
+// time.Time, LocalDateTime, LocalDate, LocalTime, []any and typed slices,
+// map[string]any (written with its keys sorted), []Pair (written in the order
+// given), and any type implementing the Node interface.
+//
+// A value write touches value fragments and nothing else. Where the path names
+// a key bound by a structural construct -- a [header] table, an array-of-tables,
+// or a table another construct only implied, by a longer header or a dotted key
+// -- the write is refused with KindWrongContainer: those change through a
+// structural operation, or through an explicit Delete followed by the write. A
+// key holding an inline table is a value, and setting it replaces that value
+// wholesale, interior comments and spellings included.
 func (d *Document) Set(path string, value any) error {
 	return d.diag(d.setInternal(path, value, false), path)
 }
 
-// SetCreate is like Set but auto-creates intermediate [table] headers when they
-// do not exist. Missing tables are appended to the document. This is convenient
-// for inserting values into deeply nested paths that may not yet exist.
+// SetCreate is like Set but creates the intermediate tables the path names and
+// the document does not carry, as standard [header] tables appended to the
+// document. It refuses exactly what Set refuses.
 func (d *Document) SetCreate(path string, value any) error {
 	return d.diag(d.setInternal(path, value, true), path)
 }
@@ -281,8 +289,11 @@ func newKeyValueNode(key string, val Node) *KeyValueNode {
 }
 
 // Delete removes the node at the given path from the document. It handles
-// key-value pairs, tables, array-of-tables, and array elements. Returns nil
-// (no error) if the path does not exist, making it safe to call unconditionally.
+// key-value pairs, tables, array-of-tables, and array elements.
+//
+// Removal is idempotent: a path the document does not carry is a silent no-op,
+// so an ensure-absent loop can call it unconditionally. A path that cannot be
+// parsed, and a document the read-layer cannot fold at all, are still reported.
 func (d *Document) Delete(path string) error {
 	return d.diag(d.deleteAt(path), path)
 }
@@ -446,9 +457,11 @@ func (d *Document) deleteIndexFromParent(parent layerPos, index int) error {
 }
 
 // RenameKey changes the key name of the node at the given path to newKey.
-// Returns an error if the path does not exist, if newKey conflicts with an
-// existing sibling key, or if the last path segment is an array index (only
-// key segments can be renamed).
+//
+// It reports KindNotFound when the path names nothing, KindWrongContainer when
+// the last path segment is an array index (an element has no key to rename),
+// and KindConflict when anything in the parent already binds newKey -- a value,
+// a table in any spelling, or an array-of-tables.
 func (d *Document) RenameKey(path string, newKey string) error {
 	return d.diag(d.renameKeyAt(path, newKey), path)
 }
