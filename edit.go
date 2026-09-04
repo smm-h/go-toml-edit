@@ -1,6 +1,7 @@
 package tomledit
 
 import (
+	"bytes"
 	"math"
 	"reflect"
 	"sort"
@@ -35,13 +36,42 @@ import (
 // region as another dotted pair ("a.b = 1" gains "a.new = 5" beside it); and a
 // new key of a table only a longer header implies arrives under the anchoring
 // header the write gives that table -- the one TOML allows it.
+//
+// # Equality
+//
+// Set is a no-op if and only if the bytes it would write for the value are
+// exactly the bytes the value fragment already carries. Nothing else counts as
+// equal, and nothing equal is written: the node stays, with the spelling, the
+// lexeme and the span it was parsed with, and the document records no edit. A
+// value the library wrote before carries no lexeme, and the comparison is
+// against its canonical rendering. A container value -- a map, a []Pair or a
+// slice -- is compared as a whole against the stored container's whole byte
+// range, and replaced WHOLESALE when it differs: the interior comments and
+// spellings of the old container do not survive, which is what setting a
+// container value means.
+//
+// One rule, no special cases: NaN spellings, infinities, signed zeros,
+// integer-versus-float, date-time offsets, string quoting and integer bases
+// alike. Two consequences worth stating plainly. An idempotent tool that writes
+// values it read back normalises a non-canonical spelling the first time it
+// touches it -- 0x2A set to 42 becomes 42 -- and is byte-stable from then on.
+// And a same-content write over a literal-quoted string converts it to basic
+// quoting. What you Set is what the file says.
+//
+// Deciding not to write is not undoing a write: a no-op Set never clears
+// dirtiness an earlier edit recorded.
+//
+// A NaN whose sign bit is set is refused with KindBadInput, since TOML has one
+// NaN spelling and writing it would drop the sign; the ordinary NaN is accepted
+// and writes "nan".
 func (d *Document) Set(path string, value any) error {
 	return d.diag(d.setInternal(path, value, false), path)
 }
 
 // SetCreate is like Set but creates the intermediate tables the path names and
 // the document does not carry, as standard [header] tables appended to the
-// document. It refuses exactly what Set refuses.
+// document. It refuses exactly what Set refuses, and is a no-op on exactly the
+// same terms -- see Set's equality rule.
 func (d *Document) SetCreate(path string, value any) error {
 	return d.diag(d.setInternal(path, value, true), path)
 }
@@ -78,6 +108,16 @@ func (d *Document) setInternal(path string, value any, create bool) error {
 	valNode, err := valueToNode(value)
 	if err != nil {
 		return err
+	}
+
+	// The equality rule: a write of the bytes the value fragment already
+	// carries is not a write. It is decided here, before any mutator runs, so a
+	// no-op replaces no node, drops no lexeme, invalidates no span and records
+	// no edit -- and, just as much, clears none that an earlier edit recorded.
+	if existing, ok := storedValueNode(parent, lastSeg); ok {
+		if bytes.Equal(serializeNode(existing), serializeNode(valNode)) {
+			return nil
+		}
 	}
 
 	switch lastSeg.Kind {
@@ -169,6 +209,41 @@ func (d *Document) createIntermediateTable(parent layerPos, segs []PathSegment) 
 
 	d.appendTable(newPath)
 	return nil
+}
+
+// storedValueNode returns the node holding the value a write would replace, and
+// whether the path names one at all. It is what the equality rule compares
+// against: a scalar answers with the bytes it was written as (or, having been
+// written by the library already, its canonical form), and a container answers
+// with its whole byte range, which is why a container-valued write that differs
+// replaces the container wholesale.
+func storedValueNode(parent layerPos, seg PathSegment) (Node, bool) {
+	if seg.Kind == SegmentIndex {
+		arr, ok := parent.node.(*ArrayNode)
+		if !ok {
+			return nil, false
+		}
+		idx, err := normalizeIndex(seg.Index, len(arr.elements))
+		if err != nil {
+			return nil, false
+		}
+		return arr.elements[idx], true
+	}
+	existing, bound, err := parent.binding(seg.Key)
+	if err != nil || !bound || existing.node == nil {
+		return nil, false
+	}
+	switch existing.kind {
+	case EntryValue:
+		return existing.node, true
+	case EntryRecord:
+		// The only record a value write reaches is an inline table, which is a
+		// value fragment; every other binding was refused above.
+		if _, inline := existing.node.(*InlineTableNode); inline {
+			return existing.node, true
+		}
+	}
+	return nil, false
 }
 
 // checkValueWriteTarget reports whether a value may be written at key inside
@@ -977,13 +1052,9 @@ func valueToNode(v any) (Node, error) {
 		return unsignedToNode(val, val)
 
 	case float32:
-		n := &FloatNode{val: scalarOf(float64(val))}
-		n.markDirty()
-		return n, nil
+		return floatToNode(float64(val), val)
 	case float64:
-		n := &FloatNode{val: scalarOf(val)}
-		n.markDirty()
-		return n, nil
+		return floatToNode(val, val)
 
 	case time.Time:
 		n := &DateTimeNode{val: scalarOf(val)}
@@ -1026,6 +1097,22 @@ func valueToNode(v any) (Node, error) {
 	}
 
 	return nil, newError(KindBadInput, "unsupported type: %T", v).withValue(v)
+}
+
+// floatToNode converts a Go float to a float node, refusing a NaN whose sign bit
+// is set. TOML has one NaN spelling and this library writes it, so accepting a
+// signed NaN would drop the sign in silence; a caller that means "not a number"
+// passes the ordinary one. The infinities need no such rule -- TOML spells both.
+// orig is the value as the caller passed it, so the diagnostic reports its own
+// type.
+func floatToNode(v float64, orig any) (Node, error) {
+	if math.IsNaN(v) && math.Signbit(v) {
+		return nil, newError(KindBadInput,
+			"a NaN with its sign bit set has no TOML spelling of its own: the value would be written \"nan\", dropping the sign").withValue(orig)
+	}
+	n := &FloatNode{val: scalarOf(v)}
+	n.markDirty()
+	return n, nil
 }
 
 // unsignedToNode converts an unsigned Go value to an integer node, refusing one
