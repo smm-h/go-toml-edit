@@ -46,6 +46,16 @@ func serializeChildren(buf []byte, children []Node) []byte {
 // every document from its semantic content alone, which is the only way to put
 // the renderers themselves under the whole corpus. Nothing exported reads or
 // writes it.
+//
+// It is package state rather than a parameter, so the only safe way to turn it
+// off is the way the battery's renderFromValuesAlone does: set it, render, and
+// restore it, all on one goroutine that does nothing else in between. A test
+// that toggles it while another test runs in parallel would turn splicing off
+// under that test's renders, and the fidelity properties the rest of the suite
+// asserts would pass vacuously -- a document that splices nothing satisfies
+// most of them by rendering everything afresh. No test in this package calls
+// t.Parallel, which is what keeps that safe; a test that starts to must not
+// touch this.
 var spliceOriginalBytes = true
 
 // serializeNode dispatches serialization for a single node. A node nothing
@@ -362,7 +372,7 @@ func renderArray(n *ArrayNode) []byte {
 	var buf []byte
 	buf = append(buf, '[')
 	buf = append(buf, '\n')
-	for i, elem := range n.elements {
+	for _, elem := range n.elements {
 		t := elem.trivia()
 
 		// Leading comments for this element.
@@ -389,7 +399,6 @@ func renderArray(n *ArrayNode) []byte {
 			buf = append(buf, t.InlineComment...)
 		}
 
-		_ = i
 		buf = append(buf, '\n')
 	}
 
