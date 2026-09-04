@@ -39,6 +39,9 @@ func (d *Document) SetComment(path string, comment string) error {
 // carrying a newline would be a second line it does not get to open, so it is
 // refused with KindBadInput -- and one refused element refuses the whole call,
 // leaving the node's comments as they were.
+//
+// A nil or empty slice removes the leading comments. An empty STRING element
+// is not removal: it writes a bare "#" comment line.
 func (d *Document) SetLeadingComments(path string, comments []string) error {
 	// Every line is checked before the first is written: the caller asked for
 	// one block of comments, so a document carrying part of it is one the

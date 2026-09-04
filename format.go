@@ -59,10 +59,13 @@ func WithTableBlankLine(b bool) FormatOption {
 // enforcing a canonical style. Pass zero or more FormatOption values (e.g.
 // WithIndentWidth, WithLineWidth) to customize the output.
 //
-// The writer's blank-line grouping survives: a run of blank lines becomes
-// exactly one, and where the writer left no gap the formatter opens none. The
-// output never begins with a blank line and always ends with exactly one
-// newline, so blank lines at either end of the document are dropped.
+// The writer's blank-line grouping survives at document and table-body
+// level: a run of blank lines becomes exactly one, and where the writer left
+// no gap the formatter opens none. The output never begins with a blank line
+// and always ends with exactly one newline, so blank lines at either end of
+// the document are dropped. Arrays are restructured wholesale (inline or
+// multi-line from the configured line width), so blank lines between array
+// elements do not survive formatting; Bytes preserves them.
 func (d *Document) Format(opts ...FormatOption) []byte {
 	cfg := DefaultFormatConfig()
 	for _, opt := range opts {

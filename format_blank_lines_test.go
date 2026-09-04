@@ -478,6 +478,9 @@ func TestBlankLineFixtureCoversTheShapes(t *testing.T) {
 	if !strings.Contains(blankLineFixture, "items = [") {
 		t.Error("fixture must contain an array that a narrow line width breaks")
 	}
+	if !strings.Contains(blankLineFixture, "\n\n# a note\n\n") {
+		t.Error("fixture must contain a standalone comment with a blank line on each side")
+	}
 	if !strings.Contains(blankLineFixture, "\n[first]") {
 		t.Error("fixture must contain a table with no blank line before it")
 	}
