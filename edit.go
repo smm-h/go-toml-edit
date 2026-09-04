@@ -167,7 +167,7 @@ func checkValueWriteTarget(parent layerPos, key string) error {
 func setKeyInParent(parent layerPos, key string, valNode Node) error {
 	switch p := parent.node.(type) {
 	case *Document:
-		return setKeyInChildren(&p.Children, key, valNode, false)
+		return setKeyInDocument(p, key, valNode)
 	case *TableNode:
 		return setKeyInChildren(&p.Children, key, valNode, false)
 	case *ArrayTableNode:
@@ -182,6 +182,42 @@ func setKeyInParent(parent layerPos, key string, valNode Node) error {
 		}
 		return newError(KindWrongContainer, "cannot set key %q in %s", key, parent.describe())
 	}
+}
+
+// setKeyInDocument sets or replaces a key at the document's own level. A key
+// created there is inserted BEFORE the first table header rather than appended:
+// everything after a header belongs to that header's table, so a root key
+// written at the end of the file would read as a key of the last table -- and,
+// where that table already carries the same key, as a duplicate.
+func setKeyInDocument(doc *Document, key string, valNode Node) error {
+	for _, child := range doc.Children {
+		if kv, ok := child.(*KeyValueNode); ok {
+			if len(kv.Key.Parts) == 1 && kv.Key.Parts[0] == key {
+				kv.Val = valNode
+				kv.markDirty()
+				return nil
+			}
+		}
+	}
+	kv := newKeyValueNode(key, valNode)
+	at := firstHeaderIndex(doc.Children)
+	doc.Children = append(doc.Children, nil)
+	copy(doc.Children[at+1:], doc.Children[at:])
+	doc.Children[at] = kv
+	return nil
+}
+
+// firstHeaderIndex returns the position of the first table or array-table
+// header among the children, or their count when there is none. It is the end
+// of the document's own key-value region.
+func firstHeaderIndex(children []Node) int {
+	for i, child := range children {
+		switch child.(type) {
+		case *TableNode, *ArrayTableNode:
+			return i
+		}
+	}
+	return len(children)
 }
 
 // setKeyInChildren searches children for an existing KV with the given key.
