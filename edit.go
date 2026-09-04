@@ -14,8 +14,11 @@ import (
 //
 // Supported value types: string, bool, int/int8-64, uint/uint8-64, float32/64,
 // time.Time, LocalDateTime, LocalDate, LocalTime, []any and typed slices,
-// map[string]any (written with its keys sorted), []Pair (written in the order
-// given), and any type implementing the Node interface.
+// map[string]any (written with its keys sorted), and []Pair (written in the
+// order given). A value is a Go value: an AST node is not one, and passing a
+// node -- including one resolved out of this or another document -- is refused
+// as an unsupported type. Copying a value from one key to another is a read
+// followed by a write of the value.
 //
 // A value write touches value fragments and nothing else. Where the path names
 // a key bound by a structural construct -- a [header] table, an array-of-tables,
@@ -841,14 +844,15 @@ func (d *Document) headerTarget(keyPath []string) (Entry, bool, error) {
 
 // valueToNode converts a Go value to the appropriate AST node.
 // All created nodes are dirty (no raw bytes).
+//
+// A Node is not a value. One handed in from outside carries a span, a lexeme
+// and a parent belonging to wherever it was built, none of which describe the
+// document it would be grafted into, and putting it in two documents at once
+// would give it two parents. Values enter as Go values and the library renders
+// them; a node is refused like any other unsupported type.
 func valueToNode(v any) (Node, error) {
 	if v == nil {
 		return nil, newError(KindBadInput, "unsupported type: nil")
-	}
-
-	// Check if it already implements Node.
-	if n, ok := v.(Node); ok {
-		return n, nil
 	}
 
 	switch val := v.(type) {

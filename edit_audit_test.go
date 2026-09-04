@@ -1,6 +1,7 @@
 package tomledit
 
 import (
+	"errors"
 	"strings"
 	"testing"
 )
@@ -747,16 +748,22 @@ dummy = 0
 	roundTripAudit(t, doc)
 }
 
-func TestAudit_ValueToNodeNodePassthrough(t *testing.T) {
+// Fails if Set accepts a caller-built node as a value: the public write surface
+// takes Go values and renders them, and a node from outside the document is not
+// one.
+func TestAudit_SetRefusesACallerBuiltNode(t *testing.T) {
+	doc, err := Parse([]byte("a = 1\n"))
+	if err != nil {
+		t.Fatalf("parse error: %v", err)
+	}
 	n := &IntegerNode{val: scalarOf[int64](42)}
 	n.markDirty()
 
-	result, err := valueToNode(n)
-	if err != nil {
-		t.Fatalf("error: %v", err)
+	if err := doc.Set("a", n); !errors.Is(err, ErrBadInput) {
+		t.Errorf("Set accepted a caller-built node: %v", err)
 	}
-	if result != n {
-		t.Error("Node passthrough should return the same node")
+	if got := string(doc.Bytes()); got != "a = 1\n" {
+		t.Errorf("the refused write changed the document to %q", got)
 	}
 }
 

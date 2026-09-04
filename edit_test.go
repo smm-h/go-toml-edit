@@ -1,6 +1,7 @@
 package tomledit
 
 import (
+	"errors"
 	"strings"
 	"testing"
 	"time"
@@ -262,25 +263,31 @@ func TestSet_Map(t *testing.T) {
 	roundTrip(t, doc)
 }
 
-func TestSet_WithNodeValue(t *testing.T) {
+// Fails if a node resolved out of a document can be written back in as a value.
+// Copying a value from one place to another is a read followed by a write of
+// the VALUE; handing the node itself over would put one node in two places.
+func TestSet_RefusesANodeAsAValue(t *testing.T) {
 	doc := parseEditTestDoc(t)
 
-	// Get an existing node and copy it to a new location.
 	srcNode, ok := doc.Lookup("server.host")
 	if !ok {
 		t.Fatal("source node is nil")
 	}
-	err := doc.Set("server.backup_host", srcNode)
-	if err != nil {
-		t.Fatalf("Set with Node value returned error: %v", err)
+	if err := doc.Set("server.backup_host", srcNode); !errors.Is(err, ErrBadInput) {
+		t.Errorf("Set accepted a node as a value: %v", err)
 	}
 
-	val, ok := doc.GetString("server.backup_host")
+	// The supported spelling: read the value, write the value.
+	val, ok := doc.GetString("server.host")
 	if !ok {
-		t.Fatal("GetString returned false for copied node")
+		t.Fatal("GetString returned false for the source key")
 	}
-	if val != "localhost" {
-		t.Errorf("expected \"localhost\", got %q", val)
+	if err := doc.Set("server.backup_host", val); err != nil {
+		t.Fatalf("Set returned error: %v", err)
+	}
+	copied, ok := doc.GetString("server.backup_host")
+	if !ok || copied != "localhost" {
+		t.Errorf("expected \"localhost\", got %q (ok=%v)", copied, ok)
 	}
 	roundTrip(t, doc)
 }
@@ -666,15 +673,15 @@ func TestValueToNode_LocalDateTime(t *testing.T) {
 	}
 }
 
-func TestValueToNode_NodePassthrough(t *testing.T) {
+// Fails if a caller-built node is accepted as a value again. Values enter as Go
+// values and the library renders them; a node handed in from outside carries a
+// span, a lexeme and a parent from wherever it came from, none of which
+// describe the document it would be written into.
+func TestValueToNode_RefusesACallerBuiltNode(t *testing.T) {
 	original := &StringNode{val: scalarOf("test")}
 	original.markDirty()
-	n, err := valueToNode(original)
-	if err != nil {
-		t.Fatalf("error: %v", err)
-	}
-	if n != original {
-		t.Error("expected same node to be returned")
+	if _, err := valueToNode(original); !errors.Is(err, ErrBadInput) {
+		t.Errorf("a caller-built node was accepted as a value: %v", err)
 	}
 }
 
