@@ -164,3 +164,175 @@ func TestDecode_FixedArrayLengthIsExact(t *testing.T) {
 		t.Errorf("message %q names neither the expected length nor the one given", diag.Message)
 	}
 }
+
+// --- eager tag validation ---
+//
+// The types below sit behind a key the test document never carries, so a
+// derivation that only inspects the types a document reaches never looks at
+// them at all.
+
+// eagerBadOption carries a toml tag option the package reads nothing from.
+type eagerBadOption struct {
+	Bad string `toml:"bad,nonsense"`
+}
+
+// eagerTaggedUnexported carries a toml tag on a field no document key can ever
+// reach.
+type eagerTaggedUnexported struct {
+	secret string `toml:"secret"`
+}
+
+type eagerStructField struct {
+	Top    int            `toml:"top"`
+	Nested eagerBadOption `toml:"nested"`
+}
+
+type eagerSliceElement struct {
+	Top   int              `toml:"top"`
+	Items []eagerBadOption `toml:"items"`
+}
+
+type eagerMapElement struct {
+	Top   int                       `toml:"top"`
+	Items map[string]eagerBadOption `toml:"items"`
+}
+
+type eagerPointerField struct {
+	Top    int             `toml:"top"`
+	Nested *eagerBadOption `toml:"nested"`
+}
+
+type eagerUnexportedTagField struct {
+	Top    int                   `toml:"top"`
+	Nested eagerTaggedUnexported `toml:"nested"`
+}
+
+// eagerRecursiveBad is recursive through three constructors at once, so a walk
+// that does not remember where it has been never returns.
+type eagerRecursiveBad struct {
+	Name  string                       `toml:"name"`
+	Child *eagerRecursiveBad           `toml:"child"`
+	Peers []eagerRecursiveBad          `toml:"peers"`
+	Bag   map[string]eagerRecursiveBad `toml:"bag"`
+	Bad   eagerBadOption               `toml:"bad"`
+}
+
+// eagerRecursiveClean is the same shape with no tag defect anywhere: it must
+// decode, which is what proves the walk terminates rather than merely erroring
+// out early.
+type eagerRecursiveClean struct {
+	Name  string                         `toml:"name"`
+	Child *eagerRecursiveClean           `toml:"child"`
+	Peers []eagerRecursiveClean          `toml:"peers"`
+	Bag   map[string]eagerRecursiveClean `toml:"bag"`
+}
+
+// Fails if a toml tag defect stays invisible because the document never
+// reaches the type carrying it. A tag rule is a property of the TARGET, not of
+// the input: a meaningless tag option and a tag on an unexported field are
+// refused for every document a target is used with, or they are refused only
+// by the inputs that happen to descend far enough -- which is silence for
+// every other input.
+func TestDecode_TagErrorsAreEagerAcrossTheTypeGraph(t *testing.T) {
+	tests := []struct {
+		name    string
+		input   string
+		target  func() any
+		wantIn  string
+		alsoSee string // a document that DOES reach the type, for contrast
+	}{
+		{
+			name:    "a nested struct field",
+			input:   "top = 1\n",
+			target:  func() any { return new(eagerStructField) },
+			wantIn:  "nonsense",
+			alsoSee: "top = 1\n[nested]\nbad = \"x\"\n",
+		},
+		{
+			name:    "a slice element",
+			input:   "top = 1\n",
+			target:  func() any { return new(eagerSliceElement) },
+			wantIn:  "nonsense",
+			alsoSee: "top = 1\n[[items]]\nbad = \"x\"\n",
+		},
+		{
+			name:    "a map element",
+			input:   "top = 1\n",
+			target:  func() any { return new(eagerMapElement) },
+			wantIn:  "nonsense",
+			alsoSee: "top = 1\n[items.a]\nbad = \"x\"\n",
+		},
+		{
+			name:    "a pointer field",
+			input:   "top = 1\n",
+			target:  func() any { return new(eagerPointerField) },
+			wantIn:  "nonsense",
+			alsoSee: "top = 1\n[nested]\nbad = \"x\"\n",
+		},
+		{
+			name:    "a tag on an unexported field",
+			input:   "top = 1\n",
+			target:  func() any { return new(eagerUnexportedTagField) },
+			wantIn:  "secret",
+			alsoSee: "top = 1\n[nested]\nother = 1\n",
+		},
+		{
+			name:   "a recursive type",
+			input:  "name = \"x\"\n",
+			target: func() any { return new(eagerRecursiveBad) },
+			wantIn: "nonsense",
+		},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			err := Unmarshal([]byte(tt.input), tt.target())
+			if err == nil {
+				t.Fatalf("Unmarshal(%q) accepted a target whose type graph carries a tag defect", tt.input)
+			}
+			if !strings.Contains(err.Error(), tt.wantIn) {
+				t.Errorf("err = %v, want the offending name %q", err, tt.wantIn)
+			}
+			if tt.alsoSee == "" {
+				return
+			}
+			// The same defect on a document that does reach the type: the two
+			// inputs must agree, which is the whole point.
+			reached := Unmarshal([]byte(tt.alsoSee), tt.target())
+			if reached == nil || !strings.Contains(reached.Error(), tt.wantIn) {
+				t.Errorf("a document reaching the type reported %v, want the same tag error", reached)
+			}
+		})
+	}
+}
+
+// Fails if the eager tag walk stops terminating on a type that refers to
+// itself: the clean recursive shape must decode like any other.
+func TestDecode_EagerTagWalkTerminatesOnRecursiveTypes(t *testing.T) {
+	var cfg eagerRecursiveClean
+	if err := Unmarshal([]byte("name = \"root\"\n\n[child]\nname = \"kid\"\n"), &cfg); err != nil {
+		t.Fatalf("Unmarshal failed: %v", err)
+	}
+	if cfg.Name != "root" || cfg.Child == nil || cfg.Child.Name != "kid" {
+		t.Errorf("decoded %+v, want the recursive shape written through", cfg)
+	}
+}
+
+// Fails if making TAG validation eager also makes type-SHAPE validation eager.
+// A field whose type no conversion accepts is refused when a document key
+// reaches it and at no other time, so a struct carrying one still decodes the
+// documents that leave it alone.
+func TestDecode_UndecodableFieldTypeStaysLazy(t *testing.T) {
+	type Config struct {
+		Top      int `toml:"top"`
+		Callback func()
+		Ch       chan int
+	}
+	var cfg Config
+	if err := Unmarshal([]byte("top = 1\n"), &cfg); err != nil {
+		t.Fatalf("Unmarshal failed on an untouched undecodable field: %v", err)
+	}
+	if cfg.Top != 1 {
+		t.Errorf("Top = %d, want 1", cfg.Top)
+	}
+}
