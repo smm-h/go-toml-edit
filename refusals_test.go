@@ -258,6 +258,37 @@ func TestSet_AllowsValuesAndNewKeys(t *testing.T) {
 	}
 }
 
+// --- Delete ---
+
+// Fails if Delete swallows a fold failure: a document the read-layer cannot
+// make sense of must say so, not answer as though the path were simply absent.
+func TestDelete_SurfacesAFoldFailure(t *testing.T) {
+	doc := unfoldableDoc(t)
+	err := doc.Delete("a.x")
+	if err == nil {
+		t.Fatal("Delete on an unfoldable document reported success")
+	}
+	if !errors.Is(err, ErrConflict) {
+		t.Errorf("Delete reported %v, want a conflict diagnostic", err)
+	}
+}
+
+// Fails if Delete stops being idempotent on a document that folds: a path
+// naming nothing is a silent no-op, which is what makes ensure-absent loops
+// writable.
+func TestDelete_MissingPathStaysASilentNoOp(t *testing.T) {
+	doc := parseOrFail(t, "[a]\nx = 1\n")
+	if err := doc.Delete("a.missing"); err != nil {
+		t.Errorf("Delete of a missing key reported %v, want nil", err)
+	}
+	if err := doc.Delete("nowhere.at.all"); err != nil {
+		t.Errorf("Delete of a missing path reported %v, want nil", err)
+	}
+	if got := string(doc.Bytes()); got != "[a]\nx = 1\n" {
+		t.Errorf("the document reads %q after two no-op deletes", got)
+	}
+}
+
 // --- table creation, continued ---
 
 // Fails if a sub-table under an existing header stops being creatable.
