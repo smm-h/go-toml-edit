@@ -1,7 +1,9 @@
 package tomledit
 
 import (
+	"errors"
 	"reflect"
+	"strings"
 	"testing"
 	"time"
 )
@@ -404,5 +406,66 @@ func TestNodeModel_OnlyValueKindsAreScalars(t *testing.T) {
 		if want := valueKinds[n.Type()]; isScalar != want {
 			t.Errorf("%s implements Scalar = %v, want %v", n.Type(), isScalar, want)
 		}
+	}
+}
+
+// Fails if a Node handed in as a value is accepted. valueToNode has no branch
+// for one and must not grow one back: a node from outside carries a span, a
+// lexeme and a parent belonging to wherever it was built, and grafting it in
+// would give it two parents. It is refused like any other unsupported type,
+// naming that type, and the document is left as it was.
+func TestNodeModel_ANodeIsNotAValue(t *testing.T) {
+	const src = "k = 1\narr = [1]\n[t]\nx = 1\n"
+
+	cases := []struct {
+		name string
+		pick func(*Document) any
+		want string
+	}{
+		{
+			"a scalar node",
+			func(d *Document) any { return d.Children()[0].(*KeyValueNode).Val() },
+			"*tomledit.IntegerNode",
+		},
+		{
+			"a scalar node through the Scalar interface",
+			func(d *Document) any {
+				var s Scalar = d.Children()[0].(*KeyValueNode).Val().(*IntegerNode)
+				return s
+			},
+			"*tomledit.IntegerNode",
+		},
+		{
+			"a container node",
+			func(d *Document) any { return d.Children()[1].(*KeyValueNode).Val() },
+			"*tomledit.ArrayNode",
+		},
+		{
+			"a node through the Node interface",
+			func(d *Document) any {
+				var n Node = d.Children()[2].(*TableNode)
+				return n
+			},
+			"*tomledit.TableNode",
+		},
+	}
+
+	for _, tc := range cases {
+		t.Run(tc.name, func(t *testing.T) {
+			doc := parseOrFail(t, src)
+			err := doc.Set("k", tc.pick(doc))
+			if err == nil {
+				t.Fatalf("Set accepted %s; the document now reads %q", tc.name, doc.Bytes())
+			}
+			if !errors.Is(err, ErrBadInput) {
+				t.Errorf("Set reported %v, want %v", err, ErrBadInput)
+			}
+			if !strings.Contains(err.Error(), tc.want) {
+				t.Errorf("Set reported %q, want it to name the unsupported type %q", err, tc.want)
+			}
+			if got := string(doc.Bytes()); got != src {
+				t.Errorf("the refused Set changed the document:\n  got:  %q\n  want: %q", got, src)
+			}
+		})
 	}
 }
