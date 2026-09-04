@@ -55,6 +55,24 @@ type Trivia struct {
 	LeadingComments   [][]byte // each is a full "# ...\n" line
 	InlineComment     []byte   // "# ..." after value on same line
 	TrailingNewline   []byte
+
+	// blankRuns holds the blank lines around the leading comments: entry i the
+	// run written before LeadingComments[i], and the entry after the last
+	// comment the run between that comment and the node itself. A blank line is
+	// what separates one construct from the next, so a node that re-renders
+	// emits these runs again rather than pulling itself up against whatever
+	// stands above it. Runs are held as bytes, not as a count, so a blank line
+	// carrying whitespace of its own survives verbatim. A missing entry is an
+	// empty run.
+	blankRuns [][]byte
+}
+
+// blankRun returns the bytes of blank-line run i, or nil when there is none.
+func (t *Trivia) blankRun(i int) []byte {
+	if i < 0 || i >= len(t.blankRuns) {
+		return nil
+	}
+	return t.blankRuns[i]
 }
 
 // Node is the interface implemented by all AST nodes.
@@ -142,9 +160,26 @@ func (n *nodeBase) LeadingComments() []string {
 }
 
 func (n *nodeBase) SetLeadingComments(comments []string) {
-	n.nodeTrivia.LeadingComments = make([][]byte, len(comments))
+	t := &n.nodeTrivia
+	// The blank lines that separated this node from the one above it, and those
+	// that stood between the last comment and the node, survive replacing the
+	// comments in between. With no comments left the two runs meet, so they are
+	// joined into the one run that remains.
+	lead := t.blankRun(0)
+	tail := t.blankRun(len(t.LeadingComments))
+	t.LeadingComments = make([][]byte, len(comments))
 	for i, c := range comments {
-		n.nodeTrivia.LeadingComments[i] = []byte(c)
+		t.LeadingComments[i] = []byte(c)
+	}
+	if len(comments) == 0 {
+		joined := make([]byte, 0, len(lead)+len(tail))
+		joined = append(joined, lead...)
+		joined = append(joined, tail...)
+		t.blankRuns = [][]byte{joined}
+	} else {
+		t.blankRuns = make([][]byte, len(comments)+1)
+		t.blankRuns[0] = lead
+		t.blankRuns[len(comments)] = tail
 	}
 	n.dirty = true
 }

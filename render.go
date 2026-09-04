@@ -602,13 +602,16 @@ func renderComment(n *CommentNode) []byte {
 	return []byte("# " + text + "\n")
 }
 
-// renderTrivia emits the leading trivia (comments and whitespace) for a dirty node.
+// renderTrivia emits the leading trivia (blank lines, comments and whitespace)
+// for a dirty node.
 func renderTrivia(n Node) []byte {
 	t := n.trivia()
 	var buf []byte
-	for _, c := range t.LeadingComments {
+	for i, c := range t.LeadingComments {
+		buf = append(buf, t.blankRun(i)...)
 		buf = append(buf, c...)
 	}
+	buf = append(buf, t.blankRun(len(t.LeadingComments))...)
 	buf = append(buf, t.LeadingWhitespace...)
 	return buf
 }

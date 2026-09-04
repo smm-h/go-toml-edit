@@ -116,16 +116,54 @@ func (p *parser) errorFrom(tok Token, err error) *Error {
 
 // --- trivia collection ---
 
-// collectLeadingTrivia consumes whitespace, comments, and newlines that precede
-// a content node. It returns:
-//   - leadingWS: whitespace on the same line as the coming content
-//   - leadingComments: full comment lines (comment + newline)
-//   - raw: all consumed bytes concatenated
-func (p *parser) collectLeadingTrivia() (leadingWS []byte, leadingComments [][]byte, raw []byte, orphan orphanTrivia) {
+// leadingTrivia is everything consumed before a content node: the blank-line
+// runs and comment lines that precede it, and the whitespace on its own line.
+//
+// blankRuns holds the blank lines AROUND the comments -- entry i the run before
+// comments[i], and the entry after the last comment the run between that
+// comment and the content node -- so it always carries len(comments)+1 entries.
+// Keeping the bytes rather than a bare count preserves a blank line that
+// carries whitespace of its own.
+type leadingTrivia struct {
+	whitespace []byte   // whitespace on the same line as the coming content
+	comments   [][]byte // full comment lines (leading whitespace + comment + newline)
+	blankRuns  [][]byte // the blank-line runs around the comments
+	blankSpans []Span   // parallel to blankRuns; the zero Span for an empty run
+	raw        []byte   // every consumed byte, concatenated
+	orphan     orphanTrivia
+}
+
+// blankRun returns the bytes of blank-line run i, or nil when there is none.
+func (lt leadingTrivia) blankRun(i int) []byte {
+	if i < 0 || i >= len(lt.blankRuns) {
+		return nil
+	}
+	return lt.blankRuns[i]
+}
+
+// blankSpan returns the source range of blank-line run i, or the zero Span.
+func (lt leadingTrivia) blankSpan(i int) Span {
+	if i < 0 || i >= len(lt.blankSpans) {
+		return Span{}
+	}
+	return lt.blankSpans[i]
+}
+
+// applyTo copies the parts a node keeps in its own trivia.
+func (lt leadingTrivia) applyTo(t *Trivia) {
+	t.LeadingWhitespace = lt.whitespace
+	t.LeadingComments = lt.comments
+	t.blankRuns = lt.blankRuns
+}
+
+// collectLeadingTrivia consumes the whitespace, comments, and newlines that
+// precede a content node.
+func (p *parser) collectLeadingTrivia() leadingTrivia {
 	// Accumulate lines. A "line" may be: whitespace, comment+newline, blank newline.
 	// The last whitespace run (if not followed by newline or comment) is the
 	// inline leading whitespace for the coming node.
 
+	lt := leadingTrivia{blankRuns: [][]byte{nil}, blankSpans: []Span{{}}}
 	var accumulated []byte // all bytes consumed
 	var pendingWS []byte   // whitespace not yet assigned
 
@@ -133,10 +171,21 @@ func (p *parser) collectLeadingTrivia() (leadingWS []byte, leadingComments [][]b
 	// CommentNodes (emitted at end of input) can carry positions.
 	track := func(tok Token) {
 		sp := spanFromToken(tok)
-		if !orphan.span.IsValid() {
-			orphan.span.Start = sp.Start
+		if !lt.orphan.span.IsValid() {
+			lt.orphan.span.Start = sp.Start
 		}
-		orphan.span.End = sp.End
+		lt.orphan.span.End = sp.End
+	}
+
+	// addBlank appends one blank line to the run currently being built, and
+	// grows that run's span to cover it.
+	addBlank := func(line []byte, span Span) {
+		last := len(lt.blankRuns) - 1
+		lt.blankRuns[last] = append(lt.blankRuns[last], line...)
+		if !lt.blankSpans[last].IsValid() {
+			lt.blankSpans[last].Start = span.Start
+		}
+		lt.blankSpans[last].End = span.End
 	}
 
 	for {
@@ -151,10 +200,13 @@ func (p *parser) collectLeadingTrivia() (leadingWS []byte, leadingComments [][]b
 		case TokenNewline:
 			tok := p.advance()
 			track(tok)
-			// The pending whitespace + this newline is a blank line
-			accumulated = append(accumulated, pendingWS...)
-			accumulated = append(accumulated, tok.Raw...)
+			// The pending whitespace + this newline is a blank line.
+			blank := make([]byte, 0, len(pendingWS)+len(tok.Raw))
+			blank = append(blank, pendingWS...)
+			blank = append(blank, tok.Raw...)
 			pendingWS = nil
+			accumulated = append(accumulated, blank...)
+			addBlank(blank, spanFromToken(tok))
 			continue
 
 		case TokenComment:
@@ -165,7 +217,7 @@ func (p *parser) collectLeadingTrivia() (leadingWS []byte, leadingComments [][]b
 			commentLine = append(commentLine, pendingWS...)
 			commentLine = append(commentLine, tok.Raw...)
 			pendingWS = nil
-			orphan.commentSpans = append(orphan.commentSpans, spanFromToken(tok))
+			lt.orphan.commentSpans = append(lt.orphan.commentSpans, spanFromToken(tok))
 
 			// Consume the newline after the comment if present
 			if p.peekType() == TokenNewline {
@@ -174,14 +226,17 @@ func (p *parser) collectLeadingTrivia() (leadingWS []byte, leadingComments [][]b
 				commentLine = append(commentLine, nl.Raw...)
 			}
 			accumulated = append(accumulated, commentLine...)
-			leadingComments = append(leadingComments, commentLine)
+			lt.comments = append(lt.comments, commentLine)
+			// The next blank lines belong to the run after this comment.
+			lt.blankRuns = append(lt.blankRuns, nil)
+			lt.blankSpans = append(lt.blankSpans, Span{})
 			continue
 
 		default:
 			// Not trivia. pendingWS is the leading whitespace for the content node.
-			leadingWS = pendingWS
-			raw = append(accumulated, pendingWS...)
-			return
+			lt.whitespace = pendingWS
+			lt.raw = append(accumulated, pendingWS...)
+			return lt
 		}
 	}
 }
@@ -224,30 +279,30 @@ func (p *parser) parseDocument() (*Document, error) {
 	tracker := newDefinitionTracker(p.src)
 
 	for p.peekType() != TokenEOF {
-		leadingWS, leadingComments, triviaRaw, orphan := p.collectLeadingTrivia()
+		lt := p.collectLeadingTrivia()
 
 		tt := p.peekType()
 		switch {
 		case tt == TokenEOF:
 			// Any remaining trivia becomes orphan comment nodes
-			p.emitOrphanTrivia(doc, leadingComments, triviaRaw, orphan)
+			p.emitOrphanTrivia(doc, lt)
 
 		case tt == TokenLeftBracket:
-			tbl, err := p.parseTable(leadingWS, leadingComments, triviaRaw, tracker)
+			tbl, err := p.parseTable(lt, tracker)
 			if err != nil {
 				return nil, err
 			}
 			doc.Children = append(doc.Children, tbl)
 
 		case tt == TokenDoubleLeftBracket:
-			atbl, err := p.parseArrayTable(leadingWS, leadingComments, triviaRaw, tracker)
+			atbl, err := p.parseArrayTable(lt, tracker)
 			if err != nil {
 				return nil, err
 			}
 			doc.Children = append(doc.Children, atbl)
 
 		case isKeyToken(tt):
-			kv, err := p.parseKeyValue(leadingWS, leadingComments, triviaRaw, tracker, nil)
+			kv, err := p.parseKeyValue(lt, tracker, nil)
 			if err != nil {
 				return nil, err
 			}
@@ -268,29 +323,51 @@ func (p *parser) parseDocument() (*Document, error) {
 	return doc, nil
 }
 
-func (p *parser) emitOrphanTrivia(parent interface{ addChild(Node) }, comments [][]byte, raw []byte, orphan orphanTrivia) {
-	if len(comments) == 0 && len(raw) == 0 {
+func (p *parser) emitOrphanTrivia(parent interface{ addChild(Node) }, lt leadingTrivia) {
+	if len(lt.comments) == 0 && len(lt.raw) == 0 {
 		return
 	}
-	// If we have comment lines, emit them as CommentNodes
-	if len(comments) > 0 {
-		for i, c := range comments {
+	// If we have comment lines, emit them as CommentNodes, each preceded by the
+	// blank-line run written before it. Nothing follows this trivia that could
+	// carry those blank lines, so they become nodes of their own.
+	if len(lt.comments) > 0 {
+		for i, c := range lt.comments {
+			emitBlankRun(parent, lt.blankRun(i), lt.blankSpan(i))
 			cn := &CommentNode{Text: string(c)}
 			cn.setRaw(c)
-			if i < len(orphan.commentSpans) {
-				cn.setSpan(orphan.commentSpans[i])
+			if i < len(lt.orphan.commentSpans) {
+				cn.setSpan(lt.orphan.commentSpans[i])
 			}
 			parent.addChild(cn)
 		}
+		// The run after the last comment, plus any whitespace that never
+		// reached a content node because the input ended.
+		last := len(lt.comments)
+		tail := make([]byte, 0, len(lt.blankRun(last))+len(lt.whitespace))
+		tail = append(tail, lt.blankRun(last)...)
+		tail = append(tail, lt.whitespace...)
+		emitBlankRun(parent, tail, lt.blankSpan(last))
 		return
 	}
 	// If only blank lines (raw without comments), attach as a comment node with empty text
-	if len(raw) > 0 {
+	if len(lt.raw) > 0 {
 		cn := &CommentNode{Text: ""}
-		cn.setRaw(raw)
-		cn.setSpan(orphan.span)
+		cn.setRaw(lt.raw)
+		cn.setSpan(lt.orphan.span)
 		parent.addChild(cn)
 	}
+}
+
+// emitBlankRun adds a node standing for a run of blank lines, which is how the
+// document holds blank lines that no following construct can carry.
+func emitBlankRun(parent interface{ addChild(Node) }, run []byte, span Span) {
+	if len(run) == 0 {
+		return
+	}
+	cn := &CommentNode{Text: ""}
+	cn.setRaw(run)
+	cn.setSpan(span)
+	parent.addChild(cn)
 }
 
 // childAdder is implemented by Document, TableNode, ArrayTableNode.
@@ -308,7 +385,7 @@ func isKeyToken(tt TokenType) bool {
 
 // --- table parsing ---
 
-func (p *parser) parseTable(leadingWS []byte, leadingComments [][]byte, triviaRaw []byte, tracker *definitionTracker) (*TableNode, error) {
+func (p *parser) parseTable(lt leadingTrivia, tracker *definitionTracker) (*TableNode, error) {
 	startPos := p.pos
 
 	// consume [
@@ -347,7 +424,7 @@ func (p *parser) parseTable(leadingWS []byte, leadingComments [][]byte, triviaRa
 
 	// Build raw bytes for the header line
 	headerRaw := p.rawFromTokenRange(startPos, p.pos)
-	headerRaw = append(triviaRaw, headerRaw...)
+	headerRaw = append(lt.raw, headerRaw...)
 
 	tbl := &TableNode{
 		KeyPath:  keyPath,
@@ -356,8 +433,7 @@ func (p *parser) parseTable(leadingWS []byte, leadingComments [][]byte, triviaRa
 	tbl.setRaw(headerRaw)
 	// The table span covers only the [header], not the children.
 	tbl.setSpan(Span{Start: tokenStart(openTok), End: spanFromToken(closeTok).End})
-	tbl.nodeTrivia.LeadingWhitespace = leadingWS
-	tbl.nodeTrivia.LeadingComments = leadingComments
+	lt.applyTo(&tbl.nodeTrivia)
 	tbl.nodeTrivia.InlineComment = inlineComment
 	tbl.nodeTrivia.TrailingNewline = trailingNL
 
@@ -375,7 +451,7 @@ func (p *parser) parseTable(leadingWS []byte, leadingComments [][]byte, triviaRa
 	return tbl, nil
 }
 
-func (p *parser) parseArrayTable(leadingWS []byte, leadingComments [][]byte, triviaRaw []byte, tracker *definitionTracker) (*ArrayTableNode, error) {
+func (p *parser) parseArrayTable(lt leadingTrivia, tracker *definitionTracker) (*ArrayTableNode, error) {
 	startPos := p.pos
 
 	// consume [[
@@ -413,7 +489,7 @@ func (p *parser) parseArrayTable(leadingWS []byte, leadingComments [][]byte, tri
 
 	// Build raw bytes for the header line
 	headerRaw := p.rawFromTokenRange(startPos, p.pos)
-	headerRaw = append(triviaRaw, headerRaw...)
+	headerRaw = append(lt.raw, headerRaw...)
 
 	atbl := &ArrayTableNode{
 		KeyPath:  keyPath,
@@ -422,8 +498,7 @@ func (p *parser) parseArrayTable(leadingWS []byte, leadingComments [][]byte, tri
 	atbl.setRaw(headerRaw)
 	// The array-table span covers only the [[header]], not the children.
 	atbl.setSpan(Span{Start: tokenStart(openTok), End: spanFromToken(closeTok).End})
-	atbl.nodeTrivia.LeadingWhitespace = leadingWS
-	atbl.nodeTrivia.LeadingComments = leadingComments
+	lt.applyTo(&atbl.nodeTrivia)
 	atbl.nodeTrivia.InlineComment = inlineComment
 	atbl.nodeTrivia.TrailingNewline = trailingNL
 
@@ -445,12 +520,12 @@ func (p *parser) parseTableChildren(parent childAdder, childTracker *definitionT
 	for {
 		// Peek ahead past trivia to see what's next
 		savedPos := p.pos
-		leadingWS, leadingComments, triviaRaw, orphan := p.collectLeadingTrivia()
+		lt := p.collectLeadingTrivia()
 
 		tt := p.peekType()
 		switch {
 		case tt == TokenEOF:
-			p.emitOrphanTrivia(parent, leadingComments, triviaRaw, orphan)
+			p.emitOrphanTrivia(parent, lt)
 			return nil
 
 		case tt == TokenLeftBracket || tt == TokenDoubleLeftBracket:
@@ -459,7 +534,7 @@ func (p *parser) parseTableChildren(parent childAdder, childTracker *definitionT
 			return nil
 
 		case isKeyToken(tt):
-			kv, err := p.parseKeyValue(leadingWS, leadingComments, triviaRaw, childTracker, nil)
+			kv, err := p.parseKeyValue(lt, childTracker, nil)
 			if err != nil {
 				return err
 			}
@@ -473,7 +548,7 @@ func (p *parser) parseTableChildren(parent childAdder, childTracker *definitionT
 
 // --- key-value parsing ---
 
-func (p *parser) parseKeyValue(leadingWS []byte, leadingComments [][]byte, triviaRaw []byte, tracker *definitionTracker, parentPath []string) (*KeyValueNode, error) {
+func (p *parser) parseKeyValue(lt leadingTrivia, tracker *definitionTracker, parentPath []string) (*KeyValueNode, error) {
 	startPos := p.pos
 
 	// Parse key (possibly dotted)
@@ -506,7 +581,7 @@ func (p *parser) parseKeyValue(leadingWS []byte, leadingComments [][]byte, trivi
 
 	// Build raw bytes
 	kvRaw := p.rawFromTokenRange(startPos, p.pos)
-	kvRaw = append(triviaRaw, kvRaw...)
+	kvRaw = append(lt.raw, kvRaw...)
 
 	kv := &KeyValueNode{
 		Key: keyNode,
@@ -516,8 +591,7 @@ func (p *parser) parseKeyValue(leadingWS []byte, leadingComments [][]byte, trivi
 	// The key-value span runs from the key's first byte to the value's last
 	// byte, excluding leading trivia, inline comment, and trailing newline.
 	kv.setSpan(Span{Start: keyNode.Span().Start, End: val.Span().End})
-	kv.nodeTrivia.LeadingWhitespace = leadingWS
-	kv.nodeTrivia.LeadingComments = leadingComments
+	lt.applyTo(&kv.nodeTrivia)
 	kv.nodeTrivia.InlineComment = inlineComment
 	kv.nodeTrivia.TrailingNewline = trailingNL
 
