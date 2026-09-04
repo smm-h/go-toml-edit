@@ -183,20 +183,22 @@ func TestFormatTableHeaderNormalization(t *testing.T) {
 // 8. Multiple blank lines collapsed
 // =============================================================================
 
+// Fails if a run of blank lines stops collapsing to exactly one, in either
+// direction: several surviving, or the whole run disappearing.
 func TestFormatMultipleBlankLinesCollapsed(t *testing.T) {
 	input := "[a]\nx = 1\n\n\n\n[b]\ny = 2\n"
 	doc, err := Parse([]byte(input))
 	if err != nil {
 		t.Fatalf("Parse error: %v", err)
 	}
-	got := string(doc.Format())
-	// Should have exactly one blank line between tables, not three.
-	if strings.Contains(got, "\n\n\n") {
-		t.Errorf("expected at most one blank line between tables, got:\n%s", got)
+	const want = "[a]\nx = 1\n\n[b]\ny = 2\n"
+	if got := string(doc.Format()); got != want {
+		t.Errorf("Format() = %q, want %q", got, want)
 	}
-	// But should have a blank line.
-	if !strings.Contains(got, "x = 1\n\n[b]") {
-		t.Errorf("expected one blank line before [b], got:\n%s", got)
+	// The option is not what puts the blank line there: with it off the run
+	// still collapses to one rather than vanishing.
+	if got := string(doc.Format(WithTableBlankLine(false))); got != want {
+		t.Errorf("Format(WithTableBlankLine(false)) = %q, want %q", got, want)
 	}
 }
 
@@ -269,16 +271,31 @@ func TestFormatWithLineWidth(t *testing.T) {
 	}
 }
 
+// The option is insertion-only: turning it off stops the formatter from adding
+// a blank line where the writer left none, and does nothing to the blank lines
+// the document already carries.
+//
+// Fails if the option ever starts removing blank lines, or stops inserting one
+// before a table written flush against what precedes it.
 func TestFormatWithTableBlankLineFalse(t *testing.T) {
-	input := "a = 1\n[server]\nhost = \"localhost\"\n"
-	doc, err := Parse([]byte(input))
+	// No blank line written: with the option off none is inserted.
+	doc, err := Parse([]byte("a = 1\n[server]\nhost = \"localhost\"\n"))
 	if err != nil {
 		t.Fatalf("Parse error: %v", err)
 	}
 	got := string(doc.Format(WithTableBlankLine(false)))
-	// Should NOT have a blank line before [server].
 	if strings.Contains(got, "\n\n") {
-		t.Errorf("with TableBlankLine=false, expected no blank lines, got:\n%s", got)
+		t.Errorf("with TableBlankLine=false, expected no blank line to be inserted, got:\n%s", got)
+	}
+
+	// A blank line written: the option off leaves it standing.
+	doc, err = Parse([]byte("a = 1\n\n[server]\nhost = \"localhost\"\n"))
+	if err != nil {
+		t.Fatalf("Parse error: %v", err)
+	}
+	got = string(doc.Format(WithTableBlankLine(false)))
+	if !strings.Contains(got, "a = 1\n\n[server]") {
+		t.Errorf("with TableBlankLine=false, the document's own blank line should survive, got:\n%s", got)
 	}
 }
 
