@@ -315,6 +315,14 @@ func asDiagnostic(err error) *Error {
 	return newError(KindConflict, "%s", err).wrapping(err)
 }
 
+// atOffset records the byte offset a round-trip diagnostic concerns: where two
+// renderings of the same document first differ, or where rendered bytes stopped
+// parsing.
+func (e *Error) atOffset(offset int) *Error {
+	e.Offset = offset
+	return e
+}
+
 // withValue records the offending value of a bad-input or inexact diagnostic.
 func (e *Error) withValue(v any) *Error {
 	e.Value = v

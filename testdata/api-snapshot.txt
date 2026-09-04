@@ -238,6 +238,7 @@ type Document struct
 	method (*Document) Type() NodeType
 	method (*Document) Validate(spec *Spec) error
 	method (*Document) Walk(fn func(path string, node Node) error, mode WalkMode) error
+	method (*Document) WriteFile(path string) error
 
 type Entry struct
 	method (Entry) Key() string
