@@ -236,6 +236,14 @@ func syntaxErrorAt(src []byte, pos Position, format string, args ...any) *Error 
 	return newError(KindSyntax, format, args...).at(pos).inSource(src)
 }
 
+// hookFailure constructs the diagnostic reporting a consumer decoder's error.
+// It wraps that error rather than restating it, so a consumer matching its own
+// sentinel still matches through the diagnostic and through the aggregate the
+// diagnostic is collected into.
+func hookFailure(err error, path string, pos Position, span Span) *Error {
+	return newError(KindHookError, "%s", err).wrapping(err).at(pos).within(span).atPath(path)
+}
+
 // newErrors returns the diagnostics as one aggregate, or nil when there are
 // none.
 func newErrors(diags []*Error) error {

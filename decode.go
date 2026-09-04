@@ -34,6 +34,14 @@ import (
 // StringNode, a TableNode, an ArrayNode -- before any rule of the conversion
 // table applies, so a type that implements it decides its own decoding
 // entirely.
+//
+// An error UnmarshalTOML returns is a violation like any other: it is
+// collected as one diagnostic of kind KindHookError, positioned at the
+// construct the decoder was handed, and the walk continues across that
+// construct's siblings. The diagnostic wraps the returned error, so a caller
+// still matches the implementation's own sentinels through it. An error
+// returned by an encoding.TextUnmarshaler the target implements is reported
+// the same way.
 type Unmarshaler interface {
 	UnmarshalTOML(node Node) error
 }
@@ -388,7 +396,7 @@ func (en *engine) walkTable(rec *Record, d *desc, dst reflect.Value, path string
 				d.expects()).at(pos).within(span).atPath(path))
 			return false
 		}
-		return en.hookTOML(dst, rec.node, path)
+		return en.hookTOML(dst, rec.node, path, pos, span)
 	}
 	if !d.class.accepts(valTable) {
 		en.mismatch(d, valTable, path, pos, span)
@@ -429,7 +437,7 @@ func (en *engine) walkCollection(e Entry, d *desc, dst reflect.Value, path strin
 func (en *engine) walkValue(n Node, d *desc, dst reflect.Value, path string, keySpan Span) bool {
 	pos, span := diagPlace(keySpan, n.Span())
 	if d.hook == hookTOML {
-		return en.hookTOML(dst, n, path)
+		return en.hookTOML(dst, n, path, pos, span)
 	}
 	kind, ok := valueKindOf(n)
 	if !ok {
@@ -440,7 +448,7 @@ func (en *engine) walkValue(n Node, d *desc, dst reflect.Value, path string, key
 	if d.text && kind == valString {
 		// The text decoder takes the string rows; the table still governs
 		// every other value this target accepts.
-		return en.hookText(dst, n.(*StringNode).Val, path)
+		return en.hookText(dst, n.(*StringNode).Val, path, pos, span)
 	}
 	if !d.class.accepts(kind) {
 		en.mismatch(d, kind, path, pos, span)
@@ -520,8 +528,11 @@ func (en *engine) setNative(dst reflect.Value, native func() (any, *Error), path
 	return true
 }
 
-// hookTOML hands a node to the target's own decoder.
-func (en *engine) hookTOML(dst reflect.Value, n Node, path string) bool {
+// hookTOML hands a node to the target's own decoder. An error the decoder
+// returns is one violation like any other: it is collected, positioned at the
+// construct the decoder was handed, and the walk continues across the siblings
+// of that construct.
+func (en *engine) hookTOML(dst reflect.Value, n Node, path string, pos Position, span Span) bool {
 	if !dst.IsValid() {
 		return false
 	}
@@ -531,14 +542,15 @@ func (en *engine) hookTOML(dst reflect.Value, n Node, path string) bool {
 		return false
 	}
 	if err := u.UnmarshalTOML(n); err != nil {
-		en.fatal = wrapError(err, "%s", pathLabel(path))
+		en.add(hookFailure(err, path, pos, span))
 		return false
 	}
 	return true
 }
 
-// hookText hands a string to the target's own text decoder.
-func (en *engine) hookText(dst reflect.Value, text string, path string) bool {
+// hookText hands a string to the target's own text decoder, collecting an
+// error it returns on hookTOML's terms.
+func (en *engine) hookText(dst reflect.Value, text string, path string, pos Position, span Span) bool {
 	if !dst.IsValid() {
 		return false
 	}
@@ -548,7 +560,7 @@ func (en *engine) hookText(dst reflect.Value, text string, path string) bool {
 		return false
 	}
 	if err := tu.UnmarshalText([]byte(text)); err != nil {
-		en.fatal = wrapError(err, "%s", pathLabel(path))
+		en.add(hookFailure(err, path, pos, span))
 		return false
 	}
 	return true
