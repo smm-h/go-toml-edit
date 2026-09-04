@@ -471,77 +471,67 @@ func (d *Document) deleteAt(path string) error {
 	}
 }
 
-// deleteKeyFromParent removes a key from a parent container.
+// deleteKeyFromParent removes everything a key binds inside a parent container.
+// One name can be spelled out by several constructs at once, and all of them
+// go: every pair written under the key -- a dotted key binds one leaf, so a
+// table spelled out that way is removed pair by pair -- and every [header] and
+// [[header]] the tables under it were written as, which sit among the
+// document's own children rather than inside the table they name.
+//
+// A key the container does not carry removes nothing, which is the contract's
+// silent no-op, and so is a parent that holds no keys at all.
 func (d *Document) deleteKeyFromParent(parent layerPos, key string) error {
-	switch p := parent.node.(type) {
-	case *Document:
-		deleteKeyFromChildren(&p.Children, key)
-		d.deleteTableOrArrayTableByFirstKey(key)
-		return nil
-	case *TableNode:
-		deleteKeyFromChildren(&p.Children, key)
-		d.deleteSubTableByKey(p.KeyPath, key)
-		return nil
-	case *ArrayTableNode:
-		deleteKeyFromChildren(&p.Children, key)
-		return nil
-	case *InlineTableNode:
-		// Only a delete that removed something invalidates the table's bytes:
-		// a key the table never carried leaves it exactly as written.
-		if deleteKeyFromChildren(&p.Children, key) {
-			p.markDirty()
-		}
-		return nil
-	default:
-		if parent.node == nil && parent.rec != nil {
-			return d.deleteKeyFromImpliedTable(parent.rec, key)
-		}
-		// Silent no-op for unsupported parent types.
-		return nil
-	}
-}
-
-// deleteKeyFromImpliedTable removes a key from a table no single node stands
-// for. The table has no children of its own, so what the key binds is removed
-// where the document writes it: the dotted pair that binds a value, or the
-// headers that spell a table out, those of the tables nested inside it
-// included. A key the table does not carry is the contract's silent no-op.
-func (d *Document) deleteKeyFromImpliedTable(rec *Record, key string) error {
-	if kv := rec.dottedKV(key); kv != nil {
-		return removeFromRegion(rec, kv)
-	}
-	e, ok := rec.Get(key)
-	if !ok {
-		return nil
-	}
-	for _, header := range headerNodesOf(e) {
-		d.removeChild(header)
-	}
-	return nil
-}
-
-// removeFromRegion removes one pair from the region that spells a record out.
-func removeFromRegion(rec *Record, kv *KeyValueNode) error {
-	container, _, ok := rec.impliedRegion()
-	if !ok {
-		return nil
-	}
-	children, valueFragment, err := containerChildren(container)
-	if err != nil {
-		return err
-	}
-	for i, child := range *children {
-		if child == Node(kv) {
-			*children = append((*children)[:i], (*children)[i+1:]...)
-			if valueFragment {
-				// An array and an inline table render as one value fragment,
-				// so their own bytes no longer describe their contents.
-				container.markDirty()
+	if parent.rec != nil {
+		if e, bound := parent.rec.Get(key); bound {
+			for _, header := range headerNodesOf(e) {
+				d.removeChild(header)
 			}
+		}
+	}
+
+	// The pairs are written in the container the position stands for, or -- for
+	// a table no single node stands for -- in the region that spelled it out,
+	// where the key path is the one the pairs there are written with.
+	container, prefix := parent.node, []string(nil)
+	if container == nil {
+		if parent.rec == nil {
+			return nil
+		}
+		var spelled bool
+		container, prefix, spelled = parent.rec.impliedRegion()
+		if !spelled {
 			return nil
 		}
 	}
+	removePairsUnder(container, append(append([]string(nil), prefix...), key))
 	return nil
+}
+
+// removePairsUnder removes from a container every pair whose key path starts
+// with path.
+func removePairsUnder(container Node, path []string) {
+	children, valueFragment, err := containerChildren(container)
+	if err != nil {
+		// Not a container of pairs at all: nothing there binds the key.
+		return
+	}
+	kept := (*children)[:0]
+	removed := false
+	for _, child := range *children {
+		if kv, ok := child.(*KeyValueNode); ok && hasPrefix(kv.Key.Parts, path) {
+			removed = true
+			continue
+		}
+		kept = append(kept, child)
+	}
+	*children = kept
+	if removed && valueFragment {
+		// An array and an inline table render as one value fragment, so their
+		// own bytes no longer describe their contents. Only a removal that took
+		// something invalidates them: a key the container never carried leaves
+		// it exactly as written.
+		container.markDirty()
+	}
 }
 
 // headerNodesOf collects the [header] and [[header]] nodes that spell an
@@ -581,65 +571,6 @@ func (d *Document) removeChild(target Node) {
 			d.Children = append(d.Children[:i], d.Children[i+1:]...)
 			return
 		}
-	}
-}
-
-// deleteKeyFromChildren removes the first KV with the given key from a children
-// slice, and reports whether it removed one.
-func deleteKeyFromChildren(children *[]Node, key string) bool {
-	for i, child := range *children {
-		if kv, ok := child.(*KeyValueNode); ok {
-			if len(kv.Key.Parts) > 0 && kv.Key.Parts[0] == key {
-				*children = append((*children)[:i], (*children)[i+1:]...)
-				return true
-			}
-		}
-	}
-	return false
-}
-
-// deleteTableOrArrayTableByFirstKey removes a table or array-table from the
-// document's top-level children by matching the key path.
-func (d *Document) deleteTableOrArrayTableByFirstKey(key string) {
-	targetPath := []string{key}
-	i := 0
-	for i < len(d.Children) {
-		child := d.Children[i]
-		switch n := child.(type) {
-		case *TableNode:
-			if len(n.KeyPath) > 0 && n.KeyPath[0] == key {
-				d.Children = append(d.Children[:i], d.Children[i+1:]...)
-				continue
-			}
-		case *ArrayTableNode:
-			if pathsEqual(n.KeyPath, targetPath) {
-				d.Children = append(d.Children[:i], d.Children[i+1:]...)
-				continue
-			}
-		}
-		i++
-	}
-}
-
-// deleteSubTableByKey removes a sub-table from the document's children.
-func (d *Document) deleteSubTableByKey(parentPath []string, key string) {
-	targetPath := append(append([]string(nil), parentPath...), key)
-	i := 0
-	for i < len(d.Children) {
-		child := d.Children[i]
-		switch n := child.(type) {
-		case *TableNode:
-			if pathsEqual(n.KeyPath, targetPath) {
-				d.Children = append(d.Children[:i], d.Children[i+1:]...)
-				continue
-			}
-		case *ArrayTableNode:
-			if pathsEqual(n.KeyPath, targetPath) {
-				d.Children = append(d.Children[:i], d.Children[i+1:]...)
-				continue
-			}
-		}
-		i++
 	}
 }
 
