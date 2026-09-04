@@ -196,6 +196,7 @@ type DateTimeNode struct
 
 type Document struct
 	field Children []Node
+	method (*Document) AppendToArray(path string, value any) error
 	method (*Document) Bytes() []byte
 	method (*Document) Comment() string
 	method (*Document) Decode(v any) error
@@ -216,7 +217,9 @@ type Document struct
 	method (*Document) MergeDefaults(path string, defaults map[string]any) error
 	method (*Document) NewArrayTable(path string) error
 	method (*Document) NewTable(path string) error
+	method (*Document) PermuteChildren(path string, order []int) error
 	method (*Document) Raw() []byte
+	method (*Document) RemoveFromArray(path string, index int) error
 	method (*Document) RenameKey(path string, newKey string) error
 	method (*Document) Resolve(path string) (Node, error)
 	method (*Document) Root() *Record
