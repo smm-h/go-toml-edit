@@ -129,17 +129,17 @@ audited sequence. `Set`/`SetCreate` on a logical-only path (an
 array-of-tables collection name, an implied parent, a dotted-key prefix)
 refuse with `KindWrongContainer` per the record's read-layer section.
 `Delete`'s fold-failure swallow is removed so a fold error surfaces
-instead of reading as "parent not found". One case is excluded from this
-phase and awaits a user ruling as a Phase 6 residual: `Set`/`SetCreate`
-targeting a name bound by a concrete header table (today a silent
-wrong-key write; refuse vs value-replace under the record's §8 wholesale
-rule). The implementor leaves that sequence's behavior untouched; its
-fix rides the ruling.
+instead of reading as "parent not found". The Set-on-header-table case
+is RULED (user, 2026-09-04): `Set`/`SetCreate` targeting a name bound by
+a concrete header table REFUSES with `KindWrongContainer` — value writes
+touch value fragments; structural constructs change only via structural
+operations or an explicit `Delete`. Red-green like the rest of the
+family.
 
 Verify: op tests incl. bijection violations by kind; the acceptance test
-green; determinism assertion for `EnsureDefaults`; of the eleven audited
-panic sequences, all but the awaiting-ruling Set-on-header-table case
-refuse with the ruled kind and cannot panic `Root()`.
+green; determinism assertion for `EnsureDefaults`; none of the eleven
+audited panic sequences can panic `Root()` — each refuses with its ruled
+kind.
 
 ## Phase 7 — Node model
 
