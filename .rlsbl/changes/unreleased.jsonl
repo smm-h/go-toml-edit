@@ -127,3 +127,4 @@
 {"format_version":1,"id":"18d23ad6bcfe5f0d138a334362204db0820afdc6bff899fe","commits":["f91710c79a67821e512dd0bb4e8139aa752c3b1a"],"user_facing":false}
 {"format_version":1,"id":"18d23c6e5ff05c6b5c320b1d8b0b438393ef01c6d4d02616","commits":["6106c03347e9f23dee9edcadf6bff5c554eaa41a"],"user_facing":false}
 {"format_version":1,"id":"18d23c9822b4b65613d5daa892a5482c9575f2e03be4dc76","commits":["2683f5c5bc9cdf72dccaabf353324c8c92784683"],"user_facing":false}
+{"format_version":1,"id":"18d23c9c0bb165b9faca0800ab7d444ab8fe084f21005559","commits":["74b358aa54fbfbbd34e35859ce79707a488e6fc2"],"user_facing":true,"description":"**Writing text that is not valid UTF-8 is now refused instead of mangled.** A string value, a map or `[]Pair` key, a key a write's path names, a `RenameKey` target and a `Marshal` key that are not valid UTF-8 each report a bad-input diagnostic; before, they were written as replacement characters and read back as a different value.","type":"fix"}
