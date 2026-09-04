@@ -9,11 +9,17 @@ import (
 
 // Bytes serializes the document back to TOML bytes.
 //
-// For clean documents (parsed and never modified), it returns the exact
-// original source bytes (round-trip fidelity). For nodes that have been
-// modified via Set, Delete, or other editing operations, only the affected
-// nodes are re-rendered from their semantic values; unmodified nodes retain
-// their original formatting.
+// A document parsed and never edited renders as the exact bytes it was parsed
+// from. An edited one renders per FRAGMENT: every byte range an edit did not
+// touch is written back as it was read, and only the ranges the edits
+// invalidated are rendered anew, in the library's canonical spellings.
+//
+// So a value write leaves the line's spacing, its inline comment and the
+// quoting of its key exactly as they were; a comment write leaves the value's
+// base and quoting; a write inside an array or an inline table leaves every
+// sibling, separator and interior comment; and a rename leaves everything but
+// the renamed key part. What the library writes -- and only that -- is written
+// in the forms of QuoteString, QuoteKey and FormatFloat.
 func (d *Document) Bytes() []byte {
 	return serializeChildren(nil, d.children)
 }
@@ -42,8 +48,10 @@ func serializeChildren(buf []byte, children []Node) []byte {
 // writes it.
 var spliceOriginalBytes = true
 
-// serializeNode dispatches serialization for a single node. Clean nodes emit
-// their raw bytes; dirty nodes are re-rendered from semantic values.
+// serializeNode dispatches serialization for a single node. A node nothing
+// under it changed emits the bytes it was read with; one that did is rendered
+// fragment by fragment, so the parts of it that were not written still emit
+// theirs.
 func serializeNode(n Node) []byte {
 	switch node := n.(type) {
 	case *TableNode:
@@ -104,7 +112,10 @@ func serializeNode(n Node) []byte {
 	}
 }
 
-// renderValue renders a dirty value node from its semantic value.
+// renderValue renders a value node from its semantic content, ignoring whatever
+// bytes it may have been read with. It is the canonical rendering of the
+// design record for the scalar kinds, and the fragment-wise rendering of the
+// two container kinds.
 func renderValue(n Node) []byte {
 	switch node := n.(type) {
 	case *StringNode:
