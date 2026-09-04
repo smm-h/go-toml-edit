@@ -252,9 +252,15 @@ func (n *nodeBase) setLeadingComments(comments []string) {
 	// The blank lines that separated this node from the one above it, and those
 	// that stood between the last comment and the node, survive replacing the
 	// comments in between. With no comments left the two runs meet, so they are
-	// joined into the one run that remains.
+	// joined into the one run that remains -- and, symmetrically, a node that
+	// had no comments to begin with carries ONE run, which is the one above:
+	// reading it as both would put a blank line on either side of the comments
+	// being written.
 	lead := t.blankRun(0)
-	tail := t.blankRun(len(t.LeadingComments))
+	var tail []byte
+	if len(t.LeadingComments) > 0 {
+		tail = t.blankRun(len(t.LeadingComments))
+	}
 	t.LeadingComments = make([][]byte, len(comments))
 	for i, c := range comments {
 		t.LeadingComments[i] = []byte(c)
