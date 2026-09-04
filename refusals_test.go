@@ -258,6 +258,28 @@ func TestSet_AllowsValuesAndNewKeys(t *testing.T) {
 	}
 }
 
+// --- comments ---
+
+// Fails if a comment write into an inline table reports anything but a
+// wrong-container refusal. TOML gives an inline table no place to put a
+// comment, so the operation has nowhere to be written at all -- the same
+// family as renaming through an array index, which the second half asserts
+// beside it. A conflict would say the edit produces an invalid document,
+// which is a different claim.
+func TestSetComment_InsideAnInlineTableIsAWrongContainer(t *testing.T) {
+	doc := parseOrFail(t, "point = { x = 1, y = 2 }\n")
+	err := doc.SetComment("point.x", "no")
+	if !errors.Is(err, ErrWrongContainer) {
+		t.Errorf("SetComment inside an inline table reported %v, want a wrong-container diagnostic", err)
+	}
+
+	arr := parseOrFail(t, "items = [1, 2]\n")
+	err = arr.RenameKey("items[0]", "x")
+	if !errors.Is(err, ErrWrongContainer) {
+		t.Errorf("RenameKey through an array index reported %v, want a wrong-container diagnostic", err)
+	}
+}
+
 // --- Delete ---
 
 // Fails if Delete swallows a fold failure: a document the read-layer cannot

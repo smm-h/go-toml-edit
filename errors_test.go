@@ -305,8 +305,8 @@ name = "a"
 		{
 			name:     "comment: inside an inline table",
 			run:      func(d *Document) error { return d.SetComment("point.x", "no") },
-			wantKind: KindConflict,
-			wantSent: ErrConflict,
+			wantKind: KindWrongContainer,
+			wantSent: ErrWrongContainer,
 			wantPath: "point.x",
 		},
 		{
