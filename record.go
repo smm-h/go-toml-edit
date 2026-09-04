@@ -129,6 +129,19 @@ func (r *Record) Len() int { return len(r.entries) }
 // the inline table that spells it out, or the construct that implied it.
 func (r *Record) Span() Span { return r.span }
 
+// Node returns the concrete node backing the record, and whether one does. A
+// table written as a header or as an inline table is backed by that construct,
+// an array-of-tables entry by its own [[header]], and the root record by the
+// document. A record no single node stands for -- one implied by a longer
+// header or by a dotted key -- reports false; it exists in the layer, and
+// nothing in the source stands for it alone.
+func (r *Record) Node() (Node, bool) {
+	if r.node == nil {
+		return nil, false
+	}
+	return r.node, true
+}
+
 // Entries iterates the record's entries in first-appearance order.
 func (r *Record) Entries() iter.Seq[Entry] {
 	return func(yield func(Entry) bool) {
@@ -188,13 +201,13 @@ func (e Entry) Records() ([]*Record, bool) {
 // the only range that describes one.
 func (e Entry) RecordsSpan() Span { return e.recordsSpan }
 
-// Node returns the concrete node the entry stands for, and whether there is
-// one. Scalars and arrays always have one, and so does a table written as a
-// header or as an inline table. A table no single node stands for -- one implied
-// by a longer header or by a dotted key -- and an array-of-tables, whose entries
-// are separate nodes, report false.
+// Node returns the value node the entry holds, and whether it holds one. It
+// answers for entries of kind EntryValue -- a scalar or a plain array -- and
+// reports false for every other kind: a record's own backing construct is
+// Record.Node's answer, and an array-of-tables has no single node at all, only
+// the entries Records returns.
 func (e Entry) Node() (Node, bool) {
-	if e.node == nil {
+	if e.kind != EntryValue || e.node == nil {
 		return nil, false
 	}
 	return e.node, true

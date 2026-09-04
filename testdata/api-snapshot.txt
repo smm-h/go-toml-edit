@@ -422,6 +422,7 @@ type Record struct
 	method (*Record) Entries() iter.Seq[Entry]
 	method (*Record) Get(key string) (Entry, bool)
 	method (*Record) Len() int
+	method (*Record) Node() (Node, bool)
 	method (*Record) Span() Span
 
 type SegmentKind int

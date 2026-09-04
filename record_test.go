@@ -161,7 +161,7 @@ func TestFold_ImpliedRecordAnchorsAtItsCreator(t *testing.T) {
 	if got := sourceOfSpan(src, a.Span()); got != "[a.b]" {
 		t.Errorf("record a is anchored at %q, want the header that implied it", got)
 	}
-	if _, ok := root.entries[0].Node(); ok {
+	if _, ok := a.Node(); ok {
 		t.Error("an implied record reports a concrete node; no single node stands for it")
 	}
 }
@@ -323,11 +323,10 @@ func TestFold_RecordsSpan(t *testing.T) {
 	}
 }
 
-// Fails if Kind stops classifying an entry by what it holds, or if Node stops
-// answering with the concrete node behind it -- comma-ok is how a caller learns
-// that a logical-only entry has none.
-func TestFold_EntryKindAndNode(t *testing.T) {
-	root := foldTestDoc(t, `scalar = 1
+// entryNodeDoc carries one entry of every kind and origin the layer can hold:
+// two values, a table in each of its two written spellings, an
+// array-of-tables, and a record implied by a longer header.
+const entryNodeDoc = `scalar = 1
 arr = [1, 2]
 inline = {x = 1}
 
@@ -339,7 +338,14 @@ z = 1
 
 [implied.leaf]
 w = 1
-`)
+`
+
+// Fails if Kind stops classifying an entry by what it holds, or if Node stops
+// answering for VALUE entries alone -- a scalar or a plain array. A table is a
+// record whatever spelling wrote it, and a record's own construct is
+// Record.Node's answer, not the entry's.
+func TestFold_EntryKindAndNode(t *testing.T) {
+	root := foldTestDoc(t, entryNodeDoc)
 	cases := []struct {
 		key      string
 		kind     EntryKind
@@ -348,8 +354,8 @@ w = 1
 	}{
 		{"scalar", EntryValue, true, NodeInteger},
 		{"arr", EntryValue, true, NodeArray},
-		{"inline", EntryRecord, true, NodeInlineTable},
-		{"header", EntryRecord, true, NodeTable},
+		{"inline", EntryRecord, false, 0},
+		{"header", EntryRecord, false, 0},
 		{"coll", EntryRecords, false, 0},
 		{"implied", EntryRecord, false, 0},
 	}
@@ -380,6 +386,76 @@ w = 1
 	header, _ := root.Get("header")
 	if _, ok := header.Records(); ok {
 		t.Error("a record answered Records()")
+	}
+}
+
+// Fails if a record stops naming the construct that backs it. Every origin a
+// record can have answers here: the two written table spellings, an
+// array-of-tables entry, the document root, and a record implied by a longer
+// header -- the one origin no single construct stands for.
+func TestFold_RecordNode(t *testing.T) {
+	root := foldTestDoc(t, entryNodeDoc)
+
+	node, ok := root.Node()
+	if !ok {
+		t.Error("the root record names no node; the document is what backs it")
+	} else if node.Type() != NodeDocument {
+		t.Errorf("the root record is backed by a %s, want a %s", node.Type(), NodeDocument)
+	}
+
+	cases := []struct {
+		key      string
+		hasNode  bool
+		nodeType NodeType
+	}{
+		{"inline", true, NodeInlineTable},
+		{"header", true, NodeTable},
+		{"implied", false, 0},
+	}
+	for _, c := range cases {
+		e, found := root.Get(c.key)
+		if !found {
+			t.Errorf("no entry %q", c.key)
+			continue
+		}
+		rec, isRecord := e.Record()
+		if !isRecord {
+			t.Errorf("%s is a %s, want a record", c.key, e.Kind())
+			continue
+		}
+		node, has := rec.Node()
+		if has != c.hasNode {
+			t.Errorf("the %s record's Node() reported %v, want %v", c.key, has, c.hasNode)
+			continue
+		}
+		if has && node.Type() != c.nodeType {
+			t.Errorf("the %s record is backed by a %s, want a %s", c.key, node.Type(), c.nodeType)
+		}
+	}
+
+	// Each entry of an array-of-tables is backed by its own header.
+	coll, _ := root.Get("coll")
+	entries, isCollection := coll.Records()
+	if !isCollection {
+		t.Fatalf("coll is a %s, want an array-of-tables", coll.Kind())
+	}
+	for i, rec := range entries {
+		node, has := rec.Node()
+		if !has {
+			t.Errorf("coll[%d] names no node; its own [[header]] backs it", i)
+			continue
+		}
+		if node.Type() != NodeArrayTable {
+			t.Errorf("coll[%d] is backed by a %s, want a %s", i, node.Type(), NodeArrayTable)
+		}
+	}
+
+	// A record implied by a dotted key is the other unbacked origin.
+	dotted := foldTestDoc(t, "a.b = 1\n")
+	e, _ := dotted.Get("a")
+	rec, _ := e.Record()
+	if _, has := rec.Node(); has {
+		t.Error("a record implied by a dotted key names a node; no single construct stands for it")
 	}
 }
 
