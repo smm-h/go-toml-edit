@@ -708,7 +708,14 @@ func (d *Document) headerTarget(keyPath []string) (Entry, bool, error) {
 		default:
 			// A prefix a dotted key spelled out is descended through like any
 			// other: TOML refuses only a header that REDEFINES such a table,
-			// which is a question about the final key, asked below.
+			// which is a question about the final key, asked below. An inline
+			// table is the one record kind no header may descend into at all --
+			// TOML gives one no way to be added to.
+			if _, inline := e.record.node.(*InlineTableNode); inline {
+				return Entry{}, false, newError(KindConflict,
+					"%q is an inline table, and TOML does not allow adding to one with a header",
+					pathFromKeys(keyPath[:i+1]))
+			}
 			cur = e.record
 		}
 	}
