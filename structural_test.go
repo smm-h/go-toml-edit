@@ -31,7 +31,7 @@ func TestPermuteChildren_ReordersDocumentChildren(t *testing.T) {
 func TestPermuteChildren_CommentsTravelWithTheirNodes(t *testing.T) {
 	const src = "# about b\n[b]\nx = 1\n\n# about a\n[a]\ny = 2\n"
 	doc := parseOrFail(t, src)
-	children := doc.Children
+	children := doc.children
 	if len(children) != 2 {
 		t.Fatalf("the document holds %d children, want 2: %#v", len(children), children)
 	}
@@ -103,7 +103,7 @@ func TestPermuteChildren_ReordersArrayOfTablesEntries(t *testing.T) {
 	}
 	first, _ := records[0].Get("n")
 	node, _ := first.Node()
-	if n, ok := node.(*IntegerNode); !ok || n.Val != 2 {
+	if n, ok := node.(*IntegerNode); !ok || n.val.get() != 2 {
 		t.Errorf("the first entry reads %q, want the one that was second", doc.Bytes())
 	}
 }

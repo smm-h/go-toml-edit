@@ -28,11 +28,11 @@ func mergeChildren(target *Document, source *Document, scope Node, prefix string
 			continue
 		}
 
-		if len(kv.Key.Parts) > 1 {
+		if len(kv.key.parts) > 1 {
 			continue // handled below
 		}
 
-		part := kv.Key.Parts[0]
+		part := kv.key.parts[0]
 		fullPath := part
 		if prefix != "" {
 			fullPath = prefix + "." + part
@@ -41,15 +41,15 @@ func mergeChildren(target *Document, source *Document, scope Node, prefix string
 		existing, present := target.probe(fullPath)
 		if !present {
 			// New key: copy value and comments.
-			if err := target.SetCreate(fullPath, nodeToValue(kv.Val)); err != nil {
+			if err := target.SetCreate(fullPath, nodeToValue(kv.val)); err != nil {
 				return wrapError(err, "merging key %q", fullPath)
 			}
 			// Copy comments to the newly created node.
 			copyComments(target, fullPath, kv)
 		} else {
 			// Existing key: check if both are tables for recursive merge.
-			if existing.rec != nil && isTableLike(kv.Val) {
-				if err := mergeChildren(target, source, kv.Val, fullPath); err != nil {
+			if existing.rec != nil && isTableLike(kv.val) {
+				if err := mergeChildren(target, source, kv.val, fullPath); err != nil {
 					return err
 				}
 			}
@@ -64,14 +64,14 @@ func mergeChildren(target *Document, source *Document, scope Node, prefix string
 		if !ok {
 			continue
 		}
-		if len(kv.Key.Parts) <= 1 {
+		if len(kv.key.parts) <= 1 {
 			continue
 		}
 		// Multi-part dotted key like a.b.c = val.
 		// Build the full path and merge as a leaf.
-		fullPath := buildPathFromParts(prefix, kv.Key.Parts)
+		fullPath := buildPathFromParts(prefix, kv.key.parts)
 		if _, present := target.probe(fullPath); !present {
-			if err := target.SetCreate(fullPath, nodeToValue(kv.Val)); err != nil {
+			if err := target.SetCreate(fullPath, nodeToValue(kv.val)); err != nil {
 				return wrapError(err, "merging dotted key %q", fullPath)
 			}
 			copyComments(target, fullPath, kv)
@@ -93,13 +93,13 @@ func mergeChildren(target *Document, source *Document, scope Node, prefix string
 	var arrayTableGroups []arrayTableGroup
 	seenArrayPaths := map[string]int{} // subPrefix -> index into arrayTableGroups
 
-	for _, child := range source.Children {
+	for _, child := range source.children {
 		switch n := child.(type) {
 		case *TableNode:
-			if !isDirectChild(n.KeyPath, scopePath) {
+			if !isDirectChild(n.keyPath, scopePath) {
 				continue
 			}
-			suffix := n.KeyPath[len(scopePath):]
+			suffix := n.keyPath[len(scopePath):]
 			subPrefix := buildPathFromParts(prefix, suffix)
 
 			existing, present := target.probe(subPrefix)
@@ -118,10 +118,10 @@ func mergeChildren(target *Document, source *Document, scope Node, prefix string
 			}
 
 		case *ArrayTableNode:
-			if !isDirectChild(n.KeyPath, scopePath) {
+			if !isDirectChild(n.keyPath, scopePath) {
 				continue
 			}
-			suffix := n.KeyPath[len(scopePath):]
+			suffix := n.keyPath[len(scopePath):]
 			subPrefix := buildPathFromParts(prefix, suffix)
 
 			if idx, ok := seenArrayPaths[subPrefix]; ok {
@@ -157,23 +157,23 @@ func mergeChildren(target *Document, source *Document, scope Node, prefix string
 // mergeSubTable creates a new table at subPrefix in target and copies all KVs
 // from the source table node.
 func mergeSubTable(target *Document, source *Document, tbl *TableNode, subPrefix string) error {
-	for _, child := range tbl.Children {
+	for _, child := range tbl.children {
 		kv, ok := child.(*KeyValueNode)
 		if !ok {
 			continue
 		}
-		fullPath := buildPathFromParts(subPrefix, kv.Key.Parts)
-		if err := target.SetCreate(fullPath, nodeToValue(kv.Val)); err != nil {
+		fullPath := buildPathFromParts(subPrefix, kv.key.parts)
+		if err := target.SetCreate(fullPath, nodeToValue(kv.val)); err != nil {
 			return wrapError(err, "merging sub-table key %q", fullPath)
 		}
 		copyComments(target, fullPath, kv)
 	}
 
 	// Also copy sub-sub-tables.
-	for _, child := range source.Children {
+	for _, child := range source.children {
 		if sub, ok := child.(*TableNode); ok {
-			if hasPrefix(sub.KeyPath, tbl.KeyPath) && len(sub.KeyPath) > len(tbl.KeyPath) {
-				suffix := sub.KeyPath[len(tbl.KeyPath):]
+			if hasPrefix(sub.keyPath, tbl.keyPath) && len(sub.keyPath) > len(tbl.keyPath) {
+				suffix := sub.keyPath[len(tbl.keyPath):]
 				nestedPrefix := buildPathFromParts(subPrefix, suffix)
 				if err := mergeSubTable(target, source, sub, nestedPrefix); err != nil {
 					return err
@@ -192,7 +192,7 @@ func mergeArrayTableEntry(target *Document, _ *Document, atn *ArrayTableNode, su
 	}
 	// Find the last entry index (the one we just created is at index 0 if new).
 	// Use SetCreate to add children.
-	for _, child := range atn.Children {
+	for _, child := range atn.children {
 		kv, ok := child.(*KeyValueNode)
 		if !ok {
 			continue
@@ -200,8 +200,8 @@ func mergeArrayTableEntry(target *Document, _ *Document, atn *ArrayTableNode, su
 		// For array-of-tables, we need to target the last entry.
 		// Since we just created it with NewArrayTable, the path with [-1]
 		// should work.
-		fullPath := subPrefix + "[-1]." + buildPathFromParts("", kv.Key.Parts)
-		if err := target.SetCreate(fullPath, nodeToValue(kv.Val)); err != nil {
+		fullPath := subPrefix + "[-1]." + buildPathFromParts("", kv.key.parts)
+		if err := target.SetCreate(fullPath, nodeToValue(kv.val)); err != nil {
 			return wrapError(err, "merging array table entry key %q", fullPath)
 		}
 	}
@@ -212,13 +212,13 @@ func mergeArrayTableEntry(target *Document, _ *Document, atn *ArrayTableNode, su
 func scopeChildren(scope Node) []Node {
 	switch s := scope.(type) {
 	case *Document:
-		return s.Children
+		return s.children
 	case *TableNode:
-		return s.Children
+		return s.children
 	case *ArrayTableNode:
-		return s.Children
+		return s.children
 	case *InlineTableNode:
-		return s.Children
+		return s.children
 	default:
 		return nil
 	}
@@ -230,9 +230,9 @@ func scopeKeyPath(scope Node) []string {
 	case *Document:
 		return nil
 	case *TableNode:
-		return s.KeyPath
+		return s.keyPath
 	case *ArrayTableNode:
-		return s.KeyPath
+		return s.keyPath
 	default:
 		return nil
 	}
@@ -275,33 +275,33 @@ func (d *Document) probe(path string) (layerPos, bool) {
 func nodeToValue(n Node) any {
 	switch v := n.(type) {
 	case *StringNode:
-		return v.Val
+		return v.val.get()
 	case *IntegerNode:
-		return v.Val
+		return v.val.get()
 	case *FloatNode:
-		return v.Val
+		return v.val.get()
 	case *BooleanNode:
-		return v.Val
+		return v.val.get()
 	case *DateTimeNode:
-		return v.Val
+		return v.val.get()
 	case *LocalDateTimeNode:
-		return v.Val
+		return v.val.get()
 	case *LocalDateNode:
-		return v.Val
+		return v.val.get()
 	case *LocalTimeNode:
-		return v.Val
+		return v.val.get()
 	case *ArrayNode:
-		items := make([]any, len(v.Elements))
-		for i, elem := range v.Elements {
+		items := make([]any, len(v.elements))
+		for i, elem := range v.elements {
 			items[i] = nodeToValue(elem)
 		}
 		return items
 	case *InlineTableNode:
 		m := make(map[string]any)
-		for _, child := range v.Children {
+		for _, child := range v.children {
 			if kv, ok := child.(*KeyValueNode); ok {
-				key := buildPathFromParts("", kv.Key.Parts)
-				m[key] = nodeToValue(kv.Val)
+				key := buildPathFromParts("", kv.key.parts)
+				m[key] = nodeToValue(kv.val)
 			}
 		}
 		return m

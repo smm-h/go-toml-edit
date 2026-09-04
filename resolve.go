@@ -88,9 +88,9 @@ func (p layerPos) noNodeError() *Error {
 func (p layerPos) notFound(key string) *Error {
 	switch n := p.node.(type) {
 	case *TableNode:
-		return newError(KindNotFound, "key %q not found in table [%s]", key, pathFromKeys(n.KeyPath))
+		return newError(KindNotFound, "key %q not found in table [%s]", key, pathFromKeys(n.keyPath))
 	case *ArrayTableNode:
-		return newError(KindNotFound, "key %q not found in array table [[%s]]", key, pathFromKeys(n.KeyPath))
+		return newError(KindNotFound, "key %q not found in array table [[%s]]", key, pathFromKeys(n.keyPath))
 	case *InlineTableNode:
 		return newError(KindNotFound, "key %q not found in inline table", key)
 	}
@@ -161,11 +161,11 @@ func (p layerPos) at(index int) (layerPos, error) {
 		return posFromRecord(p.records[idx]), nil
 	}
 	if arr, ok := p.node.(*ArrayNode); ok {
-		idx, err := normalizeIndex(index, len(arr.Elements))
+		idx, err := normalizeIndex(index, len(arr.elements))
 		if err != nil {
 			return layerPos{}, err
 		}
-		return posFromNode(arr.Elements[idx]), nil
+		return posFromNode(arr.elements[idx]), nil
 	}
 	return layerPos{}, newError(KindWrongContainer, "cannot index into %s", p.describe())
 }

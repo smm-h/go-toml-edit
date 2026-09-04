@@ -102,9 +102,9 @@ func BenchmarkParseLarge(b *testing.B) {
 // Shared struct for unmarshal benchmarks (matches benchInput TOML).
 type benchConfig struct {
 	Server struct {
-		Host     string
-		Port     int
-		Debug    bool
+		Host     string `toml:"host"`
+		Port     int    `toml:"port"`
+		Debug    bool   `toml:"debug"`
 		Database struct {
 			Host            string `toml:"host"`
 			Port            int    `toml:"port"`

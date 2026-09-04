@@ -196,11 +196,11 @@ func TestItems_CollectAll(t *testing.T) {
 			t.Fatalf("expected *ArrayTableNode, got %T", node)
 		}
 		// Find the "name" KV in the array table children
-		for _, child := range at.Children {
+		for _, child := range at.children {
 			if kv, ok := child.(*KeyValueNode); ok {
-				if len(kv.Key.Parts) == 1 && kv.Key.Parts[0] == "name" {
-					if s, ok := kv.Val.(*StringNode); ok {
-						names = append(names, s.Val)
+				if len(kv.key.parts) == 1 && kv.key.parts[0] == "name" {
+					if s, ok := kv.val.(*StringNode); ok {
+						names = append(names, s.val.get())
 					}
 				}
 			}

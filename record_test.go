@@ -32,10 +32,10 @@ func unfoldableDoc(t *testing.T) *Document {
 	if err != nil {
 		t.Fatalf("parse error: %v", err)
 	}
-	atbl := &ArrayTableNode{KeyPath: []string{"a"}}
+	atbl := &ArrayTableNode{keyPath: []string{"a"}}
 	atbl.markDirty()
 	atbl.nodeTrivia.TrailingNewline = []byte("\n")
-	doc.Children = append(doc.Children, atbl)
+	buildAppend(doc, atbl)
 	return doc
 }
 
@@ -129,7 +129,7 @@ func TestFold_DottedKeyExpansion(t *testing.T) {
 	if !ok {
 		t.Fatal("a.b.c has no concrete node")
 	}
-	if n, isInt := node.(*IntegerNode); !isInt || n.Val != 1 {
+	if n, isInt := node.(*IntegerNode); !isInt || n.val.get() != 1 {
 		t.Errorf("a.b.c node = %T, want the integer 1", node)
 	}
 }
@@ -232,7 +232,7 @@ name = "c"
 			t.Fatalf("p[%d] has no name", i)
 		}
 		node, _ := e.Node()
-		if s, isStr := node.(*StringNode); !isStr || s.Val != want {
+		if s, isStr := node.(*StringNode); !isStr || s.val.get() != want {
 			t.Errorf("p[%d].name = %v, want %q", i, node, want)
 		}
 	}
@@ -493,7 +493,7 @@ func TestFold_RecordsReturnsACopy(t *testing.T) {
 	}
 	first, _ := again[0].Get("x")
 	node, _ := first.Node()
-	if n, ok := node.(*IntegerNode); !ok || n.Val != 1 {
+	if n, ok := node.(*IntegerNode); !ok || n.val.get() != 1 {
 		t.Errorf("reordering the returned slice reordered the layer: first entry x = %v", node)
 	}
 }
@@ -546,10 +546,10 @@ func TestFold_ValueCannotHoldATable(t *testing.T) {
 	if err != nil {
 		t.Fatalf("parse error: %v", err)
 	}
-	tbl := &TableNode{KeyPath: []string{"a", "b"}}
+	tbl := &TableNode{keyPath: []string{"a", "b"}}
 	tbl.markDirty()
 	tbl.nodeTrivia.TrailingNewline = []byte("\n")
-	doc.Children = append(doc.Children, tbl)
+	buildAppend(doc, tbl)
 	if _, err := foldDocument(doc); err == nil {
 		t.Fatal("folding a table under a scalar key succeeded")
 	}

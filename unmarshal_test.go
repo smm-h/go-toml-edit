@@ -30,7 +30,7 @@ type customUnmarshaler struct {
 
 func (c *customUnmarshaler) UnmarshalTOML(node Node) error {
 	if node.Type() == NodeString {
-		c.Data = "custom:" + node.(*StringNode).Val
+		c.Data = "custom:" + node.(*StringNode).val.get()
 		return nil
 	}
 	return fmt.Errorf("customUnmarshaler: expected string, got %s", node.Type())

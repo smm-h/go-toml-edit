@@ -33,7 +33,7 @@ func Marshal(v any) ([]byte, error) {
 
 	b := doc.Format()
 	// Format() always ends with \n. For empty maps, return empty bytes.
-	if len(doc.Children) == 0 {
+	if len(doc.children) == 0 {
 		return []byte{}, nil
 	}
 	return b, nil
@@ -65,7 +65,7 @@ func mapToDocument(rv reflect.Value) (*Document, error) {
 		if err != nil {
 			return nil, fmt.Errorf("toml: key %q: %w", k, err)
 		}
-		doc.Children = append(doc.Children, kv)
+		buildAppend(doc, kv)
 	}
 
 	// Emit sections for nested maps.
@@ -80,12 +80,12 @@ func mapToDocument(rv reflect.Value) (*Document, error) {
 			return nil, fmt.Errorf("toml: section %q: %w", k, err)
 		}
 		tbl := &TableNode{
-			KeyPath:  []string{k},
-			Children: children,
+			keyPath:  []string{k},
+			children: children,
 		}
 		tbl.markDirty()
 		tbl.nodeTrivia.TrailingNewline = []byte("\n")
-		doc.Children = append(doc.Children, tbl)
+		buildAppend(doc, tbl)
 	}
 
 	return doc, nil
@@ -116,13 +116,13 @@ func makeKeyValue(key string, val any) (*KeyValueNode, error) {
 	}
 
 	keyNode := &KeyNode{
-		Parts: []string{key},
+		parts: []string{key},
 	}
 	keyNode.markDirty()
 
 	kv := &KeyValueNode{
-		Key: keyNode,
-		Val: valNode,
+		key: keyNode,
+		val: valNode,
 	}
 	kv.markDirty()
 	kv.nodeTrivia.TrailingNewline = []byte("\n")

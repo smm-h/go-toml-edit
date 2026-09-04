@@ -56,7 +56,7 @@ func (d *Document) GetString(path string) (string, bool) {
 		return "", false
 	}
 	if s, ok := node.(*StringNode); ok {
-		return s.Val, true
+		return s.val.get(), true
 	}
 	return "", false
 }
@@ -69,7 +69,7 @@ func (d *Document) GetInt(path string) (int64, bool) {
 		return 0, false
 	}
 	if n, ok := node.(*IntegerNode); ok {
-		return n.Val, true
+		return n.val.get(), true
 	}
 	return 0, false
 }
@@ -82,7 +82,7 @@ func (d *Document) GetBool(path string) (bool, bool) {
 		return false, false
 	}
 	if b, ok := node.(*BooleanNode); ok {
-		return b.Val, true
+		return b.val.get(), true
 	}
 	return false, false
 }
@@ -95,7 +95,7 @@ func (d *Document) GetFloat(path string) (float64, bool) {
 		return 0, false
 	}
 	if f, ok := node.(*FloatNode); ok {
-		return f.Val, true
+		return f.val.get(), true
 	}
 	return 0, false
 }
@@ -108,7 +108,7 @@ func (d *Document) GetTime(path string) (time.Time, bool) {
 		return time.Time{}, false
 	}
 	if dt, ok := node.(*DateTimeNode); ok {
-		return dt.Val, true
+		return dt.val.get(), true
 	}
 	return time.Time{}, false
 }

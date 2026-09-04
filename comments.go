@@ -133,19 +133,19 @@ func findKVInParent(parent Node, key string) *KeyValueNode {
 	var children []Node
 	switch p := parent.(type) {
 	case *Document:
-		children = p.Children
+		children = p.children
 	case *TableNode:
-		children = p.Children
+		children = p.children
 	case *ArrayTableNode:
-		children = p.Children
+		children = p.children
 	case *InlineTableNode:
-		children = p.Children
+		children = p.children
 	default:
 		return nil
 	}
 	for _, child := range children {
 		if kv, ok := child.(*KeyValueNode); ok {
-			if len(kv.Key.Parts) > 0 && kv.Key.Parts[0] == key {
+			if len(kv.key.parts) > 0 && kv.key.parts[0] == key {
 				return kv
 			}
 		}

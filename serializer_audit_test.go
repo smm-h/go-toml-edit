@@ -13,7 +13,7 @@ import (
 // =============================================================================
 
 func TestAuditStringEscapeBackslash(t *testing.T) {
-	n := &StringNode{Val: "a\\b", Style: StringBasic}
+	n := &StringNode{val: scalarOf("a\\b"), style: StringBasic}
 	n.markDirty()
 	got := string(renderValue(n))
 	want := "\"a\\\\b\""
@@ -23,7 +23,7 @@ func TestAuditStringEscapeBackslash(t *testing.T) {
 }
 
 func TestAuditStringEscapeDoubleQuote(t *testing.T) {
-	n := &StringNode{Val: "say \"hello\"", Style: StringBasic}
+	n := &StringNode{val: scalarOf("say \"hello\""), style: StringBasic}
 	n.markDirty()
 	got := string(renderValue(n))
 	want := "\"say \\\"hello\\\"\""
@@ -44,7 +44,7 @@ func TestAuditStringEscapeNamedControlChars(t *testing.T) {
 		{"\r", "\"\\r\""},
 	}
 	for _, tt := range tests {
-		n := &StringNode{Val: tt.val, Style: StringBasic}
+		n := &StringNode{val: scalarOf(tt.val), style: StringBasic}
 		n.markDirty()
 		got := string(renderValue(n))
 		if got != tt.want {
@@ -65,7 +65,7 @@ func TestAuditStringEscapeControlCharUnicodeEscape(t *testing.T) {
 		{0x7F, "\\u007F"},
 	}
 	for _, tt := range tests {
-		n := &StringNode{Val: string(tt.char), Style: StringBasic}
+		n := &StringNode{val: scalarOf(string(tt.char)), style: StringBasic}
 		n.markDirty()
 		got := string(renderValue(n))
 		want := "\"" + tt.esc + "\""
@@ -77,7 +77,7 @@ func TestAuditStringEscapeControlCharUnicodeEscape(t *testing.T) {
 
 func TestAuditStringNullByteRoundTrip(t *testing.T) {
 	val := "before\x00after"
-	n := &StringNode{Val: val, Style: StringBasic}
+	n := &StringNode{val: scalarOf(val), style: StringBasic}
 	n.markDirty()
 	got := string(renderValue(n))
 	if !strings.Contains(got, "\\u0000") {
@@ -89,10 +89,10 @@ func TestAuditStringNullByteRoundTrip(t *testing.T) {
 	if err != nil {
 		t.Fatalf("re-parse failed: %v\nTOML: %s", err, toml)
 	}
-	kv := doc.Children[0].(*KeyValueNode)
-	sv := kv.Val.(*StringNode)
-	if sv.Val != val {
-		t.Errorf("round-trip value mismatch: got %q, want %q", sv.Val, val)
+	kv := doc.children[0].(*KeyValueNode)
+	sv := kv.val.(*StringNode)
+	if sv.val.get() != val {
+		t.Errorf("round-trip value mismatch: got %q, want %q", sv.val.get(), val)
 	}
 }
 
@@ -110,7 +110,7 @@ func TestAuditStringRoundTripAllStyles(t *testing.T) {
 	}
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
-			n := &StringNode{Val: tt.val, Style: tt.style}
+			n := &StringNode{val: scalarOf(tt.val), style: tt.style}
 			n.markDirty()
 			rendered := string(renderValue(n))
 			toml := "x = " + rendered + "\n"
@@ -118,17 +118,17 @@ func TestAuditStringRoundTripAllStyles(t *testing.T) {
 			if err != nil {
 				t.Fatalf("re-parse failed: %v\nTOML: %s", err, toml)
 			}
-			kv := doc.Children[0].(*KeyValueNode)
-			sv := kv.Val.(*StringNode)
-			if sv.Val != tt.val {
-				t.Errorf("round-trip value mismatch: got %q, want %q", sv.Val, tt.val)
+			kv := doc.children[0].(*KeyValueNode)
+			sv := kv.val.(*StringNode)
+			if sv.val.get() != tt.val {
+				t.Errorf("round-trip value mismatch: got %q, want %q", sv.val.get(), tt.val)
 			}
 		})
 	}
 }
 
 func TestAuditStringLiteralFallbackOnNewline(t *testing.T) {
-	n := &StringNode{Val: "line1\nline2", Style: StringLiteral}
+	n := &StringNode{val: scalarOf("line1\nline2"), style: StringLiteral}
 	n.markDirty()
 	got := string(renderValue(n))
 	if !strings.HasPrefix(got, "\"") {
@@ -140,7 +140,7 @@ func TestAuditStringLiteralFallbackOnNewline(t *testing.T) {
 }
 
 func TestAuditStringMultiLineLiteralFallbackOnTripleQuote(t *testing.T) {
-	n := &StringNode{Val: "has ''' inside", Style: StringMultiLineLiteral}
+	n := &StringNode{val: scalarOf("has ''' inside"), style: StringMultiLineLiteral}
 	n.markDirty()
 	got := string(renderValue(n))
 	if !strings.HasPrefix(got, "\"\"\"") {
@@ -149,7 +149,7 @@ func TestAuditStringMultiLineLiteralFallbackOnTripleQuote(t *testing.T) {
 }
 
 func TestAuditMultiLineBasicStringQuoteHandling(t *testing.T) {
-	n := &StringNode{Val: "say \"hello\" to \"world\"", Style: StringMultiLineBasic}
+	n := &StringNode{val: scalarOf("say \"hello\" to \"world\""), style: StringMultiLineBasic}
 	n.markDirty()
 	got := string(renderValue(n))
 	toml := "x = " + got + "\n"
@@ -157,10 +157,10 @@ func TestAuditMultiLineBasicStringQuoteHandling(t *testing.T) {
 	if err != nil {
 		t.Fatalf("re-parse failed: %v\nTOML: %s", err, toml)
 	}
-	kv := doc.Children[0].(*KeyValueNode)
-	sv := kv.Val.(*StringNode)
-	if sv.Val != "say \"hello\" to \"world\"" {
-		t.Errorf("round-trip mismatch: got %q", sv.Val)
+	kv := doc.children[0].(*KeyValueNode)
+	sv := kv.val.(*StringNode)
+	if sv.val.get() != "say \"hello\" to \"world\"" {
+		t.Errorf("round-trip mismatch: got %q", sv.val.get())
 	}
 }
 
@@ -169,7 +169,7 @@ func TestAuditMultiLineBasicStringQuoteHandling(t *testing.T) {
 // =============================================================================
 
 func TestAuditFloatZero(t *testing.T) {
-	n := &FloatNode{Val: 0.0}
+	n := &FloatNode{val: scalarOf(0.0)}
 	n.markDirty()
 	got := string(renderValue(n))
 	if got != "0.0" {
@@ -178,7 +178,7 @@ func TestAuditFloatZero(t *testing.T) {
 }
 
 func TestAuditFloatNegativeZero(t *testing.T) {
-	n := &FloatNode{Val: math.Copysign(0, -1)}
+	n := &FloatNode{val: scalarOf(math.Copysign(0, -1))}
 	n.markDirty()
 	got := string(renderValue(n))
 	if !strings.Contains(got, ".") {
@@ -187,7 +187,7 @@ func TestAuditFloatNegativeZero(t *testing.T) {
 }
 
 func TestAuditFloatVerySmall(t *testing.T) {
-	n := &FloatNode{Val: 0.000001}
+	n := &FloatNode{val: scalarOf(0.000001)}
 	n.markDirty()
 	got := string(renderValue(n))
 	if !strings.Contains(got, ".") {
@@ -198,15 +198,15 @@ func TestAuditFloatVerySmall(t *testing.T) {
 	if err != nil {
 		t.Fatalf("re-parse failed: %v\nTOML: %s", err, toml)
 	}
-	kv := doc.Children[0].(*KeyValueNode)
-	fv := kv.Val.(*FloatNode)
-	if math.Abs(fv.Val-0.000001) > 1e-12 {
-		t.Errorf("round-trip value mismatch: got %v, want 0.000001", fv.Val)
+	kv := doc.children[0].(*KeyValueNode)
+	fv := kv.val.(*FloatNode)
+	if math.Abs(fv.val.get()-0.000001) > 1e-12 {
+		t.Errorf("round-trip value mismatch: got %v, want 0.000001", fv.val.get())
 	}
 }
 
 func TestAuditFloatVeryLarge(t *testing.T) {
-	n := &FloatNode{Val: 1e15}
+	n := &FloatNode{val: scalarOf(1e15)}
 	n.markDirty()
 	got := string(renderValue(n))
 	if !strings.Contains(got, ".") {
@@ -217,10 +217,10 @@ func TestAuditFloatVeryLarge(t *testing.T) {
 	if err != nil {
 		t.Fatalf("re-parse failed: %v\nTOML: %s", err, toml)
 	}
-	kv := doc.Children[0].(*KeyValueNode)
-	fv := kv.Val.(*FloatNode)
-	if math.Abs(fv.Val-1e15) > 1 {
-		t.Errorf("round-trip value mismatch: got %v, want 1e15", fv.Val)
+	kv := doc.children[0].(*KeyValueNode)
+	fv := kv.val.(*FloatNode)
+	if math.Abs(fv.val.get()-1e15) > 1 {
+		t.Errorf("round-trip value mismatch: got %v, want 1e15", fv.val.get())
 	}
 }
 
@@ -235,7 +235,7 @@ func TestAuditFloatPrecision(t *testing.T) {
 		{100.0, "100.0"},
 	}
 	for _, tt := range tests {
-		n := &FloatNode{Val: tt.val}
+		n := &FloatNode{val: scalarOf(tt.val)}
 		n.markDirty()
 		got := string(renderValue(n))
 		if got != tt.want {
@@ -254,7 +254,7 @@ func TestAuditFloatSpecialReparse(t *testing.T) {
 		{math.NaN(), "nan"},
 	}
 	for _, tt := range tests {
-		n := &FloatNode{Val: tt.val}
+		n := &FloatNode{val: scalarOf(tt.val)}
 		n.markDirty()
 		got := string(renderValue(n))
 		if got != tt.repr {
@@ -265,14 +265,14 @@ func TestAuditFloatSpecialReparse(t *testing.T) {
 		if err != nil {
 			t.Fatalf("re-parse of %q failed: %v", toml, err)
 		}
-		kv := doc.Children[0].(*KeyValueNode)
-		fv := kv.Val.(*FloatNode)
+		kv := doc.children[0].(*KeyValueNode)
+		fv := kv.val.(*FloatNode)
 		if math.IsNaN(tt.val) {
-			if !math.IsNaN(fv.Val) {
-				t.Errorf("expected NaN, got %v", fv.Val)
+			if !math.IsNaN(fv.val.get()) {
+				t.Errorf("expected NaN, got %v", fv.val.get())
 			}
-		} else if fv.Val != tt.val {
-			t.Errorf("round-trip mismatch: got %v, want %v", fv.Val, tt.val)
+		} else if fv.val.get() != tt.val {
+			t.Errorf("round-trip mismatch: got %v, want %v", fv.val.get(), tt.val)
 		}
 	}
 }
@@ -283,21 +283,21 @@ func TestAuditFloatSpecialReparse(t *testing.T) {
 
 func TestAuditArrayNestedArrays(t *testing.T) {
 	inner1 := &ArrayNode{
-		Elements: []Node{
-			&IntegerNode{nodeBase: nodeBase{dirty: true}, Val: 1, Base: IntegerDecimal},
-			&IntegerNode{nodeBase: nodeBase{dirty: true}, Val: 2, Base: IntegerDecimal},
+		elements: []Node{
+			&IntegerNode{nodeBase: nodeBase{dirty: true}, val: scalarOf[int64](1), base: IntegerDecimal},
+			&IntegerNode{nodeBase: nodeBase{dirty: true}, val: scalarOf[int64](2), base: IntegerDecimal},
 		},
 	}
 	inner1.markDirty()
 	inner2 := &ArrayNode{
-		Elements: []Node{
-			&IntegerNode{nodeBase: nodeBase{dirty: true}, Val: 3, Base: IntegerDecimal},
-			&IntegerNode{nodeBase: nodeBase{dirty: true}, Val: 4, Base: IntegerDecimal},
+		elements: []Node{
+			&IntegerNode{nodeBase: nodeBase{dirty: true}, val: scalarOf[int64](3), base: IntegerDecimal},
+			&IntegerNode{nodeBase: nodeBase{dirty: true}, val: scalarOf[int64](4), base: IntegerDecimal},
 		},
 	}
 	inner2.markDirty()
 
-	outer := &ArrayNode{Elements: []Node{inner1, inner2}}
+	outer := &ArrayNode{elements: []Node{inner1, inner2}}
 	outer.markDirty()
 	got := string(renderValue(outer))
 	want := "[[1, 2], [3, 4]]"
@@ -312,25 +312,25 @@ func TestAuditArrayNestedArrays(t *testing.T) {
 }
 
 func TestAuditArrayWithInlineTables(t *testing.T) {
-	k1 := &KeyNode{Parts: []string{"x"}}
+	k1 := &KeyNode{parts: []string{"x"}}
 	k1.markDirty()
-	v1 := &IntegerNode{Val: 1, Base: IntegerDecimal}
+	v1 := &IntegerNode{val: scalarOf[int64](1), base: IntegerDecimal}
 	v1.markDirty()
-	kv1 := &KeyValueNode{Key: k1, Val: v1}
+	kv1 := &KeyValueNode{key: k1, val: v1}
 	kv1.markDirty()
-	it1 := &InlineTableNode{Children: []Node{kv1}}
+	it1 := &InlineTableNode{children: []Node{kv1}}
 	it1.markDirty()
 
-	k2 := &KeyNode{Parts: []string{"x"}}
+	k2 := &KeyNode{parts: []string{"x"}}
 	k2.markDirty()
-	v2 := &IntegerNode{Val: 2, Base: IntegerDecimal}
+	v2 := &IntegerNode{val: scalarOf[int64](2), base: IntegerDecimal}
 	v2.markDirty()
-	kv2 := &KeyValueNode{Key: k2, Val: v2}
+	kv2 := &KeyValueNode{key: k2, val: v2}
 	kv2.markDirty()
-	it2 := &InlineTableNode{Children: []Node{kv2}}
+	it2 := &InlineTableNode{children: []Node{kv2}}
 	it2.markDirty()
 
-	arr := &ArrayNode{Elements: []Node{it1, it2}}
+	arr := &ArrayNode{elements: []Node{it1, it2}}
 	arr.markDirty()
 	got := string(renderValue(arr))
 	want := "[{x = 1}, {x = 2}]"
@@ -346,11 +346,11 @@ func TestAuditArrayWithInlineTables(t *testing.T) {
 
 func TestAuditArrayWithMixedTypes(t *testing.T) {
 	elems := []Node{
-		&IntegerNode{nodeBase: nodeBase{dirty: true}, Val: 1, Base: IntegerDecimal},
-		&StringNode{nodeBase: nodeBase{dirty: true}, Val: "two", Style: StringBasic},
-		&FloatNode{nodeBase: nodeBase{dirty: true}, Val: 3.0},
+		&IntegerNode{nodeBase: nodeBase{dirty: true}, val: scalarOf[int64](1), base: IntegerDecimal},
+		&StringNode{nodeBase: nodeBase{dirty: true}, val: scalarOf("two"), style: StringBasic},
+		&FloatNode{nodeBase: nodeBase{dirty: true}, val: scalarOf(3.0)},
 	}
-	arr := &ArrayNode{Elements: elems}
+	arr := &ArrayNode{elements: elems}
 	arr.markDirty()
 	got := string(renderValue(arr))
 	want := "[1, \"two\", 3.0]"
@@ -414,10 +414,9 @@ func TestAuditTreeWalkMixedDirtyPreservesOrder(t *testing.T) {
 	if err != nil {
 		t.Fatal(err)
 	}
-	kv := doc.Children[1].(*KeyValueNode)
-	intNode := kv.Val.(*IntegerNode)
-	intNode.Val = 99
-	intNode.markDirty()
+	kv := doc.children[1].(*KeyValueNode)
+	intNode := kv.val.(*IntegerNode)
+	intNode.setValue(99, IntegerDecimal)
 	kv.markDirty()
 
 	got := string(doc.Bytes())
@@ -464,7 +463,7 @@ func TestAuditBareKeyAllowedChars(t *testing.T) {
 }
 
 func TestAuditKeyWithSpecialCharsQuoted(t *testing.T) {
-	k := &KeyNode{Parts: []string{"key.with.dots"}}
+	k := &KeyNode{parts: []string{"key.with.dots"}}
 	k.markDirty()
 	got := string(renderKeyParts(k))
 	if !strings.HasPrefix(got, "\"") {
@@ -473,7 +472,7 @@ func TestAuditKeyWithSpecialCharsQuoted(t *testing.T) {
 }
 
 func TestAuditKeyWithNewlineQuoted(t *testing.T) {
-	k := &KeyNode{Parts: []string{"key\nwith\nnewlines"}}
+	k := &KeyNode{parts: []string{"key\nwith\nnewlines"}}
 	k.markDirty()
 	got := string(renderKeyParts(k))
 	if !strings.HasPrefix(got, "\"") {
@@ -485,23 +484,23 @@ func TestAuditKeyWithNewlineQuoted(t *testing.T) {
 }
 
 func TestAuditKeyRenderingRoundTrip(t *testing.T) {
-	key := &KeyNode{Parts: []string{"my key"}}
+	key := &KeyNode{parts: []string{"my key"}}
 	key.markDirty()
-	val := &IntegerNode{Val: 42, Base: IntegerDecimal}
+	val := &IntegerNode{val: scalarOf[int64](42), base: IntegerDecimal}
 	val.markDirty()
-	kv := &KeyValueNode{Key: key, Val: val}
+	kv := &KeyValueNode{key: key, val: val}
 	kv.markDirty()
 
-	doc := &Document{Children: []Node{kv}}
+	doc := &Document{children: []Node{kv}}
 	got := string(doc.Bytes())
 
 	doc2, err := Parse([]byte(got))
 	if err != nil {
 		t.Fatalf("re-parse failed: %v\nTOML: %s", err, got)
 	}
-	kv2 := doc2.Children[0].(*KeyValueNode)
-	if kv2.Key.Parts[0] != "my key" {
-		t.Errorf("key round-trip mismatch: got %q, want %q", kv2.Key.Parts[0], "my key")
+	kv2 := doc2.children[0].(*KeyValueNode)
+	if kv2.key.parts[0] != "my key" {
+		t.Errorf("key round-trip mismatch: got %q, want %q", kv2.key.parts[0], "my key")
 	}
 }
 
@@ -522,7 +521,7 @@ func TestAuditReparseIntegerAllBases(t *testing.T) {
 		{-42, IntegerDecimal},
 	}
 	for _, tt := range tests {
-		n := &IntegerNode{Val: tt.val, Base: tt.base}
+		n := &IntegerNode{val: scalarOf[int64](tt.val), base: tt.base}
 		n.markDirty()
 		rendered := string(renderValue(n))
 		toml := "x = " + rendered + "\n"
@@ -530,17 +529,17 @@ func TestAuditReparseIntegerAllBases(t *testing.T) {
 		if err != nil {
 			t.Fatalf("re-parse failed for base %d, val %d: %v\nTOML: %s", tt.base, tt.val, err, toml)
 		}
-		kv := doc.Children[0].(*KeyValueNode)
-		iv := kv.Val.(*IntegerNode)
-		if iv.Val != tt.val {
-			t.Errorf("integer round-trip mismatch: got %d, want %d (base %d)", iv.Val, tt.val, tt.base)
+		kv := doc.children[0].(*KeyValueNode)
+		iv := kv.val.(*IntegerNode)
+		if iv.val.get() != tt.val {
+			t.Errorf("integer round-trip mismatch: got %d, want %d (base %d)", iv.val.get(), tt.val, tt.base)
 		}
 	}
 }
 
 func TestAuditReparseBooleans(t *testing.T) {
 	for _, v := range []bool{true, false} {
-		n := &BooleanNode{Val: v}
+		n := &BooleanNode{val: scalarOf(v)}
 		n.markDirty()
 		rendered := string(renderValue(n))
 		toml := "x = " + rendered + "\n"
@@ -548,17 +547,17 @@ func TestAuditReparseBooleans(t *testing.T) {
 		if err != nil {
 			t.Fatalf("re-parse failed: %v\nTOML: %s", err, toml)
 		}
-		kv := doc.Children[0].(*KeyValueNode)
-		bv := kv.Val.(*BooleanNode)
-		if bv.Val != v {
-			t.Errorf("boolean round-trip: got %v, want %v", bv.Val, v)
+		kv := doc.children[0].(*KeyValueNode)
+		bv := kv.val.(*BooleanNode)
+		if bv.val.get() != v {
+			t.Errorf("boolean round-trip: got %v, want %v", bv.val.get(), v)
 		}
 	}
 }
 
 func TestAuditReparseDateTime(t *testing.T) {
 	val := time.Date(2023, 12, 25, 10, 30, 45, 123456789, time.UTC)
-	n := &DateTimeNode{Val: val}
+	n := &DateTimeNode{val: scalarOf(val)}
 	n.markDirty()
 	rendered := string(renderValue(n))
 	toml := "x = " + rendered + "\n"
@@ -566,16 +565,16 @@ func TestAuditReparseDateTime(t *testing.T) {
 	if err != nil {
 		t.Fatalf("re-parse failed: %v\nTOML: %s", err, toml)
 	}
-	kv := doc.Children[0].(*KeyValueNode)
-	dt := kv.Val.(*DateTimeNode)
-	if !dt.Val.Equal(val) {
-		t.Errorf("datetime round-trip: got %v, want %v", dt.Val, val)
+	kv := doc.children[0].(*KeyValueNode)
+	dt := kv.val.(*DateTimeNode)
+	if !dt.val.get().Equal(val) {
+		t.Errorf("datetime round-trip: got %v, want %v", dt.val.get(), val)
 	}
 }
 
 func TestAuditReparseLocalDateTime(t *testing.T) {
 	ldt := LocalDateTime{Year: 2023, Month: 6, Day: 15, Hour: 14, Minute: 30, Second: 0, Nanosecond: 500000000}
-	n := &LocalDateTimeNode{Val: ldt}
+	n := &LocalDateTimeNode{val: scalarOf(ldt)}
 	n.markDirty()
 	rendered := string(renderValue(n))
 	toml := "x = " + rendered + "\n"
@@ -583,16 +582,16 @@ func TestAuditReparseLocalDateTime(t *testing.T) {
 	if err != nil {
 		t.Fatalf("re-parse failed: %v\nTOML: %s", err, toml)
 	}
-	kv := doc.Children[0].(*KeyValueNode)
-	ldtn := kv.Val.(*LocalDateTimeNode)
-	if ldtn.Val.Nanosecond != 500000000 {
-		t.Errorf("local datetime nanosecond: got %d, want 500000000", ldtn.Val.Nanosecond)
+	kv := doc.children[0].(*KeyValueNode)
+	ldtn := kv.val.(*LocalDateTimeNode)
+	if ldtn.val.get().Nanosecond != 500000000 {
+		t.Errorf("local datetime nanosecond: got %d, want 500000000", ldtn.val.get().Nanosecond)
 	}
 }
 
 func TestAuditReparseLocalDate(t *testing.T) {
 	ld := LocalDate{Year: 2023, Month: 1, Day: 1}
-	n := &LocalDateNode{Val: ld}
+	n := &LocalDateNode{val: scalarOf(ld)}
 	n.markDirty()
 	rendered := string(renderValue(n))
 	toml := "x = " + rendered + "\n"
@@ -600,16 +599,16 @@ func TestAuditReparseLocalDate(t *testing.T) {
 	if err != nil {
 		t.Fatalf("re-parse failed: %v\nTOML: %s", err, toml)
 	}
-	kv := doc.Children[0].(*KeyValueNode)
-	ldn := kv.Val.(*LocalDateNode)
-	if ldn.Val != ld {
-		t.Errorf("local date round-trip: got %v, want %v", ldn.Val, ld)
+	kv := doc.children[0].(*KeyValueNode)
+	ldn := kv.val.(*LocalDateNode)
+	if ldn.val.get() != ld {
+		t.Errorf("local date round-trip: got %v, want %v", ldn.val.get(), ld)
 	}
 }
 
 func TestAuditReparseLocalTime(t *testing.T) {
 	lt := LocalTime{Hour: 23, Minute: 59, Second: 59, Nanosecond: 1}
-	n := &LocalTimeNode{Val: lt}
+	n := &LocalTimeNode{val: scalarOf(lt)}
 	n.markDirty()
 	rendered := string(renderValue(n))
 	toml := "x = " + rendered + "\n"
@@ -617,29 +616,29 @@ func TestAuditReparseLocalTime(t *testing.T) {
 	if err != nil {
 		t.Fatalf("re-parse failed: %v\nTOML: %s", err, toml)
 	}
-	kv := doc.Children[0].(*KeyValueNode)
-	ltn := kv.Val.(*LocalTimeNode)
-	if ltn.Val.Nanosecond != 1 {
-		t.Errorf("local time nanosecond: got %d, want 1", ltn.Val.Nanosecond)
+	kv := doc.children[0].(*KeyValueNode)
+	ltn := kv.val.(*LocalTimeNode)
+	if ltn.val.get().Nanosecond != 1 {
+		t.Errorf("local time nanosecond: got %d, want 1", ltn.val.get().Nanosecond)
 	}
 }
 
 func TestAuditReparseInlineTable(t *testing.T) {
-	k1 := &KeyNode{Parts: []string{"a"}}
+	k1 := &KeyNode{parts: []string{"a"}}
 	k1.markDirty()
-	v1 := &StringNode{Val: "hello", Style: StringBasic}
+	v1 := &StringNode{val: scalarOf("hello"), style: StringBasic}
 	v1.markDirty()
-	kv1 := &KeyValueNode{Key: k1, Val: v1}
+	kv1 := &KeyValueNode{key: k1, val: v1}
 	kv1.markDirty()
 
-	k2 := &KeyNode{Parts: []string{"b"}}
+	k2 := &KeyNode{parts: []string{"b"}}
 	k2.markDirty()
-	v2 := &BooleanNode{Val: true}
+	v2 := &BooleanNode{val: scalarOf(true)}
 	v2.markDirty()
-	kv2 := &KeyValueNode{Key: k2, Val: v2}
+	kv2 := &KeyValueNode{key: k2, val: v2}
 	kv2.markDirty()
 
-	it := &InlineTableNode{Children: []Node{kv1, kv2}}
+	it := &InlineTableNode{children: []Node{kv1, kv2}}
 	it.markDirty()
 
 	rendered := string(renderValue(it))
@@ -652,11 +651,11 @@ func TestAuditReparseInlineTable(t *testing.T) {
 
 func TestAuditReparseArray(t *testing.T) {
 	elems := []Node{
-		&StringNode{nodeBase: nodeBase{dirty: true}, Val: "a", Style: StringBasic},
-		&StringNode{nodeBase: nodeBase{dirty: true}, Val: "b", Style: StringBasic},
-		&StringNode{nodeBase: nodeBase{dirty: true}, Val: "c", Style: StringBasic},
+		&StringNode{nodeBase: nodeBase{dirty: true}, val: scalarOf("a"), style: StringBasic},
+		&StringNode{nodeBase: nodeBase{dirty: true}, val: scalarOf("b"), style: StringBasic},
+		&StringNode{nodeBase: nodeBase{dirty: true}, val: scalarOf("c"), style: StringBasic},
 	}
-	arr := &ArrayNode{Elements: elems}
+	arr := &ArrayNode{elements: elems}
 	arr.markDirty()
 
 	rendered := string(renderValue(arr))
@@ -665,10 +664,10 @@ func TestAuditReparseArray(t *testing.T) {
 	if err != nil {
 		t.Fatalf("re-parse of array failed: %v\nTOML: %s", err, toml)
 	}
-	kv := doc.Children[0].(*KeyValueNode)
-	an := kv.Val.(*ArrayNode)
-	if len(an.Elements) != 3 {
-		t.Errorf("array elements: got %d, want 3", len(an.Elements))
+	kv := doc.children[0].(*KeyValueNode)
+	an := kv.val.(*ArrayNode)
+	if len(an.elements) != 3 {
+		t.Errorf("array elements: got %d, want 3", len(an.elements))
 	}
 }
 
@@ -677,53 +676,53 @@ func TestAuditReparseArray(t *testing.T) {
 // =============================================================================
 
 func TestAuditCompleteDocumentRoundTrip(t *testing.T) {
-	titleKey := &KeyNode{Parts: []string{"title"}}
+	titleKey := &KeyNode{parts: []string{"title"}}
 	titleKey.markDirty()
-	titleVal := &StringNode{Val: "My Config", Style: StringBasic}
+	titleVal := &StringNode{val: scalarOf("My Config"), style: StringBasic}
 	titleVal.markDirty()
-	titleKV := &KeyValueNode{Key: titleKey, Val: titleVal}
+	titleKV := &KeyValueNode{key: titleKey, val: titleVal}
 	titleKV.markDirty()
 
-	serverTbl := &TableNode{KeyPath: []string{"server"}}
+	serverTbl := &TableNode{keyPath: []string{"server"}}
 	serverTbl.markDirty()
 
-	hostKey := &KeyNode{Parts: []string{"host"}}
+	hostKey := &KeyNode{parts: []string{"host"}}
 	hostKey.markDirty()
-	hostVal := &StringNode{Val: "0.0.0.0", Style: StringBasic}
+	hostVal := &StringNode{val: scalarOf("0.0.0.0"), style: StringBasic}
 	hostVal.markDirty()
-	hostKV := &KeyValueNode{Key: hostKey, Val: hostVal}
+	hostKV := &KeyValueNode{key: hostKey, val: hostVal}
 	hostKV.markDirty()
 
-	portKey := &KeyNode{Parts: []string{"port"}}
+	portKey := &KeyNode{parts: []string{"port"}}
 	portKey.markDirty()
-	portVal := &IntegerNode{Val: 443, Base: IntegerDecimal}
+	portVal := &IntegerNode{val: scalarOf[int64](443), base: IntegerDecimal}
 	portVal.markDirty()
-	portKV := &KeyValueNode{Key: portKey, Val: portVal}
+	portKV := &KeyValueNode{key: portKey, val: portVal}
 	portKV.markDirty()
 
-	serverTbl.Children = []Node{hostKV, portKV}
+	mustSetContents(t, serverTbl, []Node{hostKV, portKV})
 
-	item1 := &ArrayTableNode{KeyPath: []string{"items"}}
+	item1 := &ArrayTableNode{keyPath: []string{"items"}}
 	item1.markDirty()
-	nameKey1 := &KeyNode{Parts: []string{"name"}}
+	nameKey1 := &KeyNode{parts: []string{"name"}}
 	nameKey1.markDirty()
-	nameVal1 := &StringNode{Val: "widget", Style: StringBasic}
+	nameVal1 := &StringNode{val: scalarOf("widget"), style: StringBasic}
 	nameVal1.markDirty()
-	nameKV1 := &KeyValueNode{Key: nameKey1, Val: nameVal1}
+	nameKV1 := &KeyValueNode{key: nameKey1, val: nameVal1}
 	nameKV1.markDirty()
-	item1.Children = []Node{nameKV1}
+	mustSetContents(t, item1, []Node{nameKV1})
 
-	item2 := &ArrayTableNode{KeyPath: []string{"items"}}
+	item2 := &ArrayTableNode{keyPath: []string{"items"}}
 	item2.markDirty()
-	nameKey2 := &KeyNode{Parts: []string{"name"}}
+	nameKey2 := &KeyNode{parts: []string{"name"}}
 	nameKey2.markDirty()
-	nameVal2 := &StringNode{Val: "gadget", Style: StringBasic}
+	nameVal2 := &StringNode{val: scalarOf("gadget"), style: StringBasic}
 	nameVal2.markDirty()
-	nameKV2 := &KeyValueNode{Key: nameKey2, Val: nameVal2}
+	nameKV2 := &KeyValueNode{key: nameKey2, val: nameVal2}
 	nameKV2.markDirty()
-	item2.Children = []Node{nameKV2}
+	mustSetContents(t, item2, []Node{nameKV2})
 
-	doc := &Document{Children: []Node{titleKV, serverTbl, item1, item2}}
+	doc := &Document{children: []Node{titleKV, serverTbl, item1, item2}}
 	out := doc.Bytes()
 
 	doc2, err := Parse(out)
@@ -731,8 +730,8 @@ func TestAuditCompleteDocumentRoundTrip(t *testing.T) {
 		t.Fatalf("complete document is not valid TOML: %v\noutput:\n%s", err, string(out))
 	}
 
-	if len(doc2.Children) < 4 {
-		t.Fatalf("expected at least 4 top-level children, got %d\noutput:\n%s", len(doc2.Children), string(out))
+	if len(doc2.children) < 4 {
+		t.Fatalf("expected at least 4 top-level children, got %d\noutput:\n%s", len(doc2.children), string(out))
 	}
 
 	out2 := doc2.Bytes()
@@ -746,7 +745,7 @@ func TestAuditCompleteDocumentRoundTrip(t *testing.T) {
 // =============================================================================
 
 func TestAuditTableHeaderWithLeadingComments(t *testing.T) {
-	tbl := &TableNode{KeyPath: []string{"server"}}
+	tbl := &TableNode{keyPath: []string{"server"}}
 	tbl.markDirty()
 	tbl.nodeTrivia.LeadingComments = [][]byte{
 		[]byte("# This is the server config\n"),
@@ -762,7 +761,7 @@ func TestAuditTableHeaderWithLeadingComments(t *testing.T) {
 }
 
 func TestAuditArrayTableHeaderDottedKey(t *testing.T) {
-	atbl := &ArrayTableNode{KeyPath: []string{"a", "b", "c"}}
+	atbl := &ArrayTableNode{keyPath: []string{"a", "b", "c"}}
 	atbl.markDirty()
 	got := string(renderArrayTableHeader(atbl))
 	if got != "[[a.b.c]]\n" {
@@ -781,13 +780,12 @@ func TestAuditInlineTableKVWithoutRaw(t *testing.T) {
 		t.Fatal(err)
 	}
 
-	kv := doc.Children[0].(*KeyValueNode)
-	it := kv.Val.(*InlineTableNode)
+	kv := doc.children[0].(*KeyValueNode)
+	it := kv.val.(*InlineTableNode)
 
-	innerKV := it.Children[0].(*KeyValueNode)
-	innerInt := innerKV.Val.(*IntegerNode)
-	innerInt.Val = 99
-	innerInt.markDirty()
+	innerKV := it.children[0].(*KeyValueNode)
+	innerInt := innerKV.val.(*IntegerNode)
+	innerInt.setValue(99, IntegerDecimal)
 	innerKV.markDirty()
 	it.markDirty()
 	kv.markDirty()
@@ -807,15 +805,15 @@ func TestAuditInlineTableKVWithoutRaw(t *testing.T) {
 // =============================================================================
 
 func TestAuditTriviaLeadingWhitespace(t *testing.T) {
-	key := &KeyNode{Parts: []string{"x"}}
+	key := &KeyNode{parts: []string{"x"}}
 	key.markDirty()
-	val := &IntegerNode{Val: 1, Base: IntegerDecimal}
+	val := &IntegerNode{val: scalarOf[int64](1), base: IntegerDecimal}
 	val.markDirty()
-	kv := &KeyValueNode{Key: key, Val: val}
+	kv := &KeyValueNode{key: key, val: val}
 	kv.markDirty()
 	kv.nodeTrivia.LeadingWhitespace = []byte("  ")
 
-	doc := &Document{Children: []Node{kv}}
+	doc := &Document{children: []Node{kv}}
 	got := string(doc.Bytes())
 	if !strings.HasPrefix(got, "  x = 1") {
 		t.Errorf("leading whitespace not preserved: %q", got)
@@ -823,15 +821,15 @@ func TestAuditTriviaLeadingWhitespace(t *testing.T) {
 }
 
 func TestAuditTriviaTrailingNewlineCRLF(t *testing.T) {
-	key := &KeyNode{Parts: []string{"x"}}
+	key := &KeyNode{parts: []string{"x"}}
 	key.markDirty()
-	val := &IntegerNode{Val: 1, Base: IntegerDecimal}
+	val := &IntegerNode{val: scalarOf[int64](1), base: IntegerDecimal}
 	val.markDirty()
-	kv := &KeyValueNode{Key: key, Val: val}
+	kv := &KeyValueNode{key: key, val: val}
 	kv.markDirty()
 	kv.nodeTrivia.TrailingNewline = []byte("\r\n")
 
-	doc := &Document{Children: []Node{kv}}
+	doc := &Document{children: []Node{kv}}
 	got := doc.Bytes()
 	if !strings.HasSuffix(string(got), "\r\n") {
 		t.Errorf("CRLF trailing newline not preserved: %q", string(got))
@@ -839,18 +837,18 @@ func TestAuditTriviaTrailingNewlineCRLF(t *testing.T) {
 }
 
 func TestAuditTriviaMultipleLeadingComments(t *testing.T) {
-	key := &KeyNode{Parts: []string{"x"}}
+	key := &KeyNode{parts: []string{"x"}}
 	key.markDirty()
-	val := &IntegerNode{Val: 1, Base: IntegerDecimal}
+	val := &IntegerNode{val: scalarOf[int64](1), base: IntegerDecimal}
 	val.markDirty()
-	kv := &KeyValueNode{Key: key, Val: val}
+	kv := &KeyValueNode{key: key, val: val}
 	kv.markDirty()
 	kv.nodeTrivia.LeadingComments = [][]byte{
 		[]byte("# line 1\n"),
 		[]byte("# line 2\n"),
 	}
 
-	doc := &Document{Children: []Node{kv}}
+	doc := &Document{children: []Node{kv}}
 	got := string(doc.Bytes())
 	if !strings.Contains(got, "# line 1\n# line 2\n") {
 		t.Errorf("multiple leading comments not preserved: %q", got)
@@ -863,7 +861,7 @@ func TestAuditTriviaMultipleLeadingComments(t *testing.T) {
 
 func TestAuditIntegerNegativeHex(t *testing.T) {
 	// TOML spec does NOT allow signs on hex/octal/binary integers.
-	n := &IntegerNode{Val: -255, Base: IntegerHex}
+	n := &IntegerNode{val: scalarOf[int64](-255), base: IntegerHex}
 	n.markDirty()
 	got := string(renderValue(n))
 	toml := "x = " + got + "\n"
@@ -885,7 +883,7 @@ func TestAuditIntegerZeroAllBases(t *testing.T) {
 		{IntegerBinary, "0b0"},
 	}
 	for _, tt := range tests {
-		n := &IntegerNode{Val: 0, Base: tt.base}
+		n := &IntegerNode{val: scalarOf[int64](0), base: tt.base}
 		n.markDirty()
 		got := string(renderValue(n))
 		if got != tt.want {
@@ -899,7 +897,7 @@ func TestAuditIntegerZeroAllBases(t *testing.T) {
 // =============================================================================
 
 func TestAuditCommentEmpty(t *testing.T) {
-	cn := &CommentNode{Text: ""}
+	cn := &CommentNode{text: ""}
 	cn.markDirty()
 	got := string(serializeNode(cn))
 	if got != "\n" {
@@ -908,7 +906,7 @@ func TestAuditCommentEmpty(t *testing.T) {
 }
 
 func TestAuditCommentWithNewline(t *testing.T) {
-	cn := &CommentNode{Text: "# already has newline\n"}
+	cn := &CommentNode{text: "# already has newline\n"}
 	cn.markDirty()
 	got := string(serializeNode(cn))
 	if strings.HasSuffix(got, "\n\n") {
@@ -957,13 +955,13 @@ func TestAuditBareKeyUnicode(t *testing.T) {
 		bare := isBareKey(key)
 		t.Logf("isBareKey(%q) = %v (unicode.IsLetter allows it)", key, bare)
 		if bare {
-			k := &KeyNode{Parts: []string{key}}
+			k := &KeyNode{parts: []string{key}}
 			k.markDirty()
-			v := &IntegerNode{Val: 1, Base: IntegerDecimal}
+			v := &IntegerNode{val: scalarOf[int64](1), base: IntegerDecimal}
 			v.markDirty()
-			kv := &KeyValueNode{Key: k, Val: v}
+			kv := &KeyValueNode{key: k, val: v}
 			kv.markDirty()
-			doc := &Document{Children: []Node{kv}}
+			doc := &Document{children: []Node{kv}}
 			out := string(doc.Bytes())
 			_, err := Parse([]byte(out))
 			if err != nil {
@@ -979,7 +977,7 @@ func TestAuditBareKeyUnicode(t *testing.T) {
 
 func TestAuditMultiLineBasicStringWithThreeQuotes(t *testing.T) {
 	// The value contains """ which is tricky for multi-line basic strings
-	n := &StringNode{Val: "has \"\"\" inside", Style: StringMultiLineBasic}
+	n := &StringNode{val: scalarOf("has \"\"\" inside"), style: StringMultiLineBasic}
 	n.markDirty()
 	got := string(renderValue(n))
 	t.Logf("Rendered: %q", got)
@@ -1000,8 +998,8 @@ func TestAuditRenderKeyPartsClean(t *testing.T) {
 	if err != nil {
 		t.Fatal(err)
 	}
-	kv := doc.Children[0].(*KeyValueNode)
-	got := string(renderKeyParts(kv.Key))
+	kv := doc.children[0].(*KeyValueNode)
+	got := string(renderKeyParts(kv.key))
 	if got != "my_key" {
 		t.Errorf("clean key renderKeyParts: got %q, want %q", got, "my_key")
 	}
@@ -1041,7 +1039,7 @@ func TestAuditSerializeCleanComment(t *testing.T) {
 // =============================================================================
 
 func TestAuditNegativeDecimalInteger(t *testing.T) {
-	n := &IntegerNode{Val: -9223372036854775808, Base: IntegerDecimal}
+	n := &IntegerNode{val: scalarOf[int64](-9223372036854775808), base: IntegerDecimal}
 	n.markDirty()
 	got := string(renderValue(n))
 	toml := "x = " + got + "\n"
@@ -1049,10 +1047,10 @@ func TestAuditNegativeDecimalInteger(t *testing.T) {
 	if err != nil {
 		t.Fatalf("re-parse failed: %v\nTOML: %s", err, toml)
 	}
-	kv := doc.Children[0].(*KeyValueNode)
-	iv := kv.Val.(*IntegerNode)
-	if iv.Val != -9223372036854775808 {
-		t.Errorf("min int64 round-trip: got %d", iv.Val)
+	kv := doc.children[0].(*KeyValueNode)
+	iv := kv.val.(*IntegerNode)
+	if iv.val.get() != -9223372036854775808 {
+		t.Errorf("min int64 round-trip: got %d", iv.val.get())
 	}
 }
 
@@ -1063,7 +1061,7 @@ func TestAuditNegativeDecimalInteger(t *testing.T) {
 func TestAuditDateTimeWithOffset(t *testing.T) {
 	loc := time.FixedZone("EST", -5*3600)
 	val := time.Date(2023, 6, 15, 10, 30, 0, 0, loc)
-	n := &DateTimeNode{Val: val}
+	n := &DateTimeNode{val: scalarOf(val)}
 	n.markDirty()
 	rendered := string(renderValue(n))
 	t.Logf("Rendered datetime with offset: %s", rendered)
@@ -1072,9 +1070,9 @@ func TestAuditDateTimeWithOffset(t *testing.T) {
 	if err != nil {
 		t.Fatalf("re-parse failed: %v\nTOML: %s", err, toml)
 	}
-	kv := doc.Children[0].(*KeyValueNode)
-	dt := kv.Val.(*DateTimeNode)
-	if !dt.Val.Equal(val) {
-		t.Errorf("datetime with offset round-trip: got %v, want %v", dt.Val, val)
+	kv := doc.children[0].(*KeyValueNode)
+	dt := kv.val.(*DateTimeNode)
+	if !dt.val.get().Equal(val) {
+		t.Errorf("datetime with offset round-trip: got %v, want %v", dt.val.get(), val)
 	}
 }

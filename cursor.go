@@ -83,7 +83,7 @@ func (c *Cursor) String() (string, bool) {
 		return "", false
 	}
 	if s, ok := c.pos.node.(*StringNode); ok {
-		return s.Val, true
+		return s.val.get(), true
 	}
 	return "", false
 }
@@ -95,7 +95,7 @@ func (c *Cursor) Int() (int64, bool) {
 		return 0, false
 	}
 	if n, ok := c.pos.node.(*IntegerNode); ok {
-		return n.Val, true
+		return n.val.get(), true
 	}
 	return 0, false
 }
@@ -107,7 +107,7 @@ func (c *Cursor) Bool() (bool, bool) {
 		return false, false
 	}
 	if b, ok := c.pos.node.(*BooleanNode); ok {
-		return b.Val, true
+		return b.val.get(), true
 	}
 	return false, false
 }
@@ -119,7 +119,7 @@ func (c *Cursor) Float() (float64, bool) {
 		return 0, false
 	}
 	if f, ok := c.pos.node.(*FloatNode); ok {
-		return f.Val, true
+		return f.val.get(), true
 	}
 	return 0, false
 }
@@ -131,7 +131,7 @@ func (c *Cursor) Time() (time.Time, bool) {
 		return time.Time{}, false
 	}
 	if dt, ok := c.pos.node.(*DateTimeNode); ok {
-		return dt.Val, true
+		return dt.val.get(), true
 	}
 	return time.Time{}, false
 }

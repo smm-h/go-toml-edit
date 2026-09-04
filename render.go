@@ -17,7 +17,7 @@ import (
 // their original formatting.
 func (d *Document) Bytes() []byte {
 	var buf []byte
-	for _, child := range d.Children {
+	for _, child := range d.children {
 		buf = append(buf, serializeNode(child)...)
 	}
 	return buf
@@ -34,7 +34,7 @@ func serializeNode(n Node) []byte {
 		} else {
 			buf = append(buf, renderTableHeader(node)...)
 		}
-		for _, child := range node.Children {
+		for _, child := range node.children {
 			buf = append(buf, serializeNode(child)...)
 		}
 		return buf
@@ -46,13 +46,13 @@ func serializeNode(n Node) []byte {
 		} else {
 			buf = append(buf, renderArrayTableHeader(node)...)
 		}
-		for _, child := range node.Children {
+		for _, child := range node.children {
 			buf = append(buf, serializeNode(child)...)
 		}
 		return buf
 
 	case *KeyValueNode:
-		if !node.isDirty() && !isSubtreeDirty(node.Val) {
+		if !node.subtreeDirty() {
 			return node.Raw()
 		}
 		return renderKeyValue(node)
@@ -64,38 +64,15 @@ func serializeNode(n Node) []byte {
 		return renderComment(node)
 
 	default:
-		// Leaf value nodes (string, int, float, bool, datetime, array, inline table)
-		if !n.isDirty() && !isSubtreeDirty(n) {
+		// Leaf value nodes (string, int, float, bool, datetime, array, inline
+		// table). A container asks the same question as a scalar: the answer
+		// is one field read, because a node that went dirty said so upward at
+		// the moment it happened.
+		if !n.subtreeDirty() {
 			return n.Raw()
 		}
 		return renderValue(n)
 	}
-}
-
-// isSubtreeDirty recursively checks whether n or any of its descendants is dirty.
-func isSubtreeDirty(n Node) bool {
-	if n.isDirty() {
-		return true
-	}
-	switch node := n.(type) {
-	case *ArrayNode:
-		for _, elem := range node.Elements {
-			if isSubtreeDirty(elem) {
-				return true
-			}
-		}
-	case *InlineTableNode:
-		for _, child := range node.Children {
-			if isSubtreeDirty(child) {
-				return true
-			}
-		}
-	case *KeyValueNode:
-		if isSubtreeDirty(node.Val) {
-			return true
-		}
-	}
-	return false
 }
 
 // renderValue renders a dirty value node from its semantic value.
@@ -128,25 +105,25 @@ func renderValue(n Node) []byte {
 
 // renderString renders a StringNode based on its Style.
 func renderString(n *StringNode) []byte {
-	switch n.Style {
+	switch n.style {
 	case StringLiteral:
 		// Literal strings cannot contain single quotes or newlines.
 		// Fall back to basic if the value contains them.
-		if !strings.Contains(n.Val, "'") && !strings.Contains(n.Val, "\n") {
-			return []byte("'" + n.Val + "'")
+		if !strings.Contains(n.val.get(), "'") && !strings.Contains(n.val.get(), "\n") {
+			return []byte("'" + n.val.get() + "'")
 		}
-		return renderBasicString(n.Val)
+		return renderBasicString(n.val.get())
 	case StringMultiLineBasic:
-		return renderMultiLineBasicString(n.Val)
+		return renderMultiLineBasicString(n.val.get())
 	case StringMultiLineLiteral:
 		// Multi-line literal strings cannot contain '''.
 		// Fall back to multi-line basic if needed.
-		if !strings.Contains(n.Val, "'''") {
-			return []byte("'''\n" + n.Val + "'''")
+		if !strings.Contains(n.val.get(), "'''") {
+			return []byte("'''\n" + n.val.get() + "'''")
 		}
-		return renderMultiLineBasicString(n.Val)
+		return renderMultiLineBasicString(n.val.get())
 	default: // StringBasic
-		return renderBasicString(n.Val)
+		return renderBasicString(n.val.get())
 	}
 }
 
@@ -247,39 +224,39 @@ func renderMultiLineBasicString(s string) []byte {
 
 // renderInteger renders an IntegerNode based on its Base.
 func renderInteger(n *IntegerNode) []byte {
-	switch n.Base {
+	switch n.base {
 	case IntegerHex:
-		if n.Val < 0 {
-			return []byte("-0x" + strconv.FormatInt(-n.Val, 16))
+		if n.val.get() < 0 {
+			return []byte("-0x" + strconv.FormatInt(-n.val.get(), 16))
 		}
-		return []byte("0x" + strconv.FormatInt(n.Val, 16))
+		return []byte("0x" + strconv.FormatInt(n.val.get(), 16))
 	case IntegerOctal:
-		if n.Val < 0 {
-			return []byte("-0o" + strconv.FormatInt(-n.Val, 8))
+		if n.val.get() < 0 {
+			return []byte("-0o" + strconv.FormatInt(-n.val.get(), 8))
 		}
-		return []byte("0o" + strconv.FormatInt(n.Val, 8))
+		return []byte("0o" + strconv.FormatInt(n.val.get(), 8))
 	case IntegerBinary:
-		if n.Val < 0 {
-			return []byte("-0b" + strconv.FormatInt(-n.Val, 2))
+		if n.val.get() < 0 {
+			return []byte("-0b" + strconv.FormatInt(-n.val.get(), 2))
 		}
-		return []byte("0b" + strconv.FormatInt(n.Val, 2))
+		return []byte("0b" + strconv.FormatInt(n.val.get(), 2))
 	default: // IntegerDecimal
-		return []byte(strconv.FormatInt(n.Val, 10))
+		return []byte(strconv.FormatInt(n.val.get(), 10))
 	}
 }
 
 // renderFloat renders a FloatNode.
 func renderFloat(n *FloatNode) []byte {
-	if math.IsInf(n.Val, 1) {
+	if math.IsInf(n.val.get(), 1) {
 		return []byte("inf")
 	}
-	if math.IsInf(n.Val, -1) {
+	if math.IsInf(n.val.get(), -1) {
 		return []byte("-inf")
 	}
-	if math.IsNaN(n.Val) {
+	if math.IsNaN(n.val.get()) {
 		return []byte("nan")
 	}
-	s := strconv.FormatFloat(n.Val, 'f', -1, 64)
+	s := strconv.FormatFloat(n.val.get(), 'f', -1, 64)
 	// Ensure there's a decimal point so it's recognized as a float
 	if !strings.Contains(s, ".") {
 		s += ".0"
@@ -289,7 +266,7 @@ func renderFloat(n *FloatNode) []byte {
 
 // renderBoolean renders a BooleanNode.
 func renderBoolean(n *BooleanNode) []byte {
-	if n.Val {
+	if n.val.get() {
 		return []byte("true")
 	}
 	return []byte("false")
@@ -297,12 +274,12 @@ func renderBoolean(n *BooleanNode) []byte {
 
 // renderDateTime renders a DateTimeNode.
 func renderDateTime(n *DateTimeNode) []byte {
-	return []byte(n.Val.Format("2006-01-02T15:04:05.999999999Z07:00"))
+	return []byte(n.val.get().Format("2006-01-02T15:04:05.999999999Z07:00"))
 }
 
 // renderLocalDateTime renders a LocalDateTimeNode.
 func renderLocalDateTime(n *LocalDateTimeNode) []byte {
-	v := n.Val
+	v := n.val.get()
 	s := fmt.Sprintf("%04d-%02d-%02dT%02d:%02d:%02d", v.Year, v.Month, v.Day, v.Hour, v.Minute, v.Second)
 	if v.Nanosecond > 0 {
 		frac := formatFractional(v.Nanosecond)
@@ -313,12 +290,12 @@ func renderLocalDateTime(n *LocalDateTimeNode) []byte {
 
 // renderLocalDate renders a LocalDateNode.
 func renderLocalDate(n *LocalDateNode) []byte {
-	return []byte(fmt.Sprintf("%04d-%02d-%02d", n.Val.Year, n.Val.Month, n.Val.Day))
+	return []byte(fmt.Sprintf("%04d-%02d-%02d", n.val.get().Year, n.val.get().Month, n.val.get().Day))
 }
 
 // renderLocalTime renders a LocalTimeNode.
 func renderLocalTime(n *LocalTimeNode) []byte {
-	v := n.Val
+	v := n.val.get()
 	s := fmt.Sprintf("%02d:%02d:%02d", v.Hour, v.Minute, v.Second)
 	if v.Nanosecond > 0 {
 		frac := formatFractional(v.Nanosecond)
@@ -337,13 +314,13 @@ func formatFractional(ns int) string {
 
 // renderArray renders an ArrayNode.
 func renderArray(n *ArrayNode) []byte {
-	if len(n.Elements) == 0 {
-		if len(n.TrailingComments) > 0 {
+	if len(n.elements) == 0 {
+		if len(n.trailingComments) > 0 {
 			// Empty array with trailing comments -- render multiline.
 			var buf []byte
 			buf = append(buf, '[')
 			buf = append(buf, '\n')
-			for _, c := range n.TrailingComments {
+			for _, c := range n.trailingComments {
 				buf = append(buf, c...)
 			}
 			buf = append(buf, ']')
@@ -354,9 +331,9 @@ func renderArray(n *ArrayNode) []byte {
 
 	// Check whether any element carries trivia (leading comments or inline
 	// comment). If so, render in multiline format to preserve them.
-	multiline := len(n.TrailingComments) > 0
+	multiline := len(n.trailingComments) > 0
 	if !multiline {
-		for _, elem := range n.Elements {
+		for _, elem := range n.elements {
 			t := elem.trivia()
 			if len(t.LeadingComments) > 0 || len(t.InlineComment) > 0 {
 				multiline = true
@@ -368,7 +345,7 @@ func renderArray(n *ArrayNode) []byte {
 	if !multiline {
 		var buf []byte
 		buf = append(buf, '[')
-		for i, elem := range n.Elements {
+		for i, elem := range n.elements {
 			if i > 0 {
 				buf = append(buf, ", "...)
 			}
@@ -382,7 +359,7 @@ func renderArray(n *ArrayNode) []byte {
 	var buf []byte
 	buf = append(buf, '[')
 	buf = append(buf, '\n')
-	for i, elem := range n.Elements {
+	for i, elem := range n.elements {
 		t := elem.trivia()
 
 		// Leading comments for this element.
@@ -414,7 +391,7 @@ func renderArray(n *ArrayNode) []byte {
 	}
 
 	// Trailing comments (after last element, before ']').
-	for _, c := range n.TrailingComments {
+	for _, c := range n.trailingComments {
 		buf = append(buf, c...)
 	}
 
@@ -424,12 +401,12 @@ func renderArray(n *ArrayNode) []byte {
 
 // renderInlineTable renders an InlineTableNode.
 func renderInlineTable(n *InlineTableNode) []byte {
-	if len(n.Children) == 0 {
+	if len(n.children) == 0 {
 		return []byte("{}")
 	}
 	var buf []byte
 	buf = append(buf, '{')
-	for i, child := range n.Children {
+	for i, child := range n.children {
 		if i > 0 {
 			buf = append(buf, ", "...)
 		}
@@ -437,9 +414,9 @@ func renderInlineTable(n *InlineTableNode) []byte {
 		if !ok {
 			continue
 		}
-		buf = append(buf, renderKeyFromParts(kv.Key)...)
+		buf = append(buf, renderKeyFromParts(kv.key)...)
 		buf = append(buf, " = "...)
-		buf = append(buf, serializeNode(kv.Val)...)
+		buf = append(buf, serializeNode(kv.val)...)
 	}
 	buf = append(buf, '}')
 	return buf
@@ -455,15 +432,15 @@ func renderKeyValue(n *KeyValueNode) []byte {
 	// Key: if the key itself is clean, use renderKeyParts to preserve the
 	// original key formatting (e.g., literal-quoted 'host' stays literal).
 	// Only re-render from parts when the key is dirty.
-	if n.Key.isDirty() {
-		buf = append(buf, renderKeyFromParts(n.Key)...)
+	if n.key.isDirty() {
+		buf = append(buf, renderKeyFromParts(n.key)...)
 	} else {
-		buf = append(buf, renderKeyParts(n.Key)...)
+		buf = append(buf, renderKeyParts(n.key)...)
 	}
 	buf = append(buf, " = "...)
 
 	// Value
-	buf = append(buf, serializeNode(n.Val)...)
+	buf = append(buf, serializeNode(n.val)...)
 
 	// Inline comment
 	t := n.trivia()
@@ -504,7 +481,7 @@ func renderKeyParts(k *KeyNode) []byte {
 // whitespace from the key's raw bytes.
 func renderKeyFromParts(k *KeyNode) []byte {
 	var parts []string
-	for _, part := range k.Parts {
+	for _, part := range k.parts {
 		if isBareKey(part) {
 			parts = append(parts, part)
 		} else {
@@ -534,7 +511,7 @@ func renderTableHeader(n *TableNode) []byte {
 	var buf []byte
 	buf = append(buf, renderTrivia(n)...)
 	buf = append(buf, '[')
-	buf = append(buf, renderKeyPath(n.KeyPath)...)
+	buf = append(buf, renderKeyPath(n.keyPath)...)
 	buf = append(buf, ']')
 
 	t := n.trivia()
@@ -556,7 +533,7 @@ func renderArrayTableHeader(n *ArrayTableNode) []byte {
 	var buf []byte
 	buf = append(buf, renderTrivia(n)...)
 	buf = append(buf, '[', '[')
-	buf = append(buf, renderKeyPath(n.KeyPath)...)
+	buf = append(buf, renderKeyPath(n.keyPath)...)
 	buf = append(buf, ']', ']')
 
 	t := n.trivia()
@@ -588,10 +565,10 @@ func renderKeyPath(parts []string) []byte {
 
 // renderComment renders a dirty CommentNode.
 func renderComment(n *CommentNode) []byte {
-	if n.Text == "" {
+	if n.text == "" {
 		return []byte("\n")
 	}
-	text := n.Text
+	text := n.text
 	// If it already looks like a comment line (starts with #), use as-is
 	if len(text) > 0 && text[0] == '#' {
 		if !strings.HasSuffix(text, "\n") {

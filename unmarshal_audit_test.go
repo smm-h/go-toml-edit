@@ -961,7 +961,7 @@ type dualUnmarshaler struct {
 func (d *dualUnmarshaler) UnmarshalTOML(node Node) error {
 	d.Via = "toml"
 	if node.Type() == NodeString {
-		d.Value = node.(*StringNode).Val
+		d.Value = node.(*StringNode).val.get()
 	}
 	return nil
 }

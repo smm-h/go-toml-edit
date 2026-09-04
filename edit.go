@@ -146,9 +146,9 @@ func (d *Document) createIntermediateTable(parent layerPos, segs []PathSegment) 
 	case *Document:
 		newPath = []string{key}
 	case *TableNode:
-		newPath = append(append([]string(nil), scope.KeyPath...), key)
+		newPath = append(append([]string(nil), scope.keyPath...), key)
 	case *ArrayTableNode:
-		newPath = append(append([]string(nil), scope.KeyPath...), key)
+		newPath = append(append([]string(nil), scope.keyPath...), key)
 	default:
 		if parent.node != nil || parent.rec == nil {
 			// A concrete node no table can be nested in -- an inline table,
@@ -199,11 +199,11 @@ func (d *Document) setKeyInParent(parent layerPos, parentSegs []PathSegment, key
 	case *Document:
 		return setKeyInDocument(p, key, valNode)
 	case *TableNode:
-		return setKeyInChildren(&p.Children, key, valNode)
+		return setKeyInContainer(p, key, valNode)
 	case *ArrayTableNode:
-		return setKeyInChildren(&p.Children, key, valNode)
+		return setKeyInContainer(p, key, valNode)
 	case *InlineTableNode:
-		return setKeyInChildren(&p.Children, key, valNode)
+		return setKeyInContainer(p, key, valNode)
 	default:
 		if parent.records != nil {
 			// An array-of-tables holds no keys of its own; an entry of it does.
@@ -229,8 +229,7 @@ func (d *Document) setKeyInParent(parent layerPos, parentSegs []PathSegment, key
 //     anchoring header TOML does allow it, and is written inside it.
 func (d *Document) setKeyInImpliedTable(rec *Record, parentSegs []PathSegment, key string, valNode Node) error {
 	if kv := rec.dottedKV(key); kv != nil {
-		kv.Val = valNode
-		kv.markDirty()
+		kv.setVal(valNode)
 		return nil
 	}
 	if container, prefix, ok := rec.impliedRegion(); ok {
@@ -243,34 +242,25 @@ func (d *Document) setKeyInImpliedTable(rec *Record, parentSegs []PathSegment, k
 			key)
 	}
 	tbl := d.appendTable(keyPath)
-	tbl.Children = append(tbl.Children, newKeyValueNode(key, valNode))
-	return nil
+	return appendContent(tbl, newKeyValueNode(key, valNode))
 }
 
 // insertDottedKey writes prefix+key as one dotted pair into the region that
 // spells the table out, beside the pairs already there.
 func insertDottedKey(container Node, prefix []string, key string, valNode Node) error {
-	children, valueFragment, err := containerChildren(container)
+	children, err := contents(container)
 	if err != nil {
 		return err
 	}
 	parts := append(append([]string(nil), prefix...), key)
-	at := lastDottedSiblingIndex(*children, prefix) + 1
+	at := lastDottedSiblingIndex(children, prefix) + 1
 	if at == 0 {
 		// No pair of the region among these children, which only a document
 		// whose region is empty can reach: keep the key out of the table
 		// regions that follow the first header.
-		at = firstHeaderIndex(*children)
+		at = firstHeaderIndex(children)
 	}
-	*children = append(*children, nil)
-	copy((*children)[at+1:], (*children)[at:])
-	(*children)[at] = newDottedKeyValueNode(parts, valNode)
-	if valueFragment {
-		// An array and an inline table render as one value fragment, so their
-		// own bytes no longer describe their contents.
-		container.markDirty()
-	}
-	return nil
+	return insertContent(container, at, newDottedKeyValueNode(parts, valNode))
 }
 
 // lastDottedSiblingIndex returns the position of the last pair whose key starts
@@ -279,10 +269,10 @@ func lastDottedSiblingIndex(children []Node, prefix []string) int {
 	last := -1
 	for i, child := range children {
 		kv, ok := child.(*KeyValueNode)
-		if !ok || len(kv.Key.Parts) <= len(prefix) {
+		if !ok || len(kv.key.parts) <= len(prefix) {
 			continue
 		}
-		if pathsEqual(kv.Key.Parts[:len(prefix)], prefix) {
+		if pathsEqual(kv.key.parts[:len(prefix)], prefix) {
 			last = i
 		}
 	}
@@ -305,10 +295,10 @@ func keyPathOfSegments(segments []PathSegment) ([]string, bool) {
 
 // appendTable appends a new [header] table for the key path to the document.
 func (d *Document) appendTable(keyPath []string) *TableNode {
-	tbl := &TableNode{KeyPath: keyPath}
+	tbl := &TableNode{keyPath: keyPath}
 	tbl.markDirty()
 	tbl.nodeTrivia.TrailingNewline = []byte("\n")
-	d.Children = append(d.Children, tbl)
+	_ = appendContent(d, tbl)
 	return tbl
 }
 
@@ -318,21 +308,15 @@ func (d *Document) appendTable(keyPath []string) *TableNode {
 // written at the end of the file would read as a key of the last table -- and,
 // where that table already carries the same key, as a duplicate.
 func setKeyInDocument(doc *Document, key string, valNode Node) error {
-	for _, child := range doc.Children {
+	for _, child := range doc.children {
 		if kv, ok := child.(*KeyValueNode); ok {
-			if len(kv.Key.Parts) == 1 && kv.Key.Parts[0] == key {
-				kv.Val = valNode
-				kv.markDirty()
+			if len(kv.key.parts) == 1 && kv.key.parts[0] == key {
+				kv.setVal(valNode)
 				return nil
 			}
 		}
 	}
-	kv := newKeyValueNode(key, valNode)
-	at := firstHeaderIndex(doc.Children)
-	doc.Children = append(doc.Children, nil)
-	copy(doc.Children[at+1:], doc.Children[at:])
-	doc.Children[at] = kv
-	return nil
+	return insertContent(doc, firstHeaderIndex(doc.children), newKeyValueNode(key, valNode))
 }
 
 // firstHeaderIndex returns the position of the first table or array-table
@@ -350,41 +334,46 @@ func firstHeaderIndex(children []Node) int {
 
 // setKeyInChildren searches children for an existing KV with the given key.
 // If found, replaces its value. Otherwise, appends a new KV.
-func setKeyInChildren(children *[]Node, key string, valNode Node) error {
-	for _, child := range *children {
+func setKeyInContainer(container Node, key string, valNode Node) error {
+	children, err := contents(container)
+	if err != nil {
+		return err
+	}
+	for _, child := range children {
 		if kv, ok := child.(*KeyValueNode); ok {
-			if len(kv.Key.Parts) == 1 && kv.Key.Parts[0] == key {
-				kv.Val = valNode
-				kv.markDirty()
+			if len(kv.key.parts) == 1 && kv.key.parts[0] == key {
+				kv.setVal(valNode)
 				return nil
 			}
 		}
 	}
 	// Key not found: create a new KV and append.
-	kv := newKeyValueNode(key, valNode)
-	*children = append(*children, kv)
-	return nil
+	return appendContent(container, newKeyValueNode(key, valNode))
 }
 
 // setIndexInParent replaces an element at the given index in an array.
 func setIndexInParent(parent layerPos, index int, valNode Node) error {
 	switch p := parent.node.(type) {
 	case *ArrayNode:
-		idx, err := normalizeIndex(index, len(p.Elements))
+		idx, err := normalizeIndex(index, len(p.elements))
 		if err != nil {
 			return err
 		}
 		// Transfer trivia (leading comments, leading whitespace, inline
 		// comment) from the old element to the new one so that comments
 		// on the replaced element survive re-rendering.
-		oldTrivia := p.Elements[idx].trivia()
+		oldTrivia := p.elements[idx].trivia()
 		newTrivia := valNode.trivia()
 		newTrivia.LeadingComments = oldTrivia.LeadingComments
 		newTrivia.LeadingWhitespace = oldTrivia.LeadingWhitespace
 		newTrivia.InlineComment = oldTrivia.InlineComment
-		p.Elements[idx] = valNode
-		p.markDirty()
-		return nil
+		items, err := contents(p)
+		if err != nil {
+			return err
+		}
+		replaced := append([]Node(nil), items...)
+		replaced[idx] = valNode
+		return setContents(p, replaced)
 	default:
 		return newError(KindWrongContainer, "cannot set index [%d] in %s", index, parent.describe())
 	}
@@ -405,16 +394,13 @@ func newDottedKeyValueNode(parts []string, val Node) *KeyValueNode {
 		styles[i] = StringBasic
 	}
 	keyNode := &KeyNode{
-		Parts:    parts,
-		RawParts: rawParts,
-		Styles:   styles,
+		parts:    parts,
+		rawParts: rawParts,
+		styles:   styles,
 	}
 	keyNode.markDirty()
 
-	kv := &KeyValueNode{
-		Key: keyNode,
-		Val: val,
-	}
+	kv := newPair(keyNode, val)
 	kv.markDirty()
 	kv.nodeTrivia.TrailingNewline = []byte("\n")
 	return kv
@@ -510,27 +496,24 @@ func (d *Document) deleteKeyFromParent(parent layerPos, key string) error {
 // removePairsUnder removes from a container every pair whose key path starts
 // with path.
 func removePairsUnder(container Node, path []string) {
-	children, valueFragment, err := containerChildren(container)
+	children, err := contents(container)
 	if err != nil {
 		// Not a container of pairs at all: nothing there binds the key.
 		return
 	}
-	kept := (*children)[:0]
+	kept := make([]Node, 0, len(children))
 	removed := false
-	for _, child := range *children {
-		if kv, ok := child.(*KeyValueNode); ok && hasPrefix(kv.Key.Parts, path) {
+	for _, child := range children {
+		if kv, ok := child.(*KeyValueNode); ok && hasPrefix(kv.key.parts, path) {
 			removed = true
 			continue
 		}
 		kept = append(kept, child)
 	}
-	*children = kept
-	if removed && valueFragment {
-		// An array and an inline table render as one value fragment, so their
-		// own bytes no longer describe their contents. Only a removal that took
-		// something invalidates them: a key the container never carried leaves
-		// it exactly as written.
-		container.markDirty()
+	// Only a removal that took something changes the container: a key it never
+	// carried leaves it exactly as written, down to its own bytes.
+	if removed {
+		_ = setContents(container, kept)
 	}
 }
 
@@ -566,9 +549,9 @@ func appendHeaderNodes(out []Node, r *Record) []Node {
 
 // removeChild removes one node from the document's own children, by identity.
 func (d *Document) removeChild(target Node) {
-	for i, child := range d.Children {
+	for i, child := range d.children {
 		if child == target {
-			d.Children = append(d.Children[:i], d.Children[i+1:]...)
+			_ = removeContent(d, i)
 			return
 		}
 	}
@@ -585,27 +568,19 @@ func (d *Document) deleteIndexFromParent(parent layerPos, index int) error {
 			return nil // silent no-op for out-of-range
 		}
 		// Remove the array-of-tables entry from the document's children.
-		target := parent.records[idx].node
-		for i, child := range d.Children {
-			if child == target {
-				d.Children = append(d.Children[:i], d.Children[i+1:]...)
-				break
-			}
-		}
+		d.removeChild(parent.records[idx].node)
 		return nil
 	}
 	switch p := parent.node.(type) {
 	case *ArrayNode:
-		if len(p.Elements) == 0 {
+		if len(p.elements) == 0 {
 			return nil // silent no-op
 		}
-		idx, err := normalizeIndex(index, len(p.Elements))
+		idx, err := normalizeIndex(index, len(p.elements))
 		if err != nil {
 			return nil // silent no-op for out-of-range
 		}
-		p.Elements = append(p.Elements[:idx], p.Elements[idx+1:]...)
-		p.markDirty()
-		return nil
+		return removeContent(p, idx)
 	default:
 		return nil // silent no-op
 	}
@@ -648,19 +623,14 @@ func (d *Document) renameKeyAt(path string, newKey string) error {
 
 // renameKeyInParent renames a key inside a parent container.
 func renameKeyInParent(parent layerPos, oldKey, newKey string) error {
-	var children *[]Node
-
-	switch p := parent.node.(type) {
-	case *Document:
-		children = &p.Children
-	case *TableNode:
-		children = &p.Children
-	case *ArrayTableNode:
-		children = &p.Children
-	case *InlineTableNode:
-		children = &p.Children
+	switch parent.node.(type) {
+	case *Document, *TableNode, *ArrayTableNode, *InlineTableNode:
 	default:
 		return newError(KindWrongContainer, "cannot rename key in %s", parent.describe())
+	}
+	children, err := contents(parent.node)
+	if err != nil {
+		return err
 	}
 
 	// The new name must be free. Every construct binds its name -- a value, a
@@ -675,14 +645,11 @@ func renameKeyInParent(parent layerPos, oldKey, newKey string) error {
 	}
 
 	// Find the KV with the old key.
-	for _, child := range *children {
+	for _, child := range children {
 		if kv, ok := child.(*KeyValueNode); ok {
-			if len(kv.Key.Parts) > 0 && kv.Key.Parts[0] == oldKey {
+			if len(kv.key.parts) > 0 && kv.key.parts[0] == oldKey {
 				// Update the last matching part (for simple keys, index 0).
-				kv.Key.Parts[0] = newKey
-				kv.Key.RawParts[0] = []byte(newKey)
-				kv.Key.markDirty()
-				kv.markDirty()
+				kv.key.renamePart(0, newKey)
 				return nil
 			}
 		}
@@ -779,12 +746,12 @@ func (d *Document) newArrayTableAt(path string) error {
 	}
 
 	atbl := &ArrayTableNode{
-		KeyPath: keyPath,
+		keyPath: keyPath,
 	}
 	atbl.markDirty()
 	atbl.nodeTrivia.TrailingNewline = []byte("\n")
 
-	d.Children = append(d.Children, atbl)
+	_ = appendContent(d, atbl)
 	return nil
 }
 
@@ -886,79 +853,79 @@ func valueToNode(v any) (Node, error) {
 
 	switch val := v.(type) {
 	case string:
-		n := &StringNode{Val: val, Style: StringBasic}
+		n := &StringNode{val: scalarOf(val), style: StringBasic}
 		n.markDirty()
 		return n, nil
 
 	case bool:
-		n := &BooleanNode{Val: val}
+		n := &BooleanNode{val: scalarOf(val)}
 		n.markDirty()
 		return n, nil
 
 	case int:
-		n := &IntegerNode{Val: int64(val), Base: IntegerDecimal}
+		n := &IntegerNode{val: scalarOf[int64](int64(val)), base: IntegerDecimal}
 		n.markDirty()
 		return n, nil
 	case int8:
-		n := &IntegerNode{Val: int64(val), Base: IntegerDecimal}
+		n := &IntegerNode{val: scalarOf[int64](int64(val)), base: IntegerDecimal}
 		n.markDirty()
 		return n, nil
 	case int16:
-		n := &IntegerNode{Val: int64(val), Base: IntegerDecimal}
+		n := &IntegerNode{val: scalarOf[int64](int64(val)), base: IntegerDecimal}
 		n.markDirty()
 		return n, nil
 	case int32:
-		n := &IntegerNode{Val: int64(val), Base: IntegerDecimal}
+		n := &IntegerNode{val: scalarOf[int64](int64(val)), base: IntegerDecimal}
 		n.markDirty()
 		return n, nil
 	case int64:
-		n := &IntegerNode{Val: val, Base: IntegerDecimal}
+		n := &IntegerNode{val: scalarOf[int64](val), base: IntegerDecimal}
 		n.markDirty()
 		return n, nil
 
 	case uint:
 		return unsignedToNode(uint64(val), val)
 	case uint8:
-		n := &IntegerNode{Val: int64(val), Base: IntegerDecimal}
+		n := &IntegerNode{val: scalarOf[int64](int64(val)), base: IntegerDecimal}
 		n.markDirty()
 		return n, nil
 	case uint16:
-		n := &IntegerNode{Val: int64(val), Base: IntegerDecimal}
+		n := &IntegerNode{val: scalarOf[int64](int64(val)), base: IntegerDecimal}
 		n.markDirty()
 		return n, nil
 	case uint32:
-		n := &IntegerNode{Val: int64(val), Base: IntegerDecimal}
+		n := &IntegerNode{val: scalarOf[int64](int64(val)), base: IntegerDecimal}
 		n.markDirty()
 		return n, nil
 	case uint64:
 		return unsignedToNode(val, val)
 
 	case float32:
-		n := &FloatNode{Val: float64(val)}
+		n := &FloatNode{val: scalarOf(float64(val))}
 		n.markDirty()
 		return n, nil
 	case float64:
-		n := &FloatNode{Val: val}
+		n := &FloatNode{val: scalarOf(val)}
 		n.markDirty()
 		return n, nil
 
 	case time.Time:
-		n := &DateTimeNode{Val: val}
+		n := &DateTimeNode{val: scalarOf(val)}
 		n.markDirty()
 		return n, nil
 
 	case LocalDateTime:
-		n := &LocalDateTimeNode{Val: val}
+		n := &LocalDateTimeNode{val: scalarOf(val)}
 		n.markDirty()
 		return n, nil
 
 	case LocalDate:
-		n := &LocalDateNode{Val: val}
+		n := &LocalDateNode{val: scalarOf(val)}
 		n.markDirty()
 		return n, nil
 
 	case LocalTime:
-		n := &LocalTimeNode{Val: val}
+		n := &LocalTimeNode{val: scalarOf(val)}
 		n.markDirty()
 		return n, nil
 
@@ -995,7 +962,7 @@ func unsignedToNode(v uint64, orig any) (Node, error) {
 			"unsigned value %d does not fit in a TOML integer (the maximum is %d)",
 			v, int64(math.MaxInt64)).withValue(orig)
 	}
-	n := &IntegerNode{Val: int64(v), Base: IntegerDecimal}
+	n := &IntegerNode{val: scalarOf[int64](int64(v)), base: IntegerDecimal}
 	n.markDirty()
 	return n, nil
 }
@@ -1009,7 +976,7 @@ func sliceToArrayNode(items []any) (Node, error) {
 		if err != nil {
 			return nil, wrapError(err, "array element")
 		}
-		arr.Elements = append(arr.Elements, elem)
+		buildAppend(arr, elem)
 	}
 	return arr, nil
 }
@@ -1051,7 +1018,7 @@ func pairsToInlineTableNode(pairs []Pair) (Node, error) {
 		if err != nil {
 			return nil, wrapError(err, "inline table key %q", pair.Key)
 		}
-		tbl.Children = append(tbl.Children, newKeyValueNode(pair.Key, valNode))
+		buildAppend(tbl, newKeyValueNode(pair.Key, valNode))
 	}
 	return tbl, nil
 }
@@ -1071,8 +1038,7 @@ func mapToInlineTableNode(m map[string]any) (Node, error) {
 		if err != nil {
 			return nil, wrapError(err, "inline table key %q", k)
 		}
-		kv := newKeyValueNode(k, valNode)
-		tbl.Children = append(tbl.Children, kv)
+		buildAppend(tbl, newKeyValueNode(k, valNode))
 	}
 	return tbl, nil
 }

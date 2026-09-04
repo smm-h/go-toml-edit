@@ -127,7 +127,7 @@ tags = [
 // =============================================================================
 
 func TestRenderStringBasic(t *testing.T) {
-	n := &StringNode{Val: "hello world", Style: StringBasic}
+	n := &StringNode{val: scalarOf("hello world"), style: StringBasic}
 	n.markDirty()
 	got := string(renderValue(n))
 	if got != `"hello world"` {
@@ -136,7 +136,7 @@ func TestRenderStringBasic(t *testing.T) {
 }
 
 func TestRenderStringBasicEscapes(t *testing.T) {
-	n := &StringNode{Val: "line1\nline2\ttab\\back\"quote", Style: StringBasic}
+	n := &StringNode{val: scalarOf("line1\nline2\ttab\\back\"quote"), style: StringBasic}
 	n.markDirty()
 	got := string(renderValue(n))
 	expected := `"line1\nline2\ttab\\back\"quote"`
@@ -146,7 +146,7 @@ func TestRenderStringBasicEscapes(t *testing.T) {
 }
 
 func TestRenderStringBasicControlChars(t *testing.T) {
-	n := &StringNode{Val: "hello" + string(rune(0)) + "world", Style: StringBasic}
+	n := &StringNode{val: scalarOf("hello" + string(rune(0)) + "world"), style: StringBasic}
 	n.markDirty()
 	got := string(renderValue(n))
 	if !strings.Contains(got, "\\u0000") {
@@ -155,7 +155,7 @@ func TestRenderStringBasicControlChars(t *testing.T) {
 }
 
 func TestRenderStringLiteral(t *testing.T) {
-	n := &StringNode{Val: `C:\path\to\file`, Style: StringLiteral}
+	n := &StringNode{val: scalarOf(`C:\path\to\file`), style: StringLiteral}
 	n.markDirty()
 	got := string(renderValue(n))
 	if got != `'C:\path\to\file'` {
@@ -165,7 +165,7 @@ func TestRenderStringLiteral(t *testing.T) {
 
 func TestRenderStringLiteralFallbackToBasic(t *testing.T) {
 	// Literal strings cannot contain single quotes; should fall back to basic
-	n := &StringNode{Val: "it's here", Style: StringLiteral}
+	n := &StringNode{val: scalarOf("it's here"), style: StringLiteral}
 	n.markDirty()
 	got := string(renderValue(n))
 	if !strings.HasPrefix(got, `"`) {
@@ -177,7 +177,7 @@ func TestRenderStringLiteralFallbackToBasic(t *testing.T) {
 }
 
 func TestRenderStringMultiLineBasic(t *testing.T) {
-	n := &StringNode{Val: "hello\nworld", Style: StringMultiLineBasic}
+	n := &StringNode{val: scalarOf("hello\nworld"), style: StringMultiLineBasic}
 	n.markDirty()
 	got := string(renderValue(n))
 	if !strings.HasPrefix(got, `"""`+"\n") {
@@ -189,7 +189,7 @@ func TestRenderStringMultiLineBasic(t *testing.T) {
 }
 
 func TestRenderStringMultiLineLiteral(t *testing.T) {
-	n := &StringNode{Val: "hello\nworld", Style: StringMultiLineLiteral}
+	n := &StringNode{val: scalarOf("hello\nworld"), style: StringMultiLineLiteral}
 	n.markDirty()
 	got := string(renderValue(n))
 	if !strings.HasPrefix(got, "'''\n") {
@@ -211,7 +211,7 @@ func TestRenderIntegerDecimal(t *testing.T) {
 		{1000, "1000"},
 	}
 	for _, tt := range tests {
-		n := &IntegerNode{Val: tt.val, Base: IntegerDecimal}
+		n := &IntegerNode{val: scalarOf[int64](tt.val), base: IntegerDecimal}
 		n.markDirty()
 		got := string(renderValue(n))
 		if got != tt.want {
@@ -221,7 +221,7 @@ func TestRenderIntegerDecimal(t *testing.T) {
 }
 
 func TestRenderIntegerHex(t *testing.T) {
-	n := &IntegerNode{Val: 0xDEAD, Base: IntegerHex}
+	n := &IntegerNode{val: scalarOf[int64](0xDEAD), base: IntegerHex}
 	n.markDirty()
 	got := string(renderValue(n))
 	if got != "0xdead" {
@@ -230,7 +230,7 @@ func TestRenderIntegerHex(t *testing.T) {
 }
 
 func TestRenderIntegerOctal(t *testing.T) {
-	n := &IntegerNode{Val: 0o755, Base: IntegerOctal}
+	n := &IntegerNode{val: scalarOf[int64](0o755), base: IntegerOctal}
 	n.markDirty()
 	got := string(renderValue(n))
 	if got != "0o755" {
@@ -239,7 +239,7 @@ func TestRenderIntegerOctal(t *testing.T) {
 }
 
 func TestRenderIntegerBinary(t *testing.T) {
-	n := &IntegerNode{Val: 0b1101, Base: IntegerBinary}
+	n := &IntegerNode{val: scalarOf[int64](0b1101), base: IntegerBinary}
 	n.markDirty()
 	got := string(renderValue(n))
 	if got != "0b1101" {
@@ -258,7 +258,7 @@ func TestRenderFloat(t *testing.T) {
 		{100.0, "100.0"},
 	}
 	for _, tt := range tests {
-		n := &FloatNode{Val: tt.val}
+		n := &FloatNode{val: scalarOf(tt.val)}
 		n.markDirty()
 		got := string(renderValue(n))
 		if got != tt.want {
@@ -277,7 +277,7 @@ func TestRenderFloatSpecial(t *testing.T) {
 		{math.NaN(), "nan"},
 	}
 	for _, tt := range tests {
-		n := &FloatNode{Val: tt.val}
+		n := &FloatNode{val: scalarOf(tt.val)}
 		n.markDirty()
 		got := string(renderValue(n))
 		if got != tt.want {
@@ -287,13 +287,13 @@ func TestRenderFloatSpecial(t *testing.T) {
 }
 
 func TestRenderBoolean(t *testing.T) {
-	n1 := &BooleanNode{Val: true}
+	n1 := &BooleanNode{val: scalarOf(true)}
 	n1.markDirty()
 	if got := string(renderValue(n1)); got != "true" {
 		t.Errorf("got %q, want %q", got, "true")
 	}
 
-	n2 := &BooleanNode{Val: false}
+	n2 := &BooleanNode{val: scalarOf(false)}
 	n2.markDirty()
 	if got := string(renderValue(n2)); got != "false" {
 		t.Errorf("got %q, want %q", got, "false")
@@ -302,7 +302,7 @@ func TestRenderBoolean(t *testing.T) {
 
 func TestRenderDateTime(t *testing.T) {
 	val := time.Date(1979, 5, 27, 7, 32, 0, 0, time.UTC)
-	n := &DateTimeNode{Val: val}
+	n := &DateTimeNode{val: scalarOf(val)}
 	n.markDirty()
 	got := string(renderValue(n))
 	if !strings.Contains(got, "1979-05-27") {
@@ -314,7 +314,7 @@ func TestRenderDateTime(t *testing.T) {
 }
 
 func TestRenderLocalDateTime(t *testing.T) {
-	n := &LocalDateTimeNode{Val: LocalDateTime{Year: 1979, Month: 5, Day: 27, Hour: 7, Minute: 32, Second: 0}}
+	n := &LocalDateTimeNode{val: scalarOf(LocalDateTime{Year: 1979, Month: 5, Day: 27, Hour: 7, Minute: 32, Second: 0})}
 	n.markDirty()
 	got := string(renderValue(n))
 	if got != "1979-05-27T07:32:00" {
@@ -323,7 +323,7 @@ func TestRenderLocalDateTime(t *testing.T) {
 }
 
 func TestRenderLocalDateTimeWithNanos(t *testing.T) {
-	n := &LocalDateTimeNode{Val: LocalDateTime{Year: 1979, Month: 5, Day: 27, Hour: 7, Minute: 32, Second: 0, Nanosecond: 999000000}}
+	n := &LocalDateTimeNode{val: scalarOf(LocalDateTime{Year: 1979, Month: 5, Day: 27, Hour: 7, Minute: 32, Second: 0, Nanosecond: 999000000})}
 	n.markDirty()
 	got := string(renderValue(n))
 	if got != "1979-05-27T07:32:00.999" {
@@ -332,7 +332,7 @@ func TestRenderLocalDateTimeWithNanos(t *testing.T) {
 }
 
 func TestRenderLocalDate(t *testing.T) {
-	n := &LocalDateNode{Val: LocalDate{Year: 1979, Month: 5, Day: 27}}
+	n := &LocalDateNode{val: scalarOf(LocalDate{Year: 1979, Month: 5, Day: 27})}
 	n.markDirty()
 	got := string(renderValue(n))
 	if got != "1979-05-27" {
@@ -341,7 +341,7 @@ func TestRenderLocalDate(t *testing.T) {
 }
 
 func TestRenderLocalTime(t *testing.T) {
-	n := &LocalTimeNode{Val: LocalTime{Hour: 7, Minute: 32, Second: 0}}
+	n := &LocalTimeNode{val: scalarOf(LocalTime{Hour: 7, Minute: 32, Second: 0})}
 	n.markDirty()
 	got := string(renderValue(n))
 	if got != "07:32:00" {
@@ -350,7 +350,7 @@ func TestRenderLocalTime(t *testing.T) {
 }
 
 func TestRenderLocalTimeWithNanos(t *testing.T) {
-	n := &LocalTimeNode{Val: LocalTime{Hour: 7, Minute: 32, Second: 0, Nanosecond: 999000000}}
+	n := &LocalTimeNode{val: scalarOf(LocalTime{Hour: 7, Minute: 32, Second: 0, Nanosecond: 999000000})}
 	n.markDirty()
 	got := string(renderValue(n))
 	if got != "07:32:00.999" {
@@ -368,9 +368,9 @@ func TestRenderArrayEmpty(t *testing.T) {
 }
 
 func TestRenderArraySingle(t *testing.T) {
-	elem := &IntegerNode{Val: 42, Base: IntegerDecimal}
+	elem := &IntegerNode{val: scalarOf[int64](42), base: IntegerDecimal}
 	elem.markDirty()
-	n := &ArrayNode{Elements: []Node{elem}}
+	n := &ArrayNode{elements: []Node{elem}}
 	n.markDirty()
 	got := string(renderValue(n))
 	if got != "[42]" {
@@ -380,11 +380,11 @@ func TestRenderArraySingle(t *testing.T) {
 
 func TestRenderArrayMulti(t *testing.T) {
 	elems := []Node{
-		&IntegerNode{nodeBase: nodeBase{dirty: true}, Val: 1, Base: IntegerDecimal},
-		&IntegerNode{nodeBase: nodeBase{dirty: true}, Val: 2, Base: IntegerDecimal},
-		&IntegerNode{nodeBase: nodeBase{dirty: true}, Val: 3, Base: IntegerDecimal},
+		&IntegerNode{nodeBase: nodeBase{dirty: true}, val: scalarOf[int64](1), base: IntegerDecimal},
+		&IntegerNode{nodeBase: nodeBase{dirty: true}, val: scalarOf[int64](2), base: IntegerDecimal},
+		&IntegerNode{nodeBase: nodeBase{dirty: true}, val: scalarOf[int64](3), base: IntegerDecimal},
 	}
-	n := &ArrayNode{Elements: elems}
+	n := &ArrayNode{elements: elems}
 	n.markDirty()
 	got := string(renderValue(n))
 	if got != "[1, 2, 3]" {
@@ -402,21 +402,21 @@ func TestRenderInlineTableEmpty(t *testing.T) {
 }
 
 func TestRenderInlineTableEntries(t *testing.T) {
-	k1 := &KeyNode{Parts: []string{"x"}}
+	k1 := &KeyNode{parts: []string{"x"}}
 	k1.markDirty()
-	v1 := &IntegerNode{Val: 1, Base: IntegerDecimal}
+	v1 := &IntegerNode{val: scalarOf[int64](1), base: IntegerDecimal}
 	v1.markDirty()
-	kv1 := &KeyValueNode{Key: k1, Val: v1}
+	kv1 := &KeyValueNode{key: k1, val: v1}
 	kv1.markDirty()
 
-	k2 := &KeyNode{Parts: []string{"y"}}
+	k2 := &KeyNode{parts: []string{"y"}}
 	k2.markDirty()
-	v2 := &IntegerNode{Val: 2, Base: IntegerDecimal}
+	v2 := &IntegerNode{val: scalarOf[int64](2), base: IntegerDecimal}
 	v2.markDirty()
-	kv2 := &KeyValueNode{Key: k2, Val: v2}
+	kv2 := &KeyValueNode{key: k2, val: v2}
 	kv2.markDirty()
 
-	n := &InlineTableNode{Children: []Node{kv1, kv2}}
+	n := &InlineTableNode{children: []Node{kv1, kv2}}
 	n.markDirty()
 	got := string(renderValue(n))
 	if got != "{x = 1, y = 2}" {
@@ -436,10 +436,9 @@ func TestBytesMixedCleanDirty(t *testing.T) {
 	}
 
 	// Modify the second key-value's value
-	kv := doc.Children[1].(*KeyValueNode)
-	intNode := kv.Val.(*IntegerNode)
-	intNode.Val = 31
-	intNode.markDirty()
+	kv := doc.children[1].(*KeyValueNode)
+	intNode := kv.val.(*IntegerNode)
+	intNode.setValue(31, IntegerDecimal)
 	kv.markDirty()
 
 	got := string(doc.Bytes())
@@ -457,11 +456,10 @@ func TestBytesMixedCleanDirtyTable(t *testing.T) {
 	}
 
 	// Modify the host value
-	tbl := doc.Children[0].(*TableNode)
-	kv := tbl.Children[0].(*KeyValueNode)
-	strNode := kv.Val.(*StringNode)
-	strNode.Val = "0.0.0.0"
-	strNode.markDirty()
+	tbl := doc.children[0].(*TableNode)
+	kv := tbl.children[0].(*KeyValueNode)
+	strNode := kv.val.(*StringNode)
+	strNode.setValue("0.0.0.0", StringBasic)
 	kv.markDirty()
 
 	got := string(doc.Bytes())
@@ -485,10 +483,9 @@ func TestBytesMixedPreservesComments(t *testing.T) {
 	}
 
 	// Only modify age
-	kv := doc.Children[1].(*KeyValueNode)
-	intNode := kv.Val.(*IntegerNode)
-	intNode.Val = 31
-	intNode.markDirty()
+	kv := doc.children[1].(*KeyValueNode)
+	intNode := kv.val.(*IntegerNode)
+	intNode.setValue(31, IntegerDecimal)
 	kv.markDirty()
 
 	got := string(doc.Bytes())
@@ -507,15 +504,15 @@ func TestBytesMixedPreservesComments(t *testing.T) {
 
 func TestBytesDirtyNodeWithComments(t *testing.T) {
 	// Construct a dirty key-value with trivia set
-	key := &KeyNode{Parts: []string{"name"}}
+	key := &KeyNode{parts: []string{"name"}}
 	key.markDirty()
-	val := &StringNode{Val: "alice", Style: StringBasic}
+	val := &StringNode{val: scalarOf("alice"), style: StringBasic}
 	val.markDirty()
-	kv := &KeyValueNode{Key: key, Val: val}
+	kv := &KeyValueNode{key: key, val: val}
 	kv.markDirty()
 	kv.nodeTrivia.InlineComment = []byte("# the name")
 
-	doc := &Document{Children: []Node{kv}}
+	doc := &Document{children: []Node{kv}}
 
 	got := string(doc.Bytes())
 	if !strings.Contains(got, "# the name") {
@@ -527,17 +524,17 @@ func TestBytesDirtyNodeWithComments(t *testing.T) {
 }
 
 func TestBytesDirtyNodeWithLeadingComments(t *testing.T) {
-	key := &KeyNode{Parts: []string{"port"}}
+	key := &KeyNode{parts: []string{"port"}}
 	key.markDirty()
-	val := &IntegerNode{Val: 8080, Base: IntegerDecimal}
+	val := &IntegerNode{val: scalarOf[int64](8080), base: IntegerDecimal}
 	val.markDirty()
-	kv := &KeyValueNode{Key: key, Val: val}
+	kv := &KeyValueNode{key: key, val: val}
 	kv.markDirty()
 	kv.nodeTrivia.LeadingComments = [][]byte{
 		[]byte("# port configuration\n"),
 	}
 
-	doc := &Document{Children: []Node{kv}}
+	doc := &Document{children: []Node{kv}}
 
 	got := string(doc.Bytes())
 	if !strings.Contains(got, "# port configuration\n") {
@@ -554,21 +551,21 @@ func TestBytesDirtyNodeWithLeadingComments(t *testing.T) {
 
 func TestBytesNewDocument(t *testing.T) {
 	// Build a document entirely from programmatic nodes (all dirty)
-	titleKey := &KeyNode{Parts: []string{"title"}}
+	titleKey := &KeyNode{parts: []string{"title"}}
 	titleKey.markDirty()
-	titleVal := &StringNode{Val: "My App", Style: StringBasic}
+	titleVal := &StringNode{val: scalarOf("My App"), style: StringBasic}
 	titleVal.markDirty()
-	titleKV := &KeyValueNode{Key: titleKey, Val: titleVal}
+	titleKV := &KeyValueNode{key: titleKey, val: titleVal}
 	titleKV.markDirty()
 
-	verKey := &KeyNode{Parts: []string{"version"}}
+	verKey := &KeyNode{parts: []string{"version"}}
 	verKey.markDirty()
-	verVal := &IntegerNode{Val: 1, Base: IntegerDecimal}
+	verVal := &IntegerNode{val: scalarOf[int64](1), base: IntegerDecimal}
 	verVal.markDirty()
-	verKV := &KeyValueNode{Key: verKey, Val: verVal}
+	verKV := &KeyValueNode{key: verKey, val: verVal}
 	verKV.markDirty()
 
-	doc := &Document{Children: []Node{titleKV, verKV}}
+	doc := &Document{children: []Node{titleKV, verKV}}
 	got := string(doc.Bytes())
 
 	// Verify it contains expected output
@@ -584,24 +581,24 @@ func TestBytesNewDocument(t *testing.T) {
 	if err != nil {
 		t.Fatalf("output is not valid TOML: %v\noutput: %q", err, got)
 	}
-	if len(doc2.Children) != 2 {
-		t.Errorf("parsed doc has %d children, want 2", len(doc2.Children))
+	if len(doc2.children) != 2 {
+		t.Errorf("parsed doc has %d children, want 2", len(doc2.children))
 	}
 }
 
 func TestBytesNewDocumentWithTable(t *testing.T) {
-	tbl := &TableNode{KeyPath: []string{"server"}}
+	tbl := &TableNode{keyPath: []string{"server"}}
 	tbl.markDirty()
 
-	hostKey := &KeyNode{Parts: []string{"host"}}
+	hostKey := &KeyNode{parts: []string{"host"}}
 	hostKey.markDirty()
-	hostVal := &StringNode{Val: "localhost", Style: StringBasic}
+	hostVal := &StringNode{val: scalarOf("localhost"), style: StringBasic}
 	hostVal.markDirty()
-	hostKV := &KeyValueNode{Key: hostKey, Val: hostVal}
+	hostKV := &KeyValueNode{key: hostKey, val: hostVal}
 	hostKV.markDirty()
-	tbl.Children = []Node{hostKV}
+	mustSetContents(t, tbl, []Node{hostKV})
 
-	doc := &Document{Children: []Node{tbl}}
+	doc := &Document{children: []Node{tbl}}
 	got := string(doc.Bytes())
 
 	if !strings.Contains(got, "[server]") {
@@ -619,18 +616,18 @@ func TestBytesNewDocumentWithTable(t *testing.T) {
 }
 
 func TestBytesNewDocumentWithArrayTable(t *testing.T) {
-	atbl := &ArrayTableNode{KeyPath: []string{"items"}}
+	atbl := &ArrayTableNode{keyPath: []string{"items"}}
 	atbl.markDirty()
 
-	nameKey := &KeyNode{Parts: []string{"name"}}
+	nameKey := &KeyNode{parts: []string{"name"}}
 	nameKey.markDirty()
-	nameVal := &StringNode{Val: "one", Style: StringBasic}
+	nameVal := &StringNode{val: scalarOf("one"), style: StringBasic}
 	nameVal.markDirty()
-	nameKV := &KeyValueNode{Key: nameKey, Val: nameVal}
+	nameKV := &KeyValueNode{key: nameKey, val: nameVal}
 	nameKV.markDirty()
-	atbl.Children = []Node{nameKV}
+	mustSetContents(t, atbl, []Node{nameKV})
 
-	doc := &Document{Children: []Node{atbl}}
+	doc := &Document{children: []Node{atbl}}
 	got := string(doc.Bytes())
 
 	if !strings.Contains(got, "[[items]]") {
@@ -652,7 +649,7 @@ func TestBytesNewDocumentWithArrayTable(t *testing.T) {
 // =============================================================================
 
 func TestRenderBareKey(t *testing.T) {
-	k := &KeyNode{Parts: []string{"simple"}}
+	k := &KeyNode{parts: []string{"simple"}}
 	k.markDirty()
 	got := string(renderKeyParts(k))
 	if got != "simple" {
@@ -661,7 +658,7 @@ func TestRenderBareKey(t *testing.T) {
 }
 
 func TestRenderQuotedKey(t *testing.T) {
-	k := &KeyNode{Parts: []string{"key with spaces"}}
+	k := &KeyNode{parts: []string{"key with spaces"}}
 	k.markDirty()
 	got := string(renderKeyParts(k))
 	if got != `"key with spaces"` {
@@ -670,7 +667,7 @@ func TestRenderQuotedKey(t *testing.T) {
 }
 
 func TestRenderDottedKey(t *testing.T) {
-	k := &KeyNode{Parts: []string{"a", "b", "c"}}
+	k := &KeyNode{parts: []string{"a", "b", "c"}}
 	k.markDirty()
 	got := string(renderKeyParts(k))
 	if got != "a.b.c" {
@@ -679,7 +676,7 @@ func TestRenderDottedKey(t *testing.T) {
 }
 
 func TestRenderMixedDottedKey(t *testing.T) {
-	k := &KeyNode{Parts: []string{"server", "host name", "port"}}
+	k := &KeyNode{parts: []string{"server", "host name", "port"}}
 	k.markDirty()
 	got := string(renderKeyParts(k))
 	if got != `server."host name".port` {
@@ -689,7 +686,7 @@ func TestRenderMixedDottedKey(t *testing.T) {
 
 func TestRenderEmptyKey(t *testing.T) {
 	// Empty key must be quoted
-	k := &KeyNode{Parts: []string{""}}
+	k := &KeyNode{parts: []string{""}}
 	k.markDirty()
 	got := string(renderKeyParts(k))
 	if got != `""` {
@@ -731,7 +728,7 @@ func TestIsBareKey(t *testing.T) {
 // =============================================================================
 
 func TestRenderTableHeaderSimple(t *testing.T) {
-	tbl := &TableNode{KeyPath: []string{"server"}}
+	tbl := &TableNode{keyPath: []string{"server"}}
 	tbl.markDirty()
 	got := string(renderTableHeader(tbl))
 	if got != "[server]\n" {
@@ -740,7 +737,7 @@ func TestRenderTableHeaderSimple(t *testing.T) {
 }
 
 func TestRenderTableHeaderDotted(t *testing.T) {
-	tbl := &TableNode{KeyPath: []string{"server", "tls"}}
+	tbl := &TableNode{keyPath: []string{"server", "tls"}}
 	tbl.markDirty()
 	got := string(renderTableHeader(tbl))
 	if got != "[server.tls]\n" {
@@ -749,7 +746,7 @@ func TestRenderTableHeaderDotted(t *testing.T) {
 }
 
 func TestRenderTableHeaderWithQuotedKey(t *testing.T) {
-	tbl := &TableNode{KeyPath: []string{"server", "host name"}}
+	tbl := &TableNode{keyPath: []string{"server", "host name"}}
 	tbl.markDirty()
 	got := string(renderTableHeader(tbl))
 	if got != `[server."host name"]`+"\n" {
@@ -758,7 +755,7 @@ func TestRenderTableHeaderWithQuotedKey(t *testing.T) {
 }
 
 func TestRenderTableHeaderWithInlineComment(t *testing.T) {
-	tbl := &TableNode{KeyPath: []string{"server"}}
+	tbl := &TableNode{keyPath: []string{"server"}}
 	tbl.markDirty()
 	tbl.nodeTrivia.InlineComment = []byte("# config")
 	got := string(renderTableHeader(tbl))
@@ -768,7 +765,7 @@ func TestRenderTableHeaderWithInlineComment(t *testing.T) {
 }
 
 func TestRenderArrayTableHeaderSimple(t *testing.T) {
-	atbl := &ArrayTableNode{KeyPath: []string{"items"}}
+	atbl := &ArrayTableNode{keyPath: []string{"items"}}
 	atbl.markDirty()
 	got := string(renderArrayTableHeader(atbl))
 	if got != "[[items]]\n" {
@@ -777,7 +774,7 @@ func TestRenderArrayTableHeaderSimple(t *testing.T) {
 }
 
 func TestRenderArrayTableHeaderWithComment(t *testing.T) {
-	atbl := &ArrayTableNode{KeyPath: []string{"items"}}
+	atbl := &ArrayTableNode{keyPath: []string{"items"}}
 	atbl.markDirty()
 	atbl.nodeTrivia.InlineComment = []byte("# list")
 	got := string(renderArrayTableHeader(atbl))
@@ -791,7 +788,7 @@ func TestRenderArrayTableHeaderWithComment(t *testing.T) {
 // =============================================================================
 
 func TestRenderCommentDirty(t *testing.T) {
-	cn := &CommentNode{Text: "hello"}
+	cn := &CommentNode{text: "hello"}
 	cn.markDirty()
 	got := string(serializeNode(cn))
 	if got != "# hello\n" {
@@ -800,7 +797,7 @@ func TestRenderCommentDirty(t *testing.T) {
 }
 
 func TestRenderCommentAlreadyHasHash(t *testing.T) {
-	cn := &CommentNode{Text: "# already has hash"}
+	cn := &CommentNode{text: "# already has hash"}
 	cn.markDirty()
 	got := string(serializeNode(cn))
 	if got != "# already has hash\n" {
@@ -814,38 +811,38 @@ func TestRenderCommentAlreadyHasHash(t *testing.T) {
 
 func TestBytesOutputParseable(t *testing.T) {
 	// Construct a complex document programmatically
-	titleKey := &KeyNode{Parts: []string{"title"}}
+	titleKey := &KeyNode{parts: []string{"title"}}
 	titleKey.markDirty()
-	titleVal := &StringNode{Val: "Test", Style: StringBasic}
+	titleVal := &StringNode{val: scalarOf("Test"), style: StringBasic}
 	titleVal.markDirty()
-	titleKV := &KeyValueNode{Key: titleKey, Val: titleVal}
+	titleKV := &KeyValueNode{key: titleKey, val: titleVal}
 	titleKV.markDirty()
 
-	debugKey := &KeyNode{Parts: []string{"debug"}}
+	debugKey := &KeyNode{parts: []string{"debug"}}
 	debugKey.markDirty()
-	debugVal := &BooleanNode{Val: true}
+	debugVal := &BooleanNode{val: scalarOf(true)}
 	debugVal.markDirty()
-	debugKV := &KeyValueNode{Key: debugKey, Val: debugVal}
+	debugKV := &KeyValueNode{key: debugKey, val: debugVal}
 	debugKV.markDirty()
 
-	piKey := &KeyNode{Parts: []string{"pi"}}
+	piKey := &KeyNode{parts: []string{"pi"}}
 	piKey.markDirty()
-	piVal := &FloatNode{Val: 3.14159}
+	piVal := &FloatNode{val: scalarOf(3.14159)}
 	piVal.markDirty()
-	piKV := &KeyValueNode{Key: piKey, Val: piVal}
+	piKV := &KeyValueNode{key: piKey, val: piVal}
 	piKV.markDirty()
 
-	tbl := &TableNode{KeyPath: []string{"server"}}
+	tbl := &TableNode{keyPath: []string{"server"}}
 	tbl.markDirty()
-	portKey := &KeyNode{Parts: []string{"port"}}
+	portKey := &KeyNode{parts: []string{"port"}}
 	portKey.markDirty()
-	portVal := &IntegerNode{Val: 8080, Base: IntegerDecimal}
+	portVal := &IntegerNode{val: scalarOf[int64](8080), base: IntegerDecimal}
 	portVal.markDirty()
-	portKV := &KeyValueNode{Key: portKey, Val: portVal}
+	portKV := &KeyValueNode{key: portKey, val: portVal}
 	portKV.markDirty()
-	tbl.Children = []Node{portKV}
+	mustSetContents(t, tbl, []Node{portKV})
 
-	doc := &Document{Children: []Node{titleKV, debugKV, piKV, tbl}}
+	doc := &Document{children: []Node{titleKV, debugKV, piKV, tbl}}
 	out := doc.Bytes()
 
 	// Parse the output
@@ -855,43 +852,43 @@ func TestBytesOutputParseable(t *testing.T) {
 	}
 
 	// Verify semantic equivalence
-	if len(doc2.Children) < 4 {
-		t.Fatalf("parsed doc has %d children, want at least 4", len(doc2.Children))
+	if len(doc2.children) < 4 {
+		t.Fatalf("parsed doc has %d children, want at least 4", len(doc2.children))
 	}
 
 	// Check title
-	kv := doc2.Children[0].(*KeyValueNode)
-	if kv.Key.Parts[0] != "title" {
-		t.Errorf("first key = %q, want %q", kv.Key.Parts[0], "title")
+	kv := doc2.children[0].(*KeyValueNode)
+	if kv.key.parts[0] != "title" {
+		t.Errorf("first key = %q, want %q", kv.key.parts[0], "title")
 	}
-	sv := kv.Val.(*StringNode)
-	if sv.Val != "Test" {
-		t.Errorf("title = %q, want %q", sv.Val, "Test")
+	sv := kv.val.(*StringNode)
+	if sv.val.get() != "Test" {
+		t.Errorf("title = %q, want %q", sv.val.get(), "Test")
 	}
 
 	// Check debug
-	kv = doc2.Children[1].(*KeyValueNode)
-	bv := kv.Val.(*BooleanNode)
-	if bv.Val != true {
+	kv = doc2.children[1].(*KeyValueNode)
+	bv := kv.val.(*BooleanNode)
+	if bv.val.get() != true {
 		t.Error("debug should be true")
 	}
 
 	// Check pi
-	kv = doc2.Children[2].(*KeyValueNode)
-	fv := kv.Val.(*FloatNode)
-	if math.Abs(fv.Val-3.14159) > 0.00001 {
-		t.Errorf("pi = %f, want 3.14159", fv.Val)
+	kv = doc2.children[2].(*KeyValueNode)
+	fv := kv.val.(*FloatNode)
+	if math.Abs(fv.val.get()-3.14159) > 0.00001 {
+		t.Errorf("pi = %f, want 3.14159", fv.val.get())
 	}
 
 	// Check server table
-	tbl2 := doc2.Children[3].(*TableNode)
-	if tbl2.KeyPath[0] != "server" {
-		t.Errorf("table key = %v, want [server]", tbl2.KeyPath)
+	tbl2 := doc2.children[3].(*TableNode)
+	if tbl2.keyPath[0] != "server" {
+		t.Errorf("table key = %v, want [server]", tbl2.keyPath)
 	}
-	portKV2 := tbl2.Children[0].(*KeyValueNode)
-	iv := portKV2.Val.(*IntegerNode)
-	if iv.Val != 8080 {
-		t.Errorf("port = %d, want 8080", iv.Val)
+	portKV2 := tbl2.children[0].(*KeyValueNode)
+	iv := portKV2.val.(*IntegerNode)
+	if iv.val.get() != 8080 {
+		t.Errorf("port = %d, want 8080", iv.val.get())
 	}
 }
 
@@ -917,10 +914,9 @@ func TestBytesDirtyOnlyValue(t *testing.T) {
 		t.Fatal(err)
 	}
 
-	kv := doc.Children[0].(*KeyValueNode)
-	strNode := kv.Val.(*StringNode)
-	strNode.Val = "bob"
-	strNode.markDirty()
+	kv := doc.children[0].(*KeyValueNode)
+	strNode := kv.val.(*StringNode)
+	strNode.setValue("bob", StringBasic)
 	// Note: kv itself is NOT marked dirty
 
 	got := string(doc.Bytes())
@@ -932,27 +928,27 @@ func TestBytesDirtyOnlyValue(t *testing.T) {
 }
 
 func TestBytesMultipleArrayTablesDirty(t *testing.T) {
-	atbl1 := &ArrayTableNode{KeyPath: []string{"items"}}
+	atbl1 := &ArrayTableNode{keyPath: []string{"items"}}
 	atbl1.markDirty()
-	name1Key := &KeyNode{Parts: []string{"name"}}
+	name1Key := &KeyNode{parts: []string{"name"}}
 	name1Key.markDirty()
-	name1Val := &StringNode{Val: "one", Style: StringBasic}
+	name1Val := &StringNode{val: scalarOf("one"), style: StringBasic}
 	name1Val.markDirty()
-	name1KV := &KeyValueNode{Key: name1Key, Val: name1Val}
+	name1KV := &KeyValueNode{key: name1Key, val: name1Val}
 	name1KV.markDirty()
-	atbl1.Children = []Node{name1KV}
+	mustSetContents(t, atbl1, []Node{name1KV})
 
-	atbl2 := &ArrayTableNode{KeyPath: []string{"items"}}
+	atbl2 := &ArrayTableNode{keyPath: []string{"items"}}
 	atbl2.markDirty()
-	name2Key := &KeyNode{Parts: []string{"name"}}
+	name2Key := &KeyNode{parts: []string{"name"}}
 	name2Key.markDirty()
-	name2Val := &StringNode{Val: "two", Style: StringBasic}
+	name2Val := &StringNode{val: scalarOf("two"), style: StringBasic}
 	name2Val.markDirty()
-	name2KV := &KeyValueNode{Key: name2Key, Val: name2Val}
+	name2KV := &KeyValueNode{key: name2Key, val: name2Val}
 	name2KV.markDirty()
-	atbl2.Children = []Node{name2KV}
+	mustSetContents(t, atbl2, []Node{name2KV})
 
-	doc := &Document{Children: []Node{atbl1, atbl2}}
+	doc := &Document{children: []Node{atbl1, atbl2}}
 	got := string(doc.Bytes())
 
 	// Count occurrences of [[items]]
@@ -969,7 +965,7 @@ func TestBytesMultipleArrayTablesDirty(t *testing.T) {
 }
 
 func TestRenderStringWithUnicode(t *testing.T) {
-	n := &StringNode{Val: "café", Style: StringBasic}
+	n := &StringNode{val: scalarOf("café"), style: StringBasic}
 	n.markDirty()
 	got := string(renderValue(n))
 	// Should contain the Unicode combining accent (no escaping needed for printable chars)
@@ -979,14 +975,14 @@ func TestRenderStringWithUnicode(t *testing.T) {
 }
 
 func TestRenderKeyValueDottedDirty(t *testing.T) {
-	key := &KeyNode{Parts: []string{"a", "b", "c"}}
+	key := &KeyNode{parts: []string{"a", "b", "c"}}
 	key.markDirty()
-	val := &IntegerNode{Val: 42, Base: IntegerDecimal}
+	val := &IntegerNode{val: scalarOf[int64](42), base: IntegerDecimal}
 	val.markDirty()
-	kv := &KeyValueNode{Key: key, Val: val}
+	kv := &KeyValueNode{key: key, val: val}
 	kv.markDirty()
 
-	doc := &Document{Children: []Node{kv}}
+	doc := &Document{children: []Node{kv}}
 	got := string(doc.Bytes())
 	if !strings.Contains(got, "a.b.c = 42") {
 		t.Errorf("expected dotted key, got %q", got)

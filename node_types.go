@@ -1,6 +1,16 @@
 package tomledit
 
-import "time"
+import (
+	"sync"
+	"time"
+)
+
+// The concrete node kinds. Every field is unexported: a node's contents are
+// read through the accessors below and written only through the mutator
+// funnels of mutate.go, so nothing can put a node into a state its rendered
+// bytes no longer describe. An accessor that answers with a slice answers with
+// a copy, so a caller sorting or truncating what it was handed changes nothing
+// in the document.
 
 // StringStyle indicates the quoting style for a string node.
 type StringStyle int
@@ -22,14 +32,46 @@ const (
 	IntegerBinary                     // IntegerBinary is base-2 (e.g. 0b1010).
 )
 
+// copyNodes returns a copy of a container's ordered contents.
+func copyNodes(nodes []Node) []Node {
+	out := make([]Node, len(nodes))
+	copy(out, nodes)
+	return out
+}
+
+// copyStrings returns a copy of a string slice.
+func copyStrings(s []string) []string {
+	out := make([]string, len(s))
+	copy(out, s)
+	return out
+}
+
 // Document is the root node of a TOML document.
 type Document struct {
 	nodeBase
-	Children []Node
+	children []Node
 
 	// file is the path the document was read from (ParseFile), or "" when it
 	// was parsed from bytes. Every diagnostic the document produces names it.
 	file string
+
+	// layer is the read-layer built from the document as it stands, and
+	// generation counts the structural changes made to it. Every write bumps
+	// the counter, so a cached layer built at an earlier generation is known
+	// to describe a document that no longer exists. Both are guarded by mu,
+	// which is what keeps concurrent reads of a shared document safe.
+	mu         sync.Mutex
+	layer      *Record
+	generation uint64
+}
+
+// bumpGeneration records that the document's shape changed, so the read-layer
+// cached from the old shape is dropped.
+func (n *Document) bumpGeneration() {
+	n.mu.Lock()
+	n.generation++
+	n.layer = nil
+	n.mu.Unlock()
 }
 
 // Type returns NodeDocument.
@@ -38,10 +80,10 @@ func (n *Document) Type() NodeType { return NodeDocument }
 // TableNode represents a [table] header and its children.
 type TableNode struct {
 	nodeBase
-	KeyPath  []string
-	Children []Node
+	keyPath  []string
+	children []Node
 
-	// keySpans is the source range of each part of KeyPath, in order. It is
+	// keySpans is the source range of each part of keyPath, in order. It is
 	// empty for a table created programmatically.
 	keySpans []Span
 }
@@ -52,10 +94,10 @@ func (n *TableNode) Type() NodeType { return NodeTable }
 // ArrayTableNode represents an [[array-table]] header and its children.
 type ArrayTableNode struct {
 	nodeBase
-	KeyPath  []string
-	Children []Node
+	keyPath  []string
+	children []Node
 
-	// keySpans is the source range of each part of KeyPath, in order. It is
+	// keySpans is the source range of each part of keyPath, in order. It is
 	// empty for an array table created programmatically.
 	keySpans []Span
 }
@@ -66,8 +108,8 @@ func (n *ArrayTableNode) Type() NodeType { return NodeArrayTable }
 // KeyValueNode represents a key = value pair.
 type KeyValueNode struct {
 	nodeBase
-	Key *KeyNode
-	Val Node
+	key *KeyNode
+	val Node
 }
 
 // Type returns NodeKeyValue.
@@ -76,9 +118,9 @@ func (n *KeyValueNode) Type() NodeType { return NodeKeyValue }
 // KeyNode represents a (possibly dotted) key.
 type KeyNode struct {
 	nodeBase
-	Parts    []string      // semantic parts (e.g. ["server", "host"])
-	RawParts [][]byte      // original bytes for each part
-	Styles   []StringStyle // quoting style per part
+	parts    []string      // semantic parts (e.g. ["server", "host"])
+	rawParts [][]byte      // original bytes for each part
+	styles   []StringStyle // quoting style per part
 
 	// partSpans is the source range of each part, in order. It is empty for a
 	// key created programmatically.
@@ -101,106 +143,106 @@ func (n *KeyNode) Type() NodeType { return NodeKey }
 // StringNode represents a string value.
 type StringNode struct {
 	nodeBase
-	Val   string
-	Style StringStyle
+	val   scalarValue[string]
+	style StringStyle
 }
 
 // Type returns NodeString.
 func (n *StringNode) Type() NodeType { return NodeString }
 
 // Value returns the decoded string.
-func (n *StringNode) Value() any { return n.Val }
+func (n *StringNode) Value() any { return n.val.get() }
 
 // IntegerNode represents an integer value.
 type IntegerNode struct {
 	nodeBase
-	Val  int64
-	Base IntegerBase
+	val  scalarValue[int64]
+	base IntegerBase
 }
 
 // Type returns NodeInteger.
 func (n *IntegerNode) Type() NodeType { return NodeInteger }
 
 // Value returns the integer value as int64.
-func (n *IntegerNode) Value() any { return n.Val }
+func (n *IntegerNode) Value() any { return n.val.get() }
 
 // FloatNode represents a float value.
 type FloatNode struct {
 	nodeBase
-	Val float64
+	val scalarValue[float64]
 }
 
 // Type returns NodeFloat.
 func (n *FloatNode) Type() NodeType { return NodeFloat }
 
 // Value returns the float value as float64.
-func (n *FloatNode) Value() any { return n.Val }
+func (n *FloatNode) Value() any { return n.val.get() }
 
 // BooleanNode represents a boolean value.
 type BooleanNode struct {
 	nodeBase
-	Val bool
+	val scalarValue[bool]
 }
 
 // Type returns NodeBoolean.
 func (n *BooleanNode) Type() NodeType { return NodeBoolean }
 
 // Value returns the boolean value.
-func (n *BooleanNode) Value() any { return n.Val }
+func (n *BooleanNode) Value() any { return n.val.get() }
 
 // DateTimeNode represents an offset date-time value.
 type DateTimeNode struct {
 	nodeBase
-	Val time.Time
+	val scalarValue[time.Time]
 }
 
 // Type returns NodeDateTime.
 func (n *DateTimeNode) Type() NodeType { return NodeDateTime }
 
 // Value returns the time.Time value.
-func (n *DateTimeNode) Value() any { return n.Val }
+func (n *DateTimeNode) Value() any { return n.val.get() }
 
 // LocalDateTimeNode represents a local date-time value (no timezone).
 type LocalDateTimeNode struct {
 	nodeBase
-	Val LocalDateTime
+	val scalarValue[LocalDateTime]
 }
 
 // Type returns NodeLocalDateTime.
 func (n *LocalDateTimeNode) Type() NodeType { return NodeLocalDateTime }
 
 // Value returns the LocalDateTime value.
-func (n *LocalDateTimeNode) Value() any { return n.Val }
+func (n *LocalDateTimeNode) Value() any { return n.val.get() }
 
 // LocalDateNode represents a local date value.
 type LocalDateNode struct {
 	nodeBase
-	Val LocalDate
+	val scalarValue[LocalDate]
 }
 
 // Type returns NodeLocalDate.
 func (n *LocalDateNode) Type() NodeType { return NodeLocalDate }
 
 // Value returns the LocalDate value.
-func (n *LocalDateNode) Value() any { return n.Val }
+func (n *LocalDateNode) Value() any { return n.val.get() }
 
 // LocalTimeNode represents a local time value.
 type LocalTimeNode struct {
 	nodeBase
-	Val LocalTime
+	val scalarValue[LocalTime]
 }
 
 // Type returns NodeLocalTime.
 func (n *LocalTimeNode) Type() NodeType { return NodeLocalTime }
 
 // Value returns the LocalTime value.
-func (n *LocalTimeNode) Value() any { return n.Val }
+func (n *LocalTimeNode) Value() any { return n.val.get() }
 
 // ArrayNode represents an array value.
 type ArrayNode struct {
 	nodeBase
-	Elements         []Node
-	TrailingComments [][]byte // comments after the last element, before ']'
+	elements         []Node
+	trailingComments [][]byte // comments after the last element, before ']'
 }
 
 // Type returns NodeArray.
@@ -209,7 +251,7 @@ func (n *ArrayNode) Type() NodeType { return NodeArray }
 // InlineTableNode represents an inline table value.
 type InlineTableNode struct {
 	nodeBase
-	Children []Node // KeyValueNode entries
+	children []Node // KeyValueNode entries
 }
 
 // Type returns NodeInlineTable.
@@ -218,7 +260,7 @@ func (n *InlineTableNode) Type() NodeType { return NodeInlineTable }
 // CommentNode represents a standalone comment line.
 type CommentNode struct {
 	nodeBase
-	Text string
+	text string
 }
 
 // Type returns NodeComment.

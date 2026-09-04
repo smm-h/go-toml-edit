@@ -18,8 +18,8 @@ func TestAudit_Items_EarlyBreak(t *testing.T) {
 		if !ok {
 			t.Fatalf("expected *IntegerNode, got %T", node)
 		}
-		collected = append(collected, v.Val)
-		if v.Val == 20 {
+		collected = append(collected, v.val.get())
+		if v.val.get() == 20 {
 			break // early exit after second element
 		}
 	}
@@ -88,7 +88,7 @@ tags = ["fast", "reliable", "secure"]
 		if !ok {
 			t.Fatalf("element %d: expected *StringNode, got %T", i, node)
 		}
-		vals = append(vals, s.Val)
+		vals = append(vals, s.val.get())
 	}
 
 	expected := []string{"fast", "reliable", "secure"}
@@ -178,7 +178,7 @@ tags = ["a", "b", "c"]
 		if !ok {
 			t.Fatalf("expected *StringNode, got %T", node)
 		}
-		directVals = append(directVals, s.Val)
+		directVals = append(directVals, s.val.get())
 	}
 
 	var cursorVals []string
@@ -187,7 +187,7 @@ tags = ["a", "b", "c"]
 		if !ok {
 			t.Fatalf("expected *StringNode, got %T", node)
 		}
-		cursorVals = append(cursorVals, s.Val)
+		cursorVals = append(cursorVals, s.val.get())
 	}
 
 	if len(directVals) != len(cursorVals) {

@@ -176,17 +176,17 @@ func (r *Record) dottedKV(key string) *KeyValueNode {
 	if r.container == nil {
 		return nil
 	}
-	children, _, err := containerChildren(r.container)
+	children, err := contents(r.container)
 	if err != nil {
 		return nil
 	}
 	want := len(r.prefix) + 1
-	for _, child := range *children {
+	for _, child := range children {
 		kv, ok := child.(*KeyValueNode)
-		if !ok || len(kv.Key.Parts) != want {
+		if !ok || len(kv.key.parts) != want {
 			continue
 		}
-		if kv.Key.Parts[want-1] == key && pathsEqual(kv.Key.Parts[:want-1], r.prefix) {
+		if kv.key.parts[want-1] == key && pathsEqual(kv.key.parts[:want-1], r.prefix) {
 			return kv
 		}
 	}
@@ -269,7 +269,7 @@ func (e Entry) Node() (Node, bool) {
 // foldDocument builds the read-layer for a document.
 func foldDocument(d *Document) (*Record, error) {
 	root := newRecord(d, d.Span(), true)
-	for _, child := range d.Children {
+	for _, child := range d.children {
 		var err error
 		switch n := child.(type) {
 		case *KeyValueNode:
@@ -313,15 +313,15 @@ func foldError(format string, args ...any) *Error {
 
 // foldTable folds a [header] table and its children into the layer.
 func foldTable(root *Record, tbl *TableNode) error {
-	if len(tbl.KeyPath) == 0 {
+	if len(tbl.keyPath) == 0 {
 		return foldError("a table header names no key")
 	}
-	parent, err := descend(root, tbl.KeyPath[:len(tbl.KeyPath)-1], tbl, tbl.keySpans)
+	parent, err := descend(root, tbl.keyPath[:len(tbl.keyPath)-1], tbl, tbl.keySpans)
 	if err != nil {
 		return err
 	}
-	last := len(tbl.KeyPath) - 1
-	key := tbl.KeyPath[last]
+	last := len(tbl.keyPath) - 1
+	key := tbl.keyPath[last]
 	keySpan := spanAt(tbl.keySpans, last)
 
 	i, exists := parent.index[key]
@@ -351,21 +351,21 @@ func foldTable(root *Record, tbl *TableNode) error {
 			e.keySpan = keySpan
 		}
 	}
-	return foldChildren(parent.entries[i].record, tbl.Children)
+	return foldChildren(parent.entries[i].record, tbl.children)
 }
 
 // foldArrayTable folds one [[header]] entry and its children into the layer,
 // collecting it with any earlier entries under the same key.
 func foldArrayTable(root *Record, atbl *ArrayTableNode) error {
-	if len(atbl.KeyPath) == 0 {
+	if len(atbl.keyPath) == 0 {
 		return foldError("an array table header names no key")
 	}
-	parent, err := descend(root, atbl.KeyPath[:len(atbl.KeyPath)-1], atbl, atbl.keySpans)
+	parent, err := descend(root, atbl.keyPath[:len(atbl.keyPath)-1], atbl, atbl.keySpans)
 	if err != nil {
 		return err
 	}
-	last := len(atbl.KeyPath) - 1
-	key := atbl.KeyPath[last]
+	last := len(atbl.keyPath) - 1
+	key := atbl.keyPath[last]
 	entryRecord := newRecord(atbl, atbl.Span(), true)
 
 	i, exists := parent.index[key]
@@ -383,7 +383,7 @@ func foldArrayTable(root *Record, atbl *ArrayTableNode) error {
 		}
 		e.records = append(e.records, entryRecord)
 	}
-	if err := foldChildren(entryRecord, atbl.Children); err != nil {
+	if err := foldChildren(entryRecord, atbl.children); err != nil {
 		return err
 	}
 	e := &parent.entries[i]
@@ -412,13 +412,13 @@ func foldChildren(rec *Record, children []Node) error {
 // foldKeyValue folds one key-value pair into rec, expanding a dotted key into
 // the records it implies.
 func foldKeyValue(rec *Record, kv *KeyValueNode) error {
-	parts := kv.Key.Parts
+	parts := kv.key.parts
 	if len(parts) == 0 {
 		return foldError("a key-value pair names no key")
 	}
 	cur := rec
 	for i := 0; i < len(parts)-1; i++ {
-		next, err := cur.implied(parts[i], kv.Key.partSpan(i), kv, true)
+		next, err := cur.implied(parts[i], kv.key.partSpan(i), kv, true)
 		if err != nil {
 			return err
 		}
@@ -435,14 +435,14 @@ func foldKeyValue(rec *Record, kv *KeyValueNode) error {
 	if _, exists := cur.index[key]; exists {
 		return foldError("key %q is defined twice", key)
 	}
-	if inline, ok := kv.Val.(*InlineTableNode); ok {
+	if inline, ok := kv.val.(*InlineTableNode); ok {
 		sub, err := foldInlineTable(inline)
 		if err != nil {
 			return err
 		}
 		cur.add(Entry{
 			key:     key,
-			keySpan: kv.Key.partSpan(last),
+			keySpan: kv.key.partSpan(last),
 			kind:    EntryRecord,
 			node:    inline,
 			record:  sub,
@@ -451,9 +451,9 @@ func foldKeyValue(rec *Record, kv *KeyValueNode) error {
 	}
 	cur.add(Entry{
 		key:     key,
-		keySpan: kv.Key.partSpan(last),
+		keySpan: kv.key.partSpan(last),
 		kind:    EntryValue,
-		node:    kv.Val,
+		node:    kv.val,
 	})
 	return nil
 }
@@ -462,7 +462,7 @@ func foldKeyValue(rec *Record, kv *KeyValueNode) error {
 // ordinary record, indistinguishable through the layer from a header table.
 func foldInlineTable(inline *InlineTableNode) (*Record, error) {
 	rec := newRecord(inline, inline.Span(), true)
-	for _, child := range inline.Children {
+	for _, child := range inline.children {
 		kv, ok := child.(*KeyValueNode)
 		if !ok {
 			return nil, foldError("a %s node cannot appear inside an inline table", child.Type())
@@ -532,7 +532,7 @@ func collectionSpan(records []*Record) Span {
 	lastRec := records[len(records)-1]
 	end := lastRec.span.End
 	if atbl, ok := lastRec.node.(*ArrayTableNode); ok {
-		for _, child := range atbl.Children {
+		for _, child := range atbl.children {
 			if s := child.Span(); s.IsValid() && s.End.Offset > end.Offset {
 				end = s.End
 			}

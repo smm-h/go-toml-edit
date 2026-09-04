@@ -189,11 +189,11 @@ func compareArrayNode(t *testing.T, path string, node Node, want []any) {
 		t.Errorf("%s: the reference names an array, the fold holds a %s", path, node.Type())
 		return
 	}
-	if len(arr.Elements) != len(want) {
-		t.Errorf("%s: the array holds %d elements, the reference names %d", path, len(arr.Elements), len(want))
+	if len(arr.elements) != len(want) {
+		t.Errorf("%s: the array holds %d elements, the reference names %d", path, len(arr.elements), len(want))
 		return
 	}
-	for i, elem := range arr.Elements {
+	for i, elem := range arr.elements {
 		elemPath := fmt.Sprintf("%s[%d]", path, i)
 		switch {
 		case isReferenceTable(want[i]):
@@ -234,15 +234,15 @@ func compareScalar(t *testing.T, path string, node Node, typ, value string) {
 	}
 	switch n := node.(type) {
 	case *StringNode:
-		if n.Val != value {
-			t.Errorf("%s: string is %q, the reference says %q", path, n.Val, value)
+		if n.val.get() != value {
+			t.Errorf("%s: string is %q, the reference says %q", path, n.val.get(), value)
 		}
 	case *IntegerNode:
-		if got := strconv.FormatInt(n.Val, 10); got != value {
+		if got := strconv.FormatInt(n.val.get(), 10); got != value {
 			t.Errorf("%s: integer is %s, the reference says %s", path, got, value)
 		}
 	case *BooleanNode:
-		if got := strconv.FormatBool(n.Val); got != value {
+		if got := strconv.FormatBool(n.val.get()); got != value {
 			t.Errorf("%s: boolean is %s, the reference says %s", path, got, value)
 		}
 	}

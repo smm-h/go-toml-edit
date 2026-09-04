@@ -61,9 +61,9 @@ func assertSpan(t *testing.T, label string, got Span, startLine, startCol, endLi
 // rootKV returns the i-th root-level KeyValueNode of the span test document.
 func rootKV(t *testing.T, doc *Document, i int) *KeyValueNode {
 	t.Helper()
-	kv, ok := doc.Children[i].(*KeyValueNode)
+	kv, ok := doc.children[i].(*KeyValueNode)
 	if !ok {
-		t.Fatalf("doc.Children[%d] is %T, want *KeyValueNode", i, doc.Children[i])
+		t.Fatalf("doc.children[%d] is %T, want *KeyValueNode", i, doc.children[i])
 	}
 	return kv
 }
@@ -95,11 +95,11 @@ func TestSpanScalarValues(t *testing.T) {
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
 			kv := rootKV(t, doc, tt.index)
-			if kv.Val.Type() != tt.nodeType {
-				t.Fatalf("value type = %s, want %s", kv.Val.Type(), tt.nodeType)
+			if kv.val.Type() != tt.nodeType {
+				t.Fatalf("value type = %s, want %s", kv.val.Type(), tt.nodeType)
 			}
-			assertSpan(t, "key", kv.Key.Span(), tt.kStartLine, tt.kStartCol, tt.kEndLine, tt.kEndCol)
-			assertSpan(t, "value", kv.Val.Span(), tt.vStartLine, tt.vStartCol, tt.vEndLine, tt.vEndCol)
+			assertSpan(t, "key", kv.key.Span(), tt.kStartLine, tt.kStartCol, tt.kEndLine, tt.kEndCol)
+			assertSpan(t, "value", kv.val.Span(), tt.vStartLine, tt.vStartCol, tt.vEndLine, tt.vEndCol)
 			assertSpan(t, "key-value", kv.Span(), tt.kvStartLine, tt.kvStartCol, tt.kvEndLine, tt.kvEndCol)
 		})
 	}
@@ -108,94 +108,94 @@ func TestSpanScalarValues(t *testing.T) {
 func TestSpanMultilineString(t *testing.T) {
 	doc := mustParseSpanDoc(t)
 	kv := rootKV(t, doc, 10) // desc = """ ... """
-	if kv.Val.Type() != NodeString {
-		t.Fatalf("value type = %s, want String", kv.Val.Type())
+	if kv.val.Type() != NodeString {
+		t.Fatalf("value type = %s, want String", kv.val.Type())
 	}
-	sn := kv.Val.(*StringNode)
-	if sn.Style != StringMultiLineBasic {
-		t.Fatalf("style = %v, want StringMultiLineBasic", sn.Style)
+	sn := kv.val.(*StringNode)
+	if sn.style != StringMultiLineBasic {
+		t.Fatalf("style = %v, want StringMultiLineBasic", sn.style)
 	}
-	assertSpan(t, "key", kv.Key.Span(), 12, 1, 12, 5)
-	assertSpan(t, "value", kv.Val.Span(), 12, 8, 14, 8)
+	assertSpan(t, "key", kv.key.Span(), 12, 1, 12, 5)
+	assertSpan(t, "value", kv.val.Span(), 12, 8, 14, 8)
 	assertSpan(t, "key-value", kv.Span(), 12, 1, 14, 8)
 }
 
 func TestSpanArray(t *testing.T) {
 	doc := mustParseSpanDoc(t)
 	kv := rootKV(t, doc, 8) // tags = [1, 2, 3]
-	arr, ok := kv.Val.(*ArrayNode)
+	arr, ok := kv.val.(*ArrayNode)
 	if !ok {
-		t.Fatalf("value is %T, want *ArrayNode", kv.Val)
+		t.Fatalf("value is %T, want *ArrayNode", kv.val)
 	}
 	assertSpan(t, "array", arr.Span(), 10, 8, 10, 17)
-	if len(arr.Elements) != 3 {
-		t.Fatalf("len(Elements) = %d, want 3", len(arr.Elements))
+	if len(arr.elements) != 3 {
+		t.Fatalf("len(Elements) = %d, want 3", len(arr.elements))
 	}
-	assertSpan(t, "element 0", arr.Elements[0].Span(), 10, 9, 10, 10)
-	assertSpan(t, "element 1", arr.Elements[1].Span(), 10, 12, 10, 13)
-	assertSpan(t, "element 2", arr.Elements[2].Span(), 10, 15, 10, 16)
+	assertSpan(t, "element 0", arr.elements[0].Span(), 10, 9, 10, 10)
+	assertSpan(t, "element 1", arr.elements[1].Span(), 10, 12, 10, 13)
+	assertSpan(t, "element 2", arr.elements[2].Span(), 10, 15, 10, 16)
 	assertSpan(t, "key-value", kv.Span(), 10, 1, 10, 17)
 }
 
 func TestSpanInlineTable(t *testing.T) {
 	doc := mustParseSpanDoc(t)
 	kv := rootKV(t, doc, 9) // point = { x = 1, y = 2 }
-	it, ok := kv.Val.(*InlineTableNode)
+	it, ok := kv.val.(*InlineTableNode)
 	if !ok {
-		t.Fatalf("value is %T, want *InlineTableNode", kv.Val)
+		t.Fatalf("value is %T, want *InlineTableNode", kv.val)
 	}
 	assertSpan(t, "inline table", it.Span(), 11, 9, 11, 25)
-	if len(it.Children) != 2 {
-		t.Fatalf("len(Children) = %d, want 2", len(it.Children))
+	if len(it.children) != 2 {
+		t.Fatalf("len(Children) = %d, want 2", len(it.children))
 	}
-	x := it.Children[0].(*KeyValueNode)
-	assertSpan(t, "x key", x.Key.Span(), 11, 11, 11, 12)
-	assertSpan(t, "x value", x.Val.Span(), 11, 15, 11, 16)
+	x := it.children[0].(*KeyValueNode)
+	assertSpan(t, "x key", x.key.Span(), 11, 11, 11, 12)
+	assertSpan(t, "x value", x.val.Span(), 11, 15, 11, 16)
 	assertSpan(t, "x key-value", x.Span(), 11, 11, 11, 16)
-	y := it.Children[1].(*KeyValueNode)
+	y := it.children[1].(*KeyValueNode)
 	assertSpan(t, "y key-value", y.Span(), 11, 18, 11, 23)
 }
 
 func TestSpanTableHeaders(t *testing.T) {
 	doc := mustParseSpanDoc(t)
 
-	server, ok := doc.Children[11].(*TableNode)
+	server, ok := doc.children[11].(*TableNode)
 	if !ok {
-		t.Fatalf("doc.Children[11] is %T, want *TableNode", doc.Children[11])
+		t.Fatalf("doc.children[11] is %T, want *TableNode", doc.children[11])
 	}
 	assertSpan(t, "[server]", server.Span(), 16, 1, 16, 9)
 
-	host := server.Children[0].(*KeyValueNode)
+	host := server.children[0].(*KeyValueNode)
 	assertSpan(t, "host key-value", host.Span(), 17, 1, 17, 19)
-	assertSpan(t, "host value", host.Val.Span(), 17, 8, 17, 19)
+	assertSpan(t, "host value", host.val.Span(), 17, 8, 17, 19)
 
-	tls, ok := doc.Children[12].(*TableNode)
+	tls, ok := doc.children[12].(*TableNode)
 	if !ok {
-		t.Fatalf("doc.Children[12] is %T, want *TableNode", doc.Children[12])
+		t.Fatalf("doc.children[12] is %T, want *TableNode", doc.children[12])
 	}
 	assertSpan(t, "[server.tls]", tls.Span(), 19, 1, 19, 13)
 
-	enabled := tls.Children[0].(*KeyValueNode)
+	enabled := tls.children[0].(*KeyValueNode)
 	assertSpan(t, "enabled key-value", enabled.Span(), 20, 1, 20, 16)
 }
 
 func TestSpanArrayTableHeaders(t *testing.T) {
 	doc := mustParseSpanDoc(t)
 
-	first, ok := doc.Children[13].(*ArrayTableNode)
+	first, ok := doc.children[13].(*ArrayTableNode)
 	if !ok {
-		t.Fatalf("doc.Children[13] is %T, want *ArrayTableNode", doc.Children[13])
+		t.Fatalf("doc.children[13] is %T, want *ArrayTableNode", doc.children[13])
 	}
 	assertSpan(t, "first [[products]]", first.Span(), 22, 1, 22, 13)
-	name1 := first.Children[0].(*KeyValueNode)
+	name1 := first.children[0].(*KeyValueNode)
 	assertSpan(t, "first name", name1.Span(), 23, 1, 23, 11)
 
-	second, ok := doc.Children[14].(*ArrayTableNode)
+	second, ok := doc.children[14].(*ArrayTableNode)
 	if !ok {
-		t.Fatalf("doc.Children[14] is %T, want *ArrayTableNode", doc.Children[14])
+		t.Fatalf("doc.children[14] is %T, want *ArrayTableNode", doc.children[14])
 	}
 	assertSpan(t, "second [[products]]", second.Span(), 25, 1, 25, 13)
-	name2 := second.Children[0].(*KeyValueNode)
+	name2 := second.children[0].(*KeyValueNode)
 	assertSpan(t, "second name", name2.Span(), 26, 1, 26, 11)
 }
 
@@ -203,9 +203,9 @@ func TestSpanTrailingComment(t *testing.T) {
 	doc := mustParseSpanDoc(t)
 	// The trailing comment is an orphan CommentNode attached to the last
 	// array-table entry.
-	second := doc.Children[14].(*ArrayTableNode)
+	second := doc.children[14].(*ArrayTableNode)
 	var comment *CommentNode
-	for _, c := range second.Children {
+	for _, c := range second.children {
 		if cn, ok := c.(*CommentNode); ok {
 			comment = cn
 		}
@@ -226,8 +226,8 @@ func TestSpanDottedKey(t *testing.T) {
 	if err != nil {
 		t.Fatalf("Parse failed: %v", err)
 	}
-	kv := doc.Children[0].(*KeyValueNode)
-	assertSpan(t, "dotted key", kv.Key.Span(), 1, 1, 1, 9)
+	kv := doc.children[0].(*KeyValueNode)
+	assertSpan(t, "dotted key", kv.key.Span(), 1, 1, 1, 9)
 	assertSpan(t, "key-value", kv.Span(), 1, 1, 1, 13)
 }
 
@@ -236,9 +236,9 @@ func TestSpanCRLF(t *testing.T) {
 	if err != nil {
 		t.Fatalf("Parse failed: %v", err)
 	}
-	b := doc.Children[1].(*KeyValueNode)
-	assertSpan(t, "b key", b.Key.Span(), 2, 1, 2, 2)
-	assertSpan(t, "b value", b.Val.Span(), 2, 5, 2, 6)
+	b := doc.children[1].(*KeyValueNode)
+	assertSpan(t, "b key", b.key.Span(), 2, 1, 2, 2)
+	assertSpan(t, "b value", b.val.Span(), 2, 5, 2, 6)
 }
 
 func TestSpanBlankTrailingTrivia(t *testing.T) {
@@ -247,7 +247,7 @@ func TestSpanBlankTrailingTrivia(t *testing.T) {
 		t.Fatalf("Parse failed: %v", err)
 	}
 	var comment *CommentNode
-	for _, c := range doc.Children {
+	for _, c := range doc.children {
 		if cn, ok := c.(*CommentNode); ok {
 			comment = cn
 		}
@@ -396,16 +396,16 @@ func TestSpanOffsetsSliceTheSource(t *testing.T) {
 		span  Span
 		want  string
 	}{
-		{"title key", rootKV(t, doc, 0).Key.Span(), "title"},
-		{"title value", rootKV(t, doc, 0).Val.Span(), `"hello"`},
+		{"title key", rootKV(t, doc, 0).key.Span(), "title"},
+		{"title value", rootKV(t, doc, 0).val.Span(), `"hello"`},
 		{"count key-value", rootKV(t, doc, 1).Span(), "count = 42"},
-		{"tags array", rootKV(t, doc, 8).Val.Span(), "[1, 2, 3]"},
-		{"tags element 1", rootKV(t, doc, 8).Val.(*ArrayNode).Elements[1].Span(), "2"},
-		{"point inline table", rootKV(t, doc, 9).Val.Span(), "{ x = 1, y = 2 }"},
-		{"desc multiline value", rootKV(t, doc, 10).Val.Span(), "\"\"\"\nmulti\nline\"\"\""},
-		{"[server] header", doc.Children[11].Span(), "[server]"},
-		{"[server.tls] header", doc.Children[12].Span(), "[server.tls]"},
-		{"[[products]] header", doc.Children[13].Span(), "[[products]]"},
+		{"tags array", rootKV(t, doc, 8).val.Span(), "[1, 2, 3]"},
+		{"tags element 1", rootKV(t, doc, 8).val.(*ArrayNode).elements[1].Span(), "2"},
+		{"point inline table", rootKV(t, doc, 9).val.Span(), "{ x = 1, y = 2 }"},
+		{"desc multiline value", rootKV(t, doc, 10).val.Span(), "\"\"\"\nmulti\nline\"\"\""},
+		{"[server] header", doc.children[11].Span(), "[server]"},
+		{"[server.tls] header", doc.children[12].Span(), "[server.tls]"},
+		{"[[products]] header", doc.children[13].Span(), "[[products]]"},
 	}
 	for _, tt := range tests {
 		t.Run(tt.label, func(t *testing.T) {
@@ -431,7 +431,7 @@ func TestSpanOffsetsCRLF(t *testing.T) {
 	if err != nil {
 		t.Fatalf("Parse failed: %v", err)
 	}
-	b := doc.Children[1].(*KeyValueNode)
+	b := doc.children[1].(*KeyValueNode)
 	if got := string(src[b.Span().Start.Offset:b.Span().End.Offset]); got != "b = 2" {
 		t.Errorf("second key-value slices %q, want %q", got, "b = 2")
 	}

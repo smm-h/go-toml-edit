@@ -292,21 +292,21 @@ func (p *parser) parseDocument() (*Document, error) {
 			if err != nil {
 				return nil, err
 			}
-			doc.Children = append(doc.Children, tbl)
+			buildAppend(doc, tbl)
 
 		case tt == TokenDoubleLeftBracket:
 			atbl, err := p.parseArrayTable(lt, tracker)
 			if err != nil {
 				return nil, err
 			}
-			doc.Children = append(doc.Children, atbl)
+			buildAppend(doc, atbl)
 
 		case isKeyToken(tt):
 			kv, err := p.parseKeyValue(lt, tracker, nil)
 			if err != nil {
 				return nil, err
 			}
-			doc.Children = append(doc.Children, kv)
+			buildAppend(doc, kv)
 
 		default:
 			return nil, p.errorf("unexpected token %s", tt)
@@ -333,7 +333,7 @@ func (p *parser) emitOrphanTrivia(parent interface{ addChild(Node) }, lt leading
 	if len(lt.comments) > 0 {
 		for i, c := range lt.comments {
 			emitBlankRun(parent, lt.blankRun(i), lt.blankSpan(i))
-			cn := &CommentNode{Text: string(c)}
+			cn := &CommentNode{text: string(c)}
 			cn.setRaw(c)
 			if i < len(lt.orphan.commentSpans) {
 				cn.setSpan(lt.orphan.commentSpans[i])
@@ -351,7 +351,7 @@ func (p *parser) emitOrphanTrivia(parent interface{ addChild(Node) }, lt leading
 	}
 	// If only blank lines (raw without comments), attach as a comment node with empty text
 	if len(lt.raw) > 0 {
-		cn := &CommentNode{Text: ""}
+		cn := &CommentNode{text: ""}
 		cn.setRaw(lt.raw)
 		cn.setSpan(lt.orphan.span)
 		parent.addChild(cn)
@@ -364,7 +364,7 @@ func emitBlankRun(parent interface{ addChild(Node) }, run []byte, span Span) {
 	if len(run) == 0 {
 		return
 	}
-	cn := &CommentNode{Text: ""}
+	cn := &CommentNode{text: ""}
 	cn.setRaw(run)
 	cn.setSpan(span)
 	parent.addChild(cn)
@@ -375,9 +375,9 @@ type childAdder interface {
 	addChild(Node)
 }
 
-func (n *Document) addChild(c Node)       { n.Children = append(n.Children, c) }
-func (n *TableNode) addChild(c Node)      { n.Children = append(n.Children, c) }
-func (n *ArrayTableNode) addChild(c Node) { n.Children = append(n.Children, c) }
+func (n *Document) addChild(c Node)       { buildAppend(n, c) }
+func (n *TableNode) addChild(c Node)      { buildAppend(n, c) }
+func (n *ArrayTableNode) addChild(c Node) { buildAppend(n, c) }
 
 func isKeyToken(tt TokenType) bool {
 	return tt == TokenBareKey || tt == TokenBasicString || tt == TokenLiteralString
@@ -427,7 +427,7 @@ func (p *parser) parseTable(lt leadingTrivia, tracker *definitionTracker) (*Tabl
 	headerRaw = append(lt.raw, headerRaw...)
 
 	tbl := &TableNode{
-		KeyPath:  keyPath,
+		keyPath:  keyPath,
 		keySpans: keySpans,
 	}
 	tbl.setRaw(headerRaw)
@@ -492,7 +492,7 @@ func (p *parser) parseArrayTable(lt leadingTrivia, tracker *definitionTracker) (
 	headerRaw = append(lt.raw, headerRaw...)
 
 	atbl := &ArrayTableNode{
-		KeyPath:  keyPath,
+		keyPath:  keyPath,
 		keySpans: keySpans,
 	}
 	atbl.setRaw(headerRaw)
@@ -583,10 +583,7 @@ func (p *parser) parseKeyValue(lt leadingTrivia, tracker *definitionTracker, par
 	kvRaw := p.rawFromTokenRange(startPos, p.pos)
 	kvRaw = append(lt.raw, kvRaw...)
 
-	kv := &KeyValueNode{
-		Key: keyNode,
-		Val: val,
-	}
+	kv := newPair(keyNode, val)
 	kv.setRaw(kvRaw)
 	// The key-value span runs from the key's first byte to the value's last
 	// byte, excluding leading trivia, inline comment, and trailing newline.
@@ -596,7 +593,7 @@ func (p *parser) parseKeyValue(lt leadingTrivia, tracker *definitionTracker, par
 	kv.nodeTrivia.TrailingNewline = trailingNL
 
 	// Track definition
-	fullPath := append(parentPath, keyNode.Parts...)
+	fullPath := append(parentPath, keyNode.parts...)
 	if err := tracker.defineKey(fullPath, kv, keyPos); err != nil {
 		return nil, err
 	}
@@ -620,9 +617,7 @@ func (p *parser) parseKey() (*KeyNode, Position, error) {
 	if err != nil {
 		return nil, Position{}, err
 	}
-	key.Parts = append(key.Parts, part)
-	key.RawParts = append(key.RawParts, rawPart)
-	key.Styles = append(key.Styles, style)
+	key.buildPart(part, rawPart, style)
 	// parseSimpleKey consumes exactly one token; track the last key token so
 	// the span ends at the final key part (excluding trailing whitespace).
 	lastTok := p.tokens[p.pos-1]
@@ -642,9 +637,7 @@ func (p *parser) parseKey() (*KeyNode, Position, error) {
 		if err != nil {
 			return nil, Position{}, err
 		}
-		key.Parts = append(key.Parts, part)
-		key.RawParts = append(key.RawParts, rawPart)
-		key.Styles = append(key.Styles, style)
+		key.buildPart(part, rawPart, style)
 		lastTok = p.tokens[p.pos-1]
 		key.partSpans = append(key.partSpans, spanFromToken(lastTok))
 	}
@@ -755,8 +748,7 @@ func (p *parser) parseStringValue() (Node, error) {
 	if err != nil {
 		return nil, p.errorFrom(tok, err)
 	}
-	n := &StringNode{Val: decoded, Style: StringBasic}
-	n.setRaw(tok.Raw)
+	n := &StringNode{val: lexed(decoded, tok.Raw), style: StringBasic}
 	n.setSpan(spanFromToken(tok))
 	return n, nil
 }
@@ -764,8 +756,7 @@ func (p *parser) parseStringValue() (Node, error) {
 func (p *parser) parseLiteralStringValue() (Node, error) {
 	tok := p.advance()
 	decoded := decodeLiteralString(tok.Raw)
-	n := &StringNode{Val: decoded, Style: StringLiteral}
-	n.setRaw(tok.Raw)
+	n := &StringNode{val: lexed(decoded, tok.Raw), style: StringLiteral}
 	n.setSpan(spanFromToken(tok))
 	return n, nil
 }
@@ -776,8 +767,7 @@ func (p *parser) parseMultiLineBasicStringValue() (Node, error) {
 	if err != nil {
 		return nil, p.errorFrom(tok, err)
 	}
-	n := &StringNode{Val: decoded, Style: StringMultiLineBasic}
-	n.setRaw(tok.Raw)
+	n := &StringNode{val: lexed(decoded, tok.Raw), style: StringMultiLineBasic}
 	n.setSpan(spanFromToken(tok))
 	return n, nil
 }
@@ -785,8 +775,7 @@ func (p *parser) parseMultiLineBasicStringValue() (Node, error) {
 func (p *parser) parseMultiLineLiteralStringValue() (Node, error) {
 	tok := p.advance()
 	decoded := decodeMultiLineLiteralString(tok.Raw)
-	n := &StringNode{Val: decoded, Style: StringMultiLineLiteral}
-	n.setRaw(tok.Raw)
+	n := &StringNode{val: lexed(decoded, tok.Raw), style: StringMultiLineLiteral}
 	n.setSpan(spanFromToken(tok))
 	return n, nil
 }
@@ -797,8 +786,7 @@ func (p *parser) parseIntegerValue() (Node, error) {
 	if err != nil {
 		return nil, p.errorFrom(tok, err)
 	}
-	n := &IntegerNode{Val: val, Base: base}
-	n.setRaw(tok.Raw)
+	n := &IntegerNode{val: lexed[int64](val, tok.Raw), base: base}
 	n.setSpan(spanFromToken(tok))
 	return n, nil
 }
@@ -809,8 +797,7 @@ func (p *parser) parseFloatValue() (Node, error) {
 	if err != nil {
 		return nil, p.errorFrom(tok, err)
 	}
-	n := &FloatNode{Val: val}
-	n.setRaw(tok.Raw)
+	n := &FloatNode{val: lexed(val, tok.Raw)}
 	n.setSpan(spanFromToken(tok))
 	return n, nil
 }
@@ -818,8 +805,7 @@ func (p *parser) parseFloatValue() (Node, error) {
 func (p *parser) parseBooleanValue() (Node, error) {
 	tok := p.advance()
 	val := string(tok.Raw) == "true"
-	n := &BooleanNode{Val: val}
-	n.setRaw(tok.Raw)
+	n := &BooleanNode{val: lexed(val, tok.Raw)}
 	n.setSpan(spanFromToken(tok))
 	return n, nil
 }
@@ -830,8 +816,7 @@ func (p *parser) parseDateTimeValue() (Node, error) {
 	if err != nil {
 		return nil, p.errorFrom(tok, err)
 	}
-	n := &DateTimeNode{Val: val}
-	n.setRaw(tok.Raw)
+	n := &DateTimeNode{val: lexed(val, tok.Raw)}
 	n.setSpan(spanFromToken(tok))
 	return n, nil
 }
@@ -842,8 +827,7 @@ func (p *parser) parseLocalDateTimeValue() (Node, error) {
 	if err != nil {
 		return nil, p.errorFrom(tok, err)
 	}
-	n := &LocalDateTimeNode{Val: val}
-	n.setRaw(tok.Raw)
+	n := &LocalDateTimeNode{val: lexed(val, tok.Raw)}
 	n.setSpan(spanFromToken(tok))
 	return n, nil
 }
@@ -854,8 +838,7 @@ func (p *parser) parseLocalDateValue() (Node, error) {
 	if err != nil {
 		return nil, p.errorFrom(tok, err)
 	}
-	n := &LocalDateNode{Val: val}
-	n.setRaw(tok.Raw)
+	n := &LocalDateNode{val: lexed(val, tok.Raw)}
 	n.setSpan(spanFromToken(tok))
 	return n, nil
 }
@@ -866,8 +849,7 @@ func (p *parser) parseLocalTimeValue() (Node, error) {
 	if err != nil {
 		return nil, p.errorFrom(tok, err)
 	}
-	n := &LocalTimeNode{Val: val}
-	n.setRaw(tok.Raw)
+	n := &LocalTimeNode{val: lexed(val, tok.Raw)}
 	n.setSpan(spanFromToken(tok))
 	return n, nil
 }
@@ -886,7 +868,7 @@ func (p *parser) parseArrayValue() (Node, error) {
 		if p.peekType() == TokenRightBracket {
 			// Comments collected here belong after the last element (or are the
 			// only content in an empty array). Store them as trailing comments.
-			arr.TrailingComments = leadingComments
+			arr.buildTrailingComments(leadingComments)
 			closeTok := p.advance() // consume ]
 			arr.setRaw(p.rawFromTokenRange(startPos, p.pos))
 			arr.setSpan(Span{Start: tokenStart(openTok), End: spanFromToken(closeTok).End})
@@ -903,7 +885,7 @@ func (p *parser) parseArrayValue() (Node, error) {
 		t.LeadingWhitespace = leadingWS
 		t.LeadingComments = leadingComments
 
-		arr.Elements = append(arr.Elements, elem)
+		buildAppend(arr, elem)
 
 		// After the value, there may be:
 		//   value, # comment    (comma first, then inline comment)
@@ -990,18 +972,18 @@ func (p *parser) parseInlineTableValue() (Node, error) {
 		}
 
 		kv := &KeyValueNode{
-			Key: keyNode,
-			Val: val,
+			key: keyNode,
+			val: val,
 		}
 		kv.setSpan(Span{Start: keyNode.Span().Start, End: val.Span().End})
 
 		// Check for duplicate keys within the inline table
-		if err := tracker.defineKey(keyNode.Parts, kv, keyPos); err != nil {
+		if err := tracker.defineKey(keyNode.parts, kv, keyPos); err != nil {
 			return nil, err
 		}
 
 		// raw for inline table kv is set at inline table level
-		tbl.Children = append(tbl.Children, kv)
+		buildAppend(tbl, kv)
 
 		p.skipWhitespace()
 
@@ -1576,9 +1558,9 @@ func validateDateTimeOffset(s string) error {
 
 // tableEntry tracks what has been defined at a given key path.
 type tableEntry struct {
-	kind     entryKind
-	node     Node
-	children map[string]*tableEntry
+	kind entryKind
+	node Node
+	sub  map[string]*tableEntry
 }
 
 type entryKind int
@@ -1598,7 +1580,7 @@ type definitionTracker struct {
 
 func newDefinitionTracker(src []byte) *definitionTracker {
 	return &definitionTracker{
-		root: &tableEntry{kind: entryImplicit, children: make(map[string]*tableEntry)},
+		root: &tableEntry{kind: entryImplicit, sub: make(map[string]*tableEntry)},
 		src:  src,
 	}
 }
@@ -1611,17 +1593,17 @@ func newDefinitionTracker(src []byte) *definitionTracker {
 func (dt *definitionTracker) ensurePath(path []string, fromDottedKey bool, pos Position) (*tableEntry, error) {
 	cur := dt.root
 	for _, key := range path {
-		if cur.children == nil {
-			cur.children = make(map[string]*tableEntry)
+		if cur.sub == nil {
+			cur.sub = make(map[string]*tableEntry)
 		}
-		child, ok := cur.children[key]
+		child, ok := cur.sub[key]
 		if !ok {
 			kind := entryImplicit
 			if fromDottedKey {
 				kind = entryDottedImplicit
 			}
-			child = &tableEntry{kind: kind, children: make(map[string]*tableEntry)}
-			cur.children[key] = child
+			child = &tableEntry{kind: kind, sub: make(map[string]*tableEntry)}
+			cur.sub[key] = child
 			cur = child
 			continue
 		}
@@ -1648,10 +1630,10 @@ func (dt *definitionTracker) defineTable(path []string, node Node, pos Position)
 		return err
 	}
 	key := path[len(path)-1]
-	if parent.children == nil {
-		parent.children = make(map[string]*tableEntry)
+	if parent.sub == nil {
+		parent.sub = make(map[string]*tableEntry)
 	}
-	existing, ok := parent.children[key]
+	existing, ok := parent.sub[key]
 	if ok {
 		if existing.kind == entryExplicit {
 			return syntaxErrorAt(dt.src, pos, "table [%s] already defined", pathFromKeys(path))
@@ -1670,7 +1652,7 @@ func (dt *definitionTracker) defineTable(path []string, node Node, pos Position)
 		existing.node = node
 		return nil
 	}
-	parent.children[key] = &tableEntry{kind: entryExplicit, node: node, children: make(map[string]*tableEntry)}
+	parent.sub[key] = &tableEntry{kind: entryExplicit, node: node, sub: make(map[string]*tableEntry)}
 	return nil
 }
 
@@ -1683,10 +1665,10 @@ func (dt *definitionTracker) defineArrayTable(path []string, node Node, pos Posi
 		return err
 	}
 	key := path[len(path)-1]
-	if parent.children == nil {
-		parent.children = make(map[string]*tableEntry)
+	if parent.sub == nil {
+		parent.sub = make(map[string]*tableEntry)
 	}
-	existing, ok := parent.children[key]
+	existing, ok := parent.sub[key]
 	if ok {
 		if existing.kind == entryExplicit {
 			return syntaxErrorAt(dt.src, pos, "cannot define [[%s]] as array table, already defined as table", pathFromKeys(path))
@@ -1697,7 +1679,7 @@ func (dt *definitionTracker) defineArrayTable(path []string, node Node, pos Posi
 		if existing.kind == entryArrayTable {
 			// Multiple [[array-table]] entries are fine -- reset children for the new element
 			existing.node = node
-			existing.children = make(map[string]*tableEntry)
+			existing.sub = make(map[string]*tableEntry)
 			return nil
 		}
 		if existing.kind == entryDottedImplicit {
@@ -1706,15 +1688,15 @@ func (dt *definitionTracker) defineArrayTable(path []string, node Node, pos Posi
 		// Was implicit (from sub-table path). Can only promote if no
 		// sub-tables were already defined under it (which would conflict
 		// with array-table semantics that reset children per element).
-		if len(existing.children) > 0 {
+		if len(existing.sub) > 0 {
 			return syntaxErrorAt(dt.src, pos, "cannot define [[%s]] as array table, already used as table with sub-entries", pathFromKeys(path))
 		}
 		existing.kind = entryArrayTable
 		existing.node = node
-		existing.children = make(map[string]*tableEntry)
+		existing.sub = make(map[string]*tableEntry)
 		return nil
 	}
-	parent.children[key] = &tableEntry{kind: entryArrayTable, node: node, children: make(map[string]*tableEntry)}
+	parent.sub[key] = &tableEntry{kind: entryArrayTable, node: node, sub: make(map[string]*tableEntry)}
 	return nil
 }
 
@@ -1729,10 +1711,10 @@ func (dt *definitionTracker) defineKey(path []string, node Node, pos Position) e
 		return err
 	}
 	key := path[len(path)-1]
-	if parent.children == nil {
-		parent.children = make(map[string]*tableEntry)
+	if parent.sub == nil {
+		parent.sub = make(map[string]*tableEntry)
 	}
-	existing, ok := parent.children[key]
+	existing, ok := parent.sub[key]
 	if ok {
 		if existing.kind == entryValue {
 			return syntaxErrorAt(dt.src, pos, "duplicate key %s", pathFromKeys(path))
@@ -1741,14 +1723,14 @@ func (dt *definitionTracker) defineKey(path []string, node Node, pos Position) e
 			return syntaxErrorAt(dt.src, pos, "key %s conflicts with table definition", pathFromKeys(path))
 		}
 		// Implicit: promote to value only if it has no children (sub-tables)
-		if len(existing.children) > 0 {
+		if len(existing.sub) > 0 {
 			return syntaxErrorAt(dt.src, pos, "key %s is already defined as a table", pathFromKeys(path))
 		}
 		existing.kind = entryValue
 		existing.node = node
 		return nil
 	}
-	parent.children[key] = &tableEntry{kind: entryValue, node: node}
+	parent.sub[key] = &tableEntry{kind: entryValue, node: node}
 	return nil
 }
 
@@ -1756,13 +1738,13 @@ func (dt *definitionTracker) defineKey(path []string, node Node, pos Position) e
 func (dt *definitionTracker) tableScope(path []string) *definitionTracker {
 	cur := dt.root
 	for _, key := range path {
-		if cur.children == nil {
-			cur.children = make(map[string]*tableEntry)
+		if cur.sub == nil {
+			cur.sub = make(map[string]*tableEntry)
 		}
-		child, ok := cur.children[key]
+		child, ok := cur.sub[key]
 		if !ok {
-			child = &tableEntry{kind: entryImplicit, children: make(map[string]*tableEntry)}
-			cur.children[key] = child
+			child = &tableEntry{kind: entryImplicit, sub: make(map[string]*tableEntry)}
+			cur.sub[key] = child
 		}
 		cur = child
 	}

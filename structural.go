@@ -35,23 +35,15 @@ func (d *Document) permuteChildren(path string, order []int) error {
 	if err != nil {
 		return err
 	}
-	children, valueFragment, err := containerChildren(node)
+	children, err := contents(node)
 	if err != nil {
 		return err
 	}
-	permuted, err := permuteNodes(*children, order)
+	permuted, err := permuteNodes(children, order)
 	if err != nil {
 		return err
 	}
-	*children = permuted
-	if valueFragment {
-		// An array and an inline table render as one value fragment, so their
-		// bytes no longer describe their contents. A document, a table and an
-		// array-of-tables entry render their children in place, and their own
-		// bytes still stand.
-		node.markDirty()
-	}
-	return nil
+	return setContents(node, permuted)
 }
 
 // AppendToArray appends a value to the array the path names.
@@ -72,9 +64,7 @@ func (d *Document) appendToArray(path string, value any) error {
 	if err != nil {
 		return err
 	}
-	arr.Elements = append(arr.Elements, valNode)
-	arr.markDirty()
-	return nil
+	return appendContent(arr, valNode)
 }
 
 // RemoveFromArray removes the element at index from the array the path names.
@@ -92,13 +82,11 @@ func (d *Document) removeFromArray(path string, index int) error {
 	if err != nil {
 		return err
 	}
-	idx, err := normalizeIndex(index, len(arr.Elements))
+	idx, err := normalizeIndex(index, len(arr.elements))
 	if err != nil {
 		return err
 	}
-	arr.Elements = append(arr.Elements[:idx], arr.Elements[idx+1:]...)
-	arr.markDirty()
-	return nil
+	return removeContent(arr, idx)
 }
 
 // containerNodeAt resolves a path to the concrete node that stands for it. The
@@ -138,26 +126,6 @@ func (d *Document) arrayAt(path string) (*ArrayNode, error) {
 		return nil, pos.noNodeError()
 	}
 	return nil, newError(KindWrongContainer, "%s is not an array", pos.describe())
-}
-
-// containerChildren returns the ordered children of a concrete container, and
-// whether reordering them invalidates the container's own rendered bytes.
-func containerChildren(n Node) (*[]Node, bool, error) {
-	switch c := n.(type) {
-	case *Document:
-		return &c.Children, false, nil
-	case *TableNode:
-		return &c.Children, false, nil
-	case *ArrayTableNode:
-		return &c.Children, false, nil
-	case *ArrayNode:
-		return &c.Elements, true, nil
-	case *InlineTableNode:
-		return &c.Children, true, nil
-	default:
-		return nil, false, newError(KindWrongContainer,
-			"%s nodes hold no children to reorder", n.Type())
-	}
 }
 
 // permuteNodes applies a gather permutation, returning the reordered children.

@@ -165,7 +165,7 @@ func TestResolve_InlineTableInsideAnArray(t *testing.T) {
 	if err != nil {
 		t.Fatalf("Resolve(rows[1].a): %v", err)
 	}
-	if n, ok := node.(*IntegerNode); !ok || n.Val != 2 {
+	if n, ok := node.(*IntegerNode); !ok || n.val.get() != 2 {
 		t.Errorf("rows[1].a = %v, want the integer 2", node)
 	}
 	if _, err := doc.Resolve("rows[0].missing"); !errors.Is(err, ErrNotFound) {

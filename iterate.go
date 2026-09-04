@@ -61,7 +61,7 @@ func iteratePos(pos layerPos, yield func(int, Node) bool) {
 		return
 	}
 	if arr, ok := pos.node.(*ArrayNode); ok {
-		for i, elem := range arr.Elements {
+		for i, elem := range arr.elements {
 			if !yield(i, elem) {
 				return
 			}
@@ -76,7 +76,7 @@ func posLen(pos layerPos) int {
 		return len(pos.records)
 	}
 	if arr, ok := pos.node.(*ArrayNode); ok {
-		return len(arr.Elements)
+		return len(arr.elements)
 	}
 	return -1
 }

@@ -98,7 +98,11 @@ type Node interface {
 	setRaw([]byte)
 	setSpan(Span)
 	isDirty() bool
+	subtreeDirty() bool
+	setSubtreeDirty()
 	markDirty()
+	parentNode() Node
+	setParent(Node)
 	trivia() *Trivia
 }
 
@@ -130,8 +134,20 @@ var (
 
 // nodeBase provides the shared implementation for all concrete node types.
 type nodeBase struct {
-	raw        []byte
-	dirty      bool
+	raw   []byte
+	dirty bool
+
+	// subtree records that this node, or something under it, no longer splices
+	// its original bytes. The structure funnel keeps it true by saying so
+	// upward at the moment a node goes dirty, which is what makes the
+	// serializer's question a single field read rather than a walk.
+	subtree bool
+
+	// parent is the container this node was put into, nil for a document and
+	// for a node not yet attached to one. Only the funnels of mutate.go write
+	// it.
+	parent Node
+
 	nodeTrivia Trivia
 	span       Span
 }
@@ -153,11 +169,32 @@ func (n *nodeBase) setSpan(s Span) {
 }
 
 func (n *nodeBase) isDirty() bool {
+	probeDirtyRead()
 	return n.dirty
 }
 
-func (n *nodeBase) markDirty() {
-	n.dirty = true
+// subtreeDirty reports whether this node or anything under it stopped splicing
+// its original bytes. It is a single field read whatever the document's depth,
+// which dirtyProbes exists to pin.
+func (n *nodeBase) subtreeDirty() bool {
+	probeDirtyRead()
+	// A node built dirty by a composite literal never went through markDirty,
+	// so its own bit is the second half of the answer.
+	return n.subtree || n.dirty
+}
+
+// dirtyProbes counts how many times the serializer asks a node about its
+// dirtiness, for the test that pins that count as independent of how deeply the
+// document nests. Counting is off unless a test turns it on.
+var (
+	dirtyProbes         int
+	countingDirtyProbes bool
+)
+
+func probeDirtyRead() {
+	if countingDirtyProbes {
+		dirtyProbes++
+	}
 }
 
 func (n *nodeBase) trivia() *Trivia {
@@ -170,7 +207,7 @@ func (n *nodeBase) Comment() string {
 
 func (n *nodeBase) SetComment(comment string) {
 	n.nodeTrivia.InlineComment = []byte(comment)
-	n.dirty = true
+	n.markDirty()
 }
 
 func (n *nodeBase) setComment(comment string) {
@@ -207,7 +244,7 @@ func (n *nodeBase) SetLeadingComments(comments []string) {
 		t.blankRuns[0] = lead
 		t.blankRuns[len(comments)] = tail
 	}
-	n.dirty = true
+	n.markDirty()
 }
 
 func (n *nodeBase) setLeadingComments(comments []string) {

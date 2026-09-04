@@ -135,13 +135,13 @@ func DecodeNode(n Node, v any) error {
 		en.decodeRecord(root, node, dst, "")
 	case *TableNode:
 		rec := newRecord(node, node.Span(), true)
-		if err := foldChildren(rec, node.Children); err != nil {
+		if err := foldChildren(rec, node.children); err != nil {
 			return err
 		}
 		en.decodeRecord(rec, node, dst, "")
 	case *ArrayTableNode:
 		rec := newRecord(node, node.Span(), true)
-		if err := foldChildren(rec, node.Children); err != nil {
+		if err := foldChildren(rec, node.children); err != nil {
 			return err
 		}
 		en.decodeRecord(rec, node, dst, "")
@@ -448,7 +448,7 @@ func (en *engine) walkValue(n Node, d *desc, dst reflect.Value, path string, key
 	if d.text && kind == valString {
 		// The text decoder takes the string rows; the table still governs
 		// every other value this target accepts.
-		return en.hookText(dst, n.(*StringNode).Val, path, pos, span)
+		return en.hookText(dst, n.(*StringNode).val.get(), path, pos, span)
 	}
 	if !d.class.accepts(kind) {
 		en.mismatch(d, kind, path, pos, span)
@@ -461,8 +461,8 @@ func (en *engine) walkValue(n Node, d *desc, dst reflect.Value, path string, key
 		return en.setNative(dst, func() (any, *Error) { return nativeValue(n) }, path, pos, span)
 	case targetArray:
 		arr := n.(*ArrayNode)
-		return en.fill(len(arr.Elements), d, dst, path, pos, span, func(i int, elem reflect.Value) {
-			en.walkValue(arr.Elements[i], d.elem, elem, indexPath(path, i), span)
+		return en.fill(len(arr.elements), d, dst, path, pos, span, func(i int, elem reflect.Value) {
+			en.walkValue(arr.elements[i], d.elem, elem, indexPath(path, i), span)
 		})
 	case targetTable:
 		rec, err := foldInlineTable(n.(*InlineTableNode))

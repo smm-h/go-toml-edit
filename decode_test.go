@@ -421,7 +421,7 @@ func TestDecodeNode(t *testing.T) {
 	}
 
 	// A key carries no value of its own.
-	kv := &KeyNode{Parts: []string{"host"}}
+	kv := &KeyNode{parts: []string{"host"}}
 	if err := DecodeNode(kv, &host); err == nil {
 		t.Error("DecodeNode accepted a key node")
 	}

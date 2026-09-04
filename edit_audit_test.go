@@ -102,8 +102,8 @@ name = "test"
 	if !ok {
 		t.Fatalf("expected *ArrayNode, got %T", node)
 	}
-	if len(arr.Elements) != 3 {
-		t.Errorf("expected 3 elements, got %d", len(arr.Elements))
+	if len(arr.elements) != 3 {
+		t.Errorf("expected 3 elements, got %d", len(arr.elements))
 	}
 }
 
@@ -155,8 +155,8 @@ label = "numbers"
 	if !ok {
 		t.Fatalf("expected *ArrayNode, got %T", node)
 	}
-	if len(arr.Elements) != 3 {
-		t.Errorf("expected 3 elements, got %d", len(arr.Elements))
+	if len(arr.elements) != 3 {
+		t.Errorf("expected 3 elements, got %d", len(arr.elements))
 	}
 }
 
@@ -748,7 +748,7 @@ dummy = 0
 }
 
 func TestAudit_ValueToNodeNodePassthrough(t *testing.T) {
-	n := &IntegerNode{Val: 42}
+	n := &IntegerNode{val: scalarOf[int64](42)}
 	n.markDirty()
 
 	result, err := valueToNode(n)
@@ -926,14 +926,14 @@ func TestAudit_DeleteInlineArrayElement(t *testing.T) {
 	if !ok {
 		t.Fatalf("expected *ArrayNode, got %T", node)
 	}
-	if len(arr.Elements) != 2 {
-		t.Errorf("expected 2 elements, got %d", len(arr.Elements))
+	if len(arr.elements) != 2 {
+		t.Errorf("expected 2 elements, got %d", len(arr.elements))
 	}
-	if arr.Elements[0].(Scalar).Value() != int64(10) {
-		t.Errorf("expected arr[0]=10, got %v", arr.Elements[0].(Scalar).Value())
+	if arr.elements[0].(Scalar).Value() != int64(10) {
+		t.Errorf("expected arr[0]=10, got %v", arr.elements[0].(Scalar).Value())
 	}
-	if arr.Elements[1].(Scalar).Value() != int64(30) {
-		t.Errorf("expected arr[1]=30, got %v", arr.Elements[1].(Scalar).Value())
+	if arr.elements[1].(Scalar).Value() != int64(30) {
+		t.Errorf("expected arr[1]=30, got %v", arr.elements[1].(Scalar).Value())
 	}
 }
 

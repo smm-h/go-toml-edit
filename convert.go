@@ -255,10 +255,10 @@ func convertValue(n Node, class targetClass, rv reflect.Value) *Error {
 	switch class {
 	case targetString:
 		if rv.IsValid() {
-			rv.SetString(n.(*StringNode).Val)
+			rv.SetString(n.(*StringNode).val.get())
 		}
 	case targetInteger:
-		v := n.(*IntegerNode).Val
+		v := n.(*IntegerNode).val.get()
 		if rv.IsValid() {
 			if rv.OverflowInt(v) {
 				return newError(KindInexact, "integer %d overflows %s", v, rv.Type()).withValue(v)
@@ -266,7 +266,7 @@ func convertValue(n Node, class targetClass, rv reflect.Value) *Error {
 			rv.SetInt(v)
 		}
 	case targetUnsigned:
-		v := n.(*IntegerNode).Val
+		v := n.(*IntegerNode).val.get()
 		if v < 0 {
 			return newError(KindInexact, "negative integer %d cannot be stored in %s", v, describeType(rv, "an unsigned integer")).withValue(v)
 		}
@@ -283,25 +283,25 @@ func convertValue(n Node, class targetClass, rv reflect.Value) *Error {
 		}
 		switch v := n.(type) {
 		case *IntegerNode:
-			f, exact := exactFloat(v.Val, bits)
+			f, exact := exactFloat(v.val.get(), bits)
 			if !exact {
 				return newError(KindInexact, "integer %d is not exactly representable in %s",
-					v.Val, describeType(rv, "float64")).withValue(v.Val)
+					v.val.get(), describeType(rv, "float64")).withValue(v.val.get())
 			}
 			if rv.IsValid() {
 				rv.SetFloat(f)
 			}
 		case *FloatNode:
 			if rv.IsValid() {
-				if rv.OverflowFloat(v.Val) {
-					return newError(KindInexact, "float %g overflows %s", v.Val, rv.Type()).withValue(v.Val)
+				if rv.OverflowFloat(v.val.get()) {
+					return newError(KindInexact, "float %g overflows %s", v.val.get(), rv.Type()).withValue(v.val.get())
 				}
-				rv.SetFloat(v.Val)
+				rv.SetFloat(v.val.get())
 			}
 		}
 	case targetBoolean:
 		if rv.IsValid() {
-			rv.SetBool(n.(*BooleanNode).Val)
+			rv.SetBool(n.(*BooleanNode).val.get())
 		}
 	case targetTime:
 		if rv.IsValid() {
@@ -309,15 +309,15 @@ func convertValue(n Node, class targetClass, rv reflect.Value) *Error {
 		}
 	case targetLocalDateTime:
 		if rv.IsValid() {
-			rv.Set(reflect.ValueOf(n.(*LocalDateTimeNode).Val))
+			rv.Set(reflect.ValueOf(n.(*LocalDateTimeNode).val.get()))
 		}
 	case targetLocalDate:
 		if rv.IsValid() {
-			rv.Set(reflect.ValueOf(n.(*LocalDateNode).Val))
+			rv.Set(reflect.ValueOf(n.(*LocalDateNode).val.get()))
 		}
 	case targetLocalTime:
 		if rv.IsValid() {
-			rv.Set(reflect.ValueOf(n.(*LocalTimeNode).Val))
+			rv.Set(reflect.ValueOf(n.(*LocalTimeNode).val.get()))
 		}
 	}
 	return nil
@@ -359,12 +359,12 @@ func exactFloat(i int64, bits int) (float64, bool) {
 func goTime(n Node) time.Time {
 	switch v := n.(type) {
 	case *DateTimeNode:
-		return v.Val
+		return v.val.get()
 	case *LocalDateTimeNode:
-		return time.Date(v.Val.Year, time.Month(v.Val.Month), v.Val.Day,
-			v.Val.Hour, v.Val.Minute, v.Val.Second, v.Val.Nanosecond, time.UTC)
+		return time.Date(v.val.get().Year, time.Month(v.val.get().Month), v.val.get().Day,
+			v.val.get().Hour, v.val.get().Minute, v.val.get().Second, v.val.get().Nanosecond, time.UTC)
 	case *LocalDateNode:
-		return time.Date(v.Val.Year, time.Month(v.Val.Month), v.Val.Day, 0, 0, 0, 0, time.UTC)
+		return time.Date(v.val.get().Year, time.Month(v.val.get().Month), v.val.get().Day, 0, 0, 0, 0, time.UTC)
 	}
 	return time.Time{}
 }
@@ -374,24 +374,24 @@ func goTime(n Node) time.Time {
 func nativeValue(n Node) (any, *Error) {
 	switch v := n.(type) {
 	case *StringNode:
-		return v.Val, nil
+		return v.val.get(), nil
 	case *IntegerNode:
-		return v.Val, nil
+		return v.val.get(), nil
 	case *FloatNode:
-		return v.Val, nil
+		return v.val.get(), nil
 	case *BooleanNode:
-		return v.Val, nil
+		return v.val.get(), nil
 	case *DateTimeNode:
-		return v.Val, nil
+		return v.val.get(), nil
 	case *LocalDateTimeNode:
-		return v.Val, nil
+		return v.val.get(), nil
 	case *LocalDateNode:
-		return v.Val, nil
+		return v.val.get(), nil
 	case *LocalTimeNode:
-		return v.Val, nil
+		return v.val.get(), nil
 	case *ArrayNode:
-		out := make([]any, len(v.Elements))
-		for i, elem := range v.Elements {
+		out := make([]any, len(v.elements))
+		for i, elem := range v.elements {
 			native, err := nativeValue(elem)
 			if err != nil {
 				return nil, err

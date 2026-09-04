@@ -53,8 +53,8 @@ func TestGet_ServerHost(t *testing.T) {
 	if !ok {
 		t.Fatalf("expected *StringNode, got %T", node)
 	}
-	if s.Val != "localhost" {
-		t.Errorf("expected \"localhost\", got %q", s.Val)
+	if s.val.get() != "localhost" {
+		t.Errorf("expected \"localhost\", got %q", s.val.get())
 	}
 }
 
@@ -266,8 +266,8 @@ func TestResolve_Success(t *testing.T) {
 	if !ok {
 		t.Fatalf("expected *StringNode, got %T", node)
 	}
-	if s.Val != "localhost" {
-		t.Errorf("expected \"localhost\", got %q", s.Val)
+	if s.val.get() != "localhost" {
+		t.Errorf("expected \"localhost\", got %q", s.val.get())
 	}
 }
 

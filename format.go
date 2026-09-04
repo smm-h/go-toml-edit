@@ -71,7 +71,7 @@ func formatDocument(buf *bytes.Buffer, doc *Document, cfg *FormatConfig) {
 	// blank lines before table headers.
 	emittedContent := false
 
-	for _, child := range doc.Children {
+	for _, child := range doc.children {
 		switch node := child.(type) {
 		case *TableNode:
 			formatTableNode(buf, node, cfg, &emittedContent, 0)
@@ -103,7 +103,7 @@ func formatTableNode(buf *bytes.Buffer, node *TableNode, cfg *FormatConfig, emit
 
 	// Table header: [key.path]
 	buf.WriteByte('[')
-	buf.Write(renderKeyPath(node.KeyPath))
+	buf.Write(renderKeyPath(node.keyPath))
 	buf.WriteByte(']')
 
 	// Inline comment on table header.
@@ -114,7 +114,7 @@ func formatTableNode(buf *bytes.Buffer, node *TableNode, cfg *FormatConfig, emit
 
 	// Children.
 	indent := depth + 1
-	for _, child := range node.Children {
+	for _, child := range node.children {
 		switch c := child.(type) {
 		case *KeyValueNode:
 			formatLeadingComments(buf, c, cfg)
@@ -137,7 +137,7 @@ func formatArrayTableNode(buf *bytes.Buffer, node *ArrayTableNode, cfg *FormatCo
 
 	// Array table header: [[key.path]]
 	buf.WriteString("[[")
-	buf.Write(renderKeyPath(node.KeyPath))
+	buf.Write(renderKeyPath(node.keyPath))
 	buf.WriteString("]]")
 
 	// Inline comment on table header.
@@ -148,7 +148,7 @@ func formatArrayTableNode(buf *bytes.Buffer, node *ArrayTableNode, cfg *FormatCo
 
 	// Children.
 	indent := depth + 1
-	for _, child := range node.Children {
+	for _, child := range node.children {
 		switch c := child.(type) {
 		case *KeyValueNode:
 			formatLeadingComments(buf, c, cfg)
@@ -165,14 +165,14 @@ func formatKeyValueLine(buf *bytes.Buffer, kv *KeyValueNode, cfg *FormatConfig, 
 	writeIndent(buf, cfg, indentLevel)
 
 	// Key.
-	buf.Write(renderKeyFromParts(kv.Key))
+	buf.Write(renderKeyFromParts(kv.key))
 	buf.WriteString(" = ")
 
 	// Compute the prefix length so far on this line (for multi-line array decisions).
-	prefixLen := indentLevel*cfg.IndentWidth + len(renderKeyFromParts(kv.Key)) + 3 // " = "
+	prefixLen := indentLevel*cfg.IndentWidth + len(renderKeyFromParts(kv.key)) + 3 // " = "
 
 	// Value.
-	formatValue(buf, kv.Val, cfg, prefixLen, indentLevel)
+	formatValue(buf, kv.val, cfg, prefixLen, indentLevel)
 
 	// Inline comment.
 	formatInlineComment(buf, kv)
@@ -210,10 +210,10 @@ func formatValue(buf *bytes.Buffer, n Node, cfg *FormatConfig, prefixLen int, in
 // or if the array has trailing comments. Arrays with comments must be rendered
 // in multi-line format since TOML inline arrays cannot contain comments.
 func arrayHasComments(arr *ArrayNode) bool {
-	if len(arr.TrailingComments) > 0 {
+	if len(arr.trailingComments) > 0 {
 		return true
 	}
-	for _, elem := range arr.Elements {
+	for _, elem := range arr.elements {
 		t := elem.trivia()
 		if len(t.LeadingComments) > 0 || len(t.InlineComment) > 0 {
 			return true
@@ -224,7 +224,7 @@ func arrayHasComments(arr *ArrayNode) bool {
 
 // formatArray formats an array, choosing inline or multi-line based on LineWidth.
 func formatArray(buf *bytes.Buffer, arr *ArrayNode, cfg *FormatConfig, prefixLen int, indentLevel int) {
-	if len(arr.Elements) == 0 {
+	if len(arr.elements) == 0 {
 		buf.WriteString("[]")
 		return
 	}
@@ -252,7 +252,7 @@ func formatArray(buf *bytes.Buffer, arr *ArrayNode, cfg *FormatConfig, prefixLen
 func formatArrayInline(arr *ArrayNode, cfg *FormatConfig) []byte {
 	var b bytes.Buffer
 	b.WriteByte('[')
-	for i, elem := range arr.Elements {
+	for i, elem := range arr.elements {
 		if i > 0 {
 			b.WriteString(", ")
 		}
@@ -268,7 +268,7 @@ func formatArrayInline(arr *ArrayNode, cfg *FormatConfig) []byte {
 func formatArrayMultiLine(buf *bytes.Buffer, arr *ArrayNode, cfg *FormatConfig, indentLevel int) {
 	buf.WriteString("[\n")
 	elemIndent := indentLevel + 1
-	for _, elem := range arr.Elements {
+	for _, elem := range arr.elements {
 		// Leading comments for this element.
 		t := elem.trivia()
 		for _, c := range t.LeadingComments {
@@ -302,7 +302,7 @@ func formatArrayMultiLine(buf *bytes.Buffer, arr *ArrayNode, cfg *FormatConfig, 
 	}
 
 	// Trailing comments (after last element, before ']').
-	for _, c := range arr.TrailingComments {
+	for _, c := range arr.trailingComments {
 		writeIndent(buf, cfg, elemIndent)
 		line := strings.TrimRight(string(c), " \t\r\n")
 		if line != "" {
@@ -317,12 +317,12 @@ func formatArrayMultiLine(buf *bytes.Buffer, arr *ArrayNode, cfg *FormatConfig, 
 
 // formatInlineTable formats an inline table on one line with consistent spacing.
 func formatInlineTable(buf *bytes.Buffer, it *InlineTableNode, cfg *FormatConfig) {
-	if len(it.Children) == 0 {
+	if len(it.children) == 0 {
 		buf.WriteString("{}")
 		return
 	}
 	buf.WriteByte('{')
-	for i, child := range it.Children {
+	for i, child := range it.children {
 		if i > 0 {
 			buf.WriteString(", ")
 		}
@@ -330,9 +330,9 @@ func formatInlineTable(buf *bytes.Buffer, it *InlineTableNode, cfg *FormatConfig
 		if !ok {
 			continue
 		}
-		buf.Write(renderKeyFromParts(kv.Key))
+		buf.Write(renderKeyFromParts(kv.key))
 		buf.WriteString(" = ")
-		formatValue(buf, kv.Val, cfg, 0, 0)
+		formatValue(buf, kv.val, cfg, 0, 0)
 	}
 	buf.WriteByte('}')
 }
@@ -377,7 +377,7 @@ func formatInlineComment(buf *bytes.Buffer, n Node) {
 
 // formatStandaloneComment formats a standalone CommentNode.
 func formatStandaloneComment(buf *bytes.Buffer, cn *CommentNode, cfg *FormatConfig) {
-	text := strings.TrimRight(cn.Text, " \t\r\n")
+	text := strings.TrimRight(cn.text, " \t\r\n")
 	if text == "" {
 		// Empty comment node -- might represent blank lines. Skip it.
 		return

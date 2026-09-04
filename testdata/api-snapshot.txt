@@ -116,9 +116,8 @@ func WithLineWidth(n int) FormatOption
 func WithTableBlankLine(b bool) FormatOption
 
 type ArrayNode struct
-	field Elements []Node
-	field TrailingComments [][]byte
 	method (*ArrayNode) Comment() string
+	method (*ArrayNode) Elements() []Node
 	method (*ArrayNode) LeadingComments() []string
 	method (*ArrayNode) Raw() []byte
 	method (*ArrayNode) SetComment(comment string)
@@ -127,9 +126,9 @@ type ArrayNode struct
 	method (*ArrayNode) Type() NodeType
 
 type ArrayTableNode struct
-	field KeyPath []string
-	field Children []Node
+	method (*ArrayTableNode) Children() []Node
 	method (*ArrayTableNode) Comment() string
+	method (*ArrayTableNode) KeyPath() []string
 	method (*ArrayTableNode) LeadingComments() []string
 	method (*ArrayTableNode) Raw() []byte
 	method (*ArrayTableNode) SetComment(comment string)
@@ -138,7 +137,6 @@ type ArrayTableNode struct
 	method (*ArrayTableNode) Type() NodeType
 
 type BooleanNode struct
-	field Val bool
 	method (*BooleanNode) Comment() string
 	method (*BooleanNode) LeadingComments() []string
 	method (*BooleanNode) Raw() []byte
@@ -158,13 +156,13 @@ type ChangeKind int
 	method (ChangeKind) String() string
 
 type CommentNode struct
-	field Text string
 	method (*CommentNode) Comment() string
 	method (*CommentNode) LeadingComments() []string
 	method (*CommentNode) Raw() []byte
 	method (*CommentNode) SetComment(comment string)
 	method (*CommentNode) SetLeadingComments(comments []string)
 	method (*CommentNode) Span() Span
+	method (*CommentNode) Text() string
 	method (*CommentNode) Type() NodeType
 
 type Cursor struct
@@ -181,7 +179,6 @@ type Cursor struct
 	method (*Cursor) Time() (time.Time, bool)
 
 type DateTimeNode struct
-	field Val time.Time
 	method (*DateTimeNode) Comment() string
 	method (*DateTimeNode) LeadingComments() []string
 	method (*DateTimeNode) Raw() []byte
@@ -196,9 +193,9 @@ type Default struct
 	field Value any
 
 type Document struct
-	field Children []Node
 	method (*Document) AppendToArray(path string, value any) error
 	method (*Document) Bytes() []byte
+	method (*Document) Children() []Node
 	method (*Document) Comment() string
 	method (*Document) Decode(v any) error
 	method (*Document) Delete(path string) error
@@ -279,7 +276,6 @@ type FieldKind int
 	method (FieldKind) String() string
 
 type FloatNode struct
-	field Val float64
 	method (*FloatNode) Comment() string
 	method (*FloatNode) LeadingComments() []string
 	method (*FloatNode) Raw() []byte
@@ -297,7 +293,7 @@ type FormatConfig struct
 type FormatOption func(*FormatConfig)
 
 type InlineTableNode struct
-	field Children []Node
+	method (*InlineTableNode) Children() []Node
 	method (*InlineTableNode) Comment() string
 	method (*InlineTableNode) LeadingComments() []string
 	method (*InlineTableNode) Raw() []byte
@@ -309,8 +305,7 @@ type InlineTableNode struct
 type IntegerBase int
 
 type IntegerNode struct
-	field Val int64
-	field Base IntegerBase
+	method (*IntegerNode) Base() IntegerBase
 	method (*IntegerNode) Comment() string
 	method (*IntegerNode) LeadingComments() []string
 	method (*IntegerNode) Raw() []byte
@@ -321,27 +316,27 @@ type IntegerNode struct
 	method (*IntegerNode) Value() any
 
 type KeyNode struct
-	field Parts []string
-	field RawParts [][]byte
-	field Styles []StringStyle
 	method (*KeyNode) Comment() string
 	method (*KeyNode) LeadingComments() []string
+	method (*KeyNode) Parts() []string
 	method (*KeyNode) Raw() []byte
+	method (*KeyNode) RawParts() [][]byte
 	method (*KeyNode) SetComment(comment string)
 	method (*KeyNode) SetLeadingComments(comments []string)
 	method (*KeyNode) Span() Span
+	method (*KeyNode) Styles() []StringStyle
 	method (*KeyNode) Type() NodeType
 
 type KeyValueNode struct
-	field Key *KeyNode
-	field Val Node
 	method (*KeyValueNode) Comment() string
+	method (*KeyValueNode) Key() *KeyNode
 	method (*KeyValueNode) LeadingComments() []string
 	method (*KeyValueNode) Raw() []byte
 	method (*KeyValueNode) SetComment(comment string)
 	method (*KeyValueNode) SetLeadingComments(comments []string)
 	method (*KeyValueNode) Span() Span
 	method (*KeyValueNode) Type() NodeType
+	method (*KeyValueNode) Val() Node
 
 type LocalDate struct
 	field Year int
@@ -349,7 +344,6 @@ type LocalDate struct
 	field Day int
 
 type LocalDateNode struct
-	field Val LocalDate
 	method (*LocalDateNode) Comment() string
 	method (*LocalDateNode) LeadingComments() []string
 	method (*LocalDateNode) Raw() []byte
@@ -369,7 +363,6 @@ type LocalDateTime struct
 	field Nanosecond int
 
 type LocalDateTimeNode struct
-	field Val LocalDateTime
 	method (*LocalDateTimeNode) Comment() string
 	method (*LocalDateTimeNode) LeadingComments() []string
 	method (*LocalDateTimeNode) Raw() []byte
@@ -386,7 +379,6 @@ type LocalTime struct
 	field Nanosecond int
 
 type LocalTimeNode struct
-	field Val LocalTime
 	method (*LocalTimeNode) Comment() string
 	method (*LocalTimeNode) LeadingComments() []string
 	method (*LocalTimeNode) Raw() []byte
@@ -448,23 +440,22 @@ type Spec struct
 	field Dynamic *Field
 
 type StringNode struct
-	field Val string
-	field Style StringStyle
 	method (*StringNode) Comment() string
 	method (*StringNode) LeadingComments() []string
 	method (*StringNode) Raw() []byte
 	method (*StringNode) SetComment(comment string)
 	method (*StringNode) SetLeadingComments(comments []string)
 	method (*StringNode) Span() Span
+	method (*StringNode) Style() StringStyle
 	method (*StringNode) Type() NodeType
 	method (*StringNode) Value() any
 
 type StringStyle int
 
 type TableNode struct
-	field KeyPath []string
-	field Children []Node
+	method (*TableNode) Children() []Node
 	method (*TableNode) Comment() string
+	method (*TableNode) KeyPath() []string
 	method (*TableNode) LeadingComments() []string
 	method (*TableNode) Raw() []byte
 	method (*TableNode) SetComment(comment string)

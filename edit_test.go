@@ -225,8 +225,8 @@ func TestSet_Array(t *testing.T) {
 	if !ok {
 		t.Fatalf("expected *ArrayNode, got %T", node)
 	}
-	if len(arr.Elements) != 2 {
-		t.Fatalf("expected 2 elements, got %d", len(arr.Elements))
+	if len(arr.elements) != 2 {
+		t.Fatalf("expected 2 elements, got %d", len(arr.elements))
 	}
 
 	out := string(doc.Bytes())
@@ -251,8 +251,8 @@ func TestSet_Map(t *testing.T) {
 	if !ok {
 		t.Fatalf("expected *InlineTableNode, got %T", node)
 	}
-	if len(tbl.Children) != 1 {
-		t.Fatalf("expected 1 child, got %d", len(tbl.Children))
+	if len(tbl.children) != 1 {
+		t.Fatalf("expected 1 child, got %d", len(tbl.children))
 	}
 
 	out := string(doc.Bytes())
@@ -628,8 +628,8 @@ func TestValueToNode_TypedSlice(t *testing.T) {
 	if !ok {
 		t.Fatalf("expected *ArrayNode, got %T", n)
 	}
-	if len(arr.Elements) != 3 {
-		t.Errorf("expected 3 elements, got %d", len(arr.Elements))
+	if len(arr.elements) != 3 {
+		t.Errorf("expected 3 elements, got %d", len(arr.elements))
 	}
 }
 
@@ -667,7 +667,7 @@ func TestValueToNode_LocalDateTime(t *testing.T) {
 }
 
 func TestValueToNode_NodePassthrough(t *testing.T) {
-	original := &StringNode{Val: "test"}
+	original := &StringNode{val: scalarOf("test")}
 	original.markDirty()
 	n, err := valueToNode(original)
 	if err != nil {

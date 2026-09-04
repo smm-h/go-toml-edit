@@ -83,14 +83,15 @@ kind = "index"
 	// last table -- are parts of their own constructs rather than children of
 	// the document.
 	position := map[string]int{}
-	for i, child := range doc.Children {
+	children := doc.Children()
+	for i, child := range children {
 		tbl, ok := child.(*TableNode)
 		if !ok {
 			t.Fatalf("document child %d is a %s, not a table", i, child.Type())
 		}
-		position[tbl.KeyPath[0]] = i
+		position[tbl.KeyPath()[0]] = i
 	}
-	order := make([]int, 0, len(doc.Children))
+	order := make([]int, 0, len(children))
 	for _, name := range wanted {
 		i, ok := position[name]
 		if !ok {

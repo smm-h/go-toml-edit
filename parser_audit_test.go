@@ -262,11 +262,11 @@ func TestAuditTriviaCommentBetweenTableAndFirstKV(t *testing.T) {
 	if err != nil {
 		t.Fatal(err)
 	}
-	tbl := doc.Children[0].(*TableNode)
-	if len(tbl.Children) != 1 {
-		t.Fatalf("expected 1 child, got %d", len(tbl.Children))
+	tbl := doc.children[0].(*TableNode)
+	if len(tbl.children) != 1 {
+		t.Fatalf("expected 1 child, got %d", len(tbl.children))
 	}
-	kv := tbl.Children[0].(*KeyValueNode)
+	kv := tbl.children[0].(*KeyValueNode)
 	lc := kv.LeadingComments()
 	if len(lc) != 1 {
 		t.Fatalf("expected 1 leading comment on kv, got %d", len(lc))
@@ -282,7 +282,7 @@ func TestAuditTriviaConsecutiveComments(t *testing.T) {
 	if err != nil {
 		t.Fatal(err)
 	}
-	kv := doc.Children[0].(*KeyValueNode)
+	kv := doc.children[0].(*KeyValueNode)
 	lc := kv.LeadingComments()
 	if len(lc) != 3 {
 		t.Fatalf("expected 3 leading comments, got %d", len(lc))
@@ -295,7 +295,7 @@ func TestAuditTriviaCommentAtStartAttachesToFirstNode(t *testing.T) {
 	if err != nil {
 		t.Fatal(err)
 	}
-	kv := doc.Children[0].(*KeyValueNode)
+	kv := doc.children[0].(*KeyValueNode)
 	lc := kv.LeadingComments()
 	if len(lc) != 1 {
 		t.Fatalf("expected 1 leading comment, got %d", len(lc))
@@ -312,12 +312,12 @@ func TestAuditTriviaCommentAtEndOfFileBecomesOrphan(t *testing.T) {
 		t.Fatal(err)
 	}
 	// Should have 2 children: kv + orphan comment
-	if len(doc.Children) < 2 {
-		t.Fatalf("expected at least 2 children, got %d", len(doc.Children))
+	if len(doc.children) < 2 {
+		t.Fatalf("expected at least 2 children, got %d", len(doc.children))
 	}
-	_, ok := doc.Children[1].(*CommentNode)
+	_, ok := doc.children[1].(*CommentNode)
 	if !ok {
-		t.Errorf("child 1: expected CommentNode, got %T", doc.Children[1])
+		t.Errorf("child 1: expected CommentNode, got %T", doc.children[1])
 	}
 }
 
@@ -343,9 +343,9 @@ func TestAuditIntegerOverflow(t *testing.T) {
 	if err != nil {
 		t.Fatal(err)
 	}
-	iv := doc.Children[0].(*KeyValueNode).Val.(*IntegerNode)
-	if iv.Val != 9223372036854775807 {
-		t.Errorf("val = %d, want max int64", iv.Val)
+	iv := doc.children[0].(*KeyValueNode).val.(*IntegerNode)
+	if iv.val.get() != 9223372036854775807 {
+		t.Errorf("val = %d, want max int64", iv.val.get())
 	}
 
 	// Overflow should error
@@ -363,9 +363,9 @@ func TestAuditIntegerMinValue(t *testing.T) {
 	if err != nil {
 		t.Fatal(err)
 	}
-	iv := doc.Children[0].(*KeyValueNode).Val.(*IntegerNode)
-	if iv.Val != -9223372036854775808 {
-		t.Errorf("val = %d, want min int64", iv.Val)
+	iv := doc.children[0].(*KeyValueNode).val.(*IntegerNode)
+	if iv.val.get() != -9223372036854775808 {
+		t.Errorf("val = %d, want min int64", iv.val.get())
 	}
 }
 
@@ -381,8 +381,8 @@ func TestAuditUnicodeEscapeSurrogatePair(t *testing.T) {
 	if err != nil {
 		t.Logf("surrogate pair \\uD800 correctly rejected: %v", err)
 	} else {
-		sv := doc.Children[0].(*KeyValueNode).Val.(*StringNode)
-		t.Logf("surrogate pair \\uD800 accepted, decoded as %q (len=%d)", sv.Val, len(sv.Val))
+		sv := doc.children[0].(*KeyValueNode).val.(*StringNode)
+		t.Logf("surrogate pair \\uD800 accepted, decoded as %q (len=%d)", sv.val.get(), len(sv.val.get()))
 	}
 }
 
@@ -393,9 +393,9 @@ func TestAuditUnicodeEscape4DigitEmoji(t *testing.T) {
 	if err != nil {
 		t.Fatal(err)
 	}
-	sv := doc.Children[0].(*KeyValueNode).Val.(*StringNode)
-	if sv.Val != "café" {
-		t.Errorf("val = %q, want %q", sv.Val, "café")
+	sv := doc.children[0].(*KeyValueNode).val.(*StringNode)
+	if sv.val.get() != "café" {
+		t.Errorf("val = %q, want %q", sv.val.get(), "café")
 	}
 }
 
@@ -406,9 +406,9 @@ func TestAuditUnicodeEscape8Digit(t *testing.T) {
 	if err != nil {
 		t.Fatal(err)
 	}
-	sv := doc.Children[0].(*KeyValueNode).Val.(*StringNode)
-	if sv.Val != "\U0001F600" {
-		t.Errorf("val = %q, want %q", sv.Val, "\U0001F600")
+	sv := doc.children[0].(*KeyValueNode).val.(*StringNode)
+	if sv.val.get() != "\U0001F600" {
+		t.Errorf("val = %q, want %q", sv.val.get(), "\U0001F600")
 	}
 }
 
@@ -419,11 +419,11 @@ func TestAuditMultiLineStringCRLF(t *testing.T) {
 	if err != nil {
 		t.Fatal(err)
 	}
-	sv := doc.Children[0].(*KeyValueNode).Val.(*StringNode)
+	sv := doc.children[0].(*KeyValueNode).val.(*StringNode)
 	// The first CRLF after """ should be trimmed
 	// The remaining content should preserve CRLF
-	if !strings.Contains(sv.Val, "hello") {
-		t.Errorf("val = %q", sv.Val)
+	if !strings.Contains(sv.val.get(), "hello") {
+		t.Errorf("val = %q", sv.val.get())
 	}
 }
 
@@ -433,9 +433,9 @@ func TestAuditMultiLineStringLineEndingBackslash(t *testing.T) {
 	if err != nil {
 		t.Fatal(err)
 	}
-	sv := doc.Children[0].(*KeyValueNode).Val.(*StringNode)
-	if sv.Val != "hello world" {
-		t.Errorf("val = %q, want %q", sv.Val, "hello world")
+	sv := doc.children[0].(*KeyValueNode).val.(*StringNode)
+	if sv.val.get() != "hello world" {
+		t.Errorf("val = %q, want %q", sv.val.get(), "hello world")
 	}
 }
 
@@ -445,9 +445,9 @@ func TestAuditEmptyMultiLineBasicString(t *testing.T) {
 	if err != nil {
 		t.Fatal(err)
 	}
-	sv := doc.Children[0].(*KeyValueNode).Val.(*StringNode)
-	if sv.Val != "" {
-		t.Errorf("val = %q, want empty string", sv.Val)
+	sv := doc.children[0].(*KeyValueNode).val.(*StringNode)
+	if sv.val.get() != "" {
+		t.Errorf("val = %q, want empty string", sv.val.get())
 	}
 }
 
@@ -457,9 +457,9 @@ func TestAuditEmptyMultiLineLiteralString(t *testing.T) {
 	if err != nil {
 		t.Fatal(err)
 	}
-	sv := doc.Children[0].(*KeyValueNode).Val.(*StringNode)
-	if sv.Val != "" {
-		t.Errorf("val = %q, want empty string", sv.Val)
+	sv := doc.children[0].(*KeyValueNode).val.(*StringNode)
+	if sv.val.get() != "" {
+		t.Errorf("val = %q, want empty string", sv.val.get())
 	}
 }
 
@@ -469,9 +469,9 @@ func TestAuditEmptyBasicString(t *testing.T) {
 	if err != nil {
 		t.Fatal(err)
 	}
-	sv := doc.Children[0].(*KeyValueNode).Val.(*StringNode)
-	if sv.Val != "" {
-		t.Errorf("val = %q, want empty string", sv.Val)
+	sv := doc.children[0].(*KeyValueNode).val.(*StringNode)
+	if sv.val.get() != "" {
+		t.Errorf("val = %q, want empty string", sv.val.get())
 	}
 }
 
@@ -481,9 +481,9 @@ func TestAuditEmptyLiteralString(t *testing.T) {
 	if err != nil {
 		t.Fatal(err)
 	}
-	sv := doc.Children[0].(*KeyValueNode).Val.(*StringNode)
-	if sv.Val != "" {
-		t.Errorf("val = %q, want empty string", sv.Val)
+	sv := doc.children[0].(*KeyValueNode).val.(*StringNode)
+	if sv.val.get() != "" {
+		t.Errorf("val = %q, want empty string", sv.val.get())
 	}
 }
 
@@ -493,9 +493,9 @@ func TestAuditNegativeNaN(t *testing.T) {
 	if err != nil {
 		t.Fatal(err)
 	}
-	fv := doc.Children[0].(*KeyValueNode).Val.(*FloatNode)
-	if !math.IsNaN(fv.Val) {
-		t.Errorf("expected NaN, got %f", fv.Val)
+	fv := doc.children[0].(*KeyValueNode).val.(*FloatNode)
+	if !math.IsNaN(fv.val.get()) {
+		t.Errorf("expected NaN, got %f", fv.val.get())
 	}
 }
 
@@ -505,9 +505,9 @@ func TestAuditPositiveNaN(t *testing.T) {
 	if err != nil {
 		t.Fatal(err)
 	}
-	fv := doc.Children[0].(*KeyValueNode).Val.(*FloatNode)
-	if !math.IsNaN(fv.Val) {
-		t.Errorf("expected NaN, got %f", fv.Val)
+	fv := doc.children[0].(*KeyValueNode).val.(*FloatNode)
+	if !math.IsNaN(fv.val.get()) {
+		t.Errorf("expected NaN, got %f", fv.val.get())
 	}
 }
 
@@ -517,9 +517,9 @@ func TestAuditZeroFloat(t *testing.T) {
 	if err != nil {
 		t.Fatal(err)
 	}
-	fv := doc.Children[0].(*KeyValueNode).Val.(*FloatNode)
-	if fv.Val != 0.0 {
-		t.Errorf("val = %f, want 0.0", fv.Val)
+	fv := doc.children[0].(*KeyValueNode).val.(*FloatNode)
+	if fv.val.get() != 0.0 {
+		t.Errorf("val = %f, want 0.0", fv.val.get())
 	}
 }
 
@@ -529,9 +529,9 @@ func TestAuditIntegerWithLeadingPlus(t *testing.T) {
 	if err != nil {
 		t.Fatal(err)
 	}
-	iv := doc.Children[0].(*KeyValueNode).Val.(*IntegerNode)
-	if iv.Val != 0 {
-		t.Errorf("val = %d, want 0", iv.Val)
+	iv := doc.children[0].(*KeyValueNode).val.(*IntegerNode)
+	if iv.val.get() != 0 {
+		t.Errorf("val = %d, want 0", iv.val.get())
 	}
 }
 
@@ -620,19 +620,19 @@ func TestAuditKeyStyleTracking(t *testing.T) {
 		t.Fatal(err)
 	}
 
-	kv1 := doc.Children[0].(*KeyValueNode)
-	if kv1.Key.Styles[0] != StringBasic {
-		t.Errorf("bare key style = %d, want StringBasic", kv1.Key.Styles[0])
+	kv1 := doc.children[0].(*KeyValueNode)
+	if kv1.key.styles[0] != StringBasic {
+		t.Errorf("bare key style = %d, want StringBasic", kv1.key.styles[0])
 	}
 
-	kv2 := doc.Children[1].(*KeyValueNode)
-	if kv2.Key.Styles[0] != StringBasic {
-		t.Errorf("quoted key style = %d, want StringBasic", kv2.Key.Styles[0])
+	kv2 := doc.children[1].(*KeyValueNode)
+	if kv2.key.styles[0] != StringBasic {
+		t.Errorf("quoted key style = %d, want StringBasic", kv2.key.styles[0])
 	}
 
-	kv3 := doc.Children[2].(*KeyValueNode)
-	if kv3.Key.Styles[0] != StringLiteral {
-		t.Errorf("literal key style = %d, want StringLiteral", kv3.Key.Styles[0])
+	kv3 := doc.children[2].(*KeyValueNode)
+	if kv3.key.styles[0] != StringLiteral {
+		t.Errorf("literal key style = %d, want StringLiteral", kv3.key.styles[0])
 	}
 }
 
@@ -642,18 +642,18 @@ func TestAuditKeyRawParts(t *testing.T) {
 	if err != nil {
 		t.Fatal(err)
 	}
-	kv := doc.Children[0].(*KeyValueNode)
-	if len(kv.Key.RawParts) != 3 {
-		t.Fatalf("expected 3 raw parts, got %d", len(kv.Key.RawParts))
+	kv := doc.children[0].(*KeyValueNode)
+	if len(kv.key.rawParts) != 3 {
+		t.Fatalf("expected 3 raw parts, got %d", len(kv.key.rawParts))
 	}
-	if string(kv.Key.RawParts[0]) != "server" {
-		t.Errorf("raw part 0 = %q", kv.Key.RawParts[0])
+	if string(kv.key.rawParts[0]) != "server" {
+		t.Errorf("raw part 0 = %q", kv.key.rawParts[0])
 	}
-	if string(kv.Key.RawParts[1]) != "\"host name\"" {
-		t.Errorf("raw part 1 = %q", kv.Key.RawParts[1])
+	if string(kv.key.rawParts[1]) != "\"host name\"" {
+		t.Errorf("raw part 1 = %q", kv.key.rawParts[1])
 	}
-	if string(kv.Key.RawParts[2]) != "port" {
-		t.Errorf("raw part 2 = %q", kv.Key.RawParts[2])
+	if string(kv.key.rawParts[2]) != "port" {
+		t.Errorf("raw part 2 = %q", kv.key.rawParts[2])
 	}
 }
 
@@ -665,11 +665,11 @@ func TestAuditOffsetDateTimeWithFractional(t *testing.T) {
 	if err != nil {
 		t.Fatal(err)
 	}
-	dt := doc.Children[0].(*KeyValueNode).Val.(*DateTimeNode)
-	if dt.Val.Year() != 1979 || dt.Val.Month() != 5 || dt.Val.Day() != 27 {
-		t.Errorf("date = %v", dt.Val)
+	dt := doc.children[0].(*KeyValueNode).val.(*DateTimeNode)
+	if dt.val.get().Year() != 1979 || dt.val.get().Month() != 5 || dt.val.get().Day() != 27 {
+		t.Errorf("date = %v", dt.val.get())
 	}
-	if dt.Val.Nanosecond() == 0 {
+	if dt.val.get().Nanosecond() == 0 {
 		t.Error("expected non-zero nanoseconds")
 	}
 }
@@ -681,9 +681,9 @@ func TestAuditLocalDateTimeSpaceSeparator(t *testing.T) {
 	if err != nil {
 		t.Fatal(err)
 	}
-	ldt := doc.Children[0].(*KeyValueNode).Val.(*LocalDateTimeNode)
-	if ldt.Val.Year != 1979 || ldt.Val.Hour != 7 {
-		t.Errorf("datetime = %+v", ldt.Val)
+	ldt := doc.children[0].(*KeyValueNode).val.(*LocalDateTimeNode)
+	if ldt.val.get().Year != 1979 || ldt.val.get().Hour != 7 {
+		t.Errorf("datetime = %+v", ldt.val.get())
 	}
 }
 
@@ -696,15 +696,15 @@ func TestAuditArrayOfMixedTypes(t *testing.T) {
 	if err != nil {
 		t.Fatal(err)
 	}
-	arr := doc.Children[0].(*KeyValueNode).Val.(*ArrayNode)
-	if len(arr.Elements) != 3 {
-		t.Fatalf("expected 3 elements, got %d", len(arr.Elements))
+	arr := doc.children[0].(*KeyValueNode).val.(*ArrayNode)
+	if len(arr.elements) != 3 {
+		t.Fatalf("expected 3 elements, got %d", len(arr.elements))
 	}
-	_, ok1 := arr.Elements[0].(*IntegerNode)
-	_, ok2 := arr.Elements[1].(*StringNode)
-	_, ok3 := arr.Elements[2].(*FloatNode)
+	_, ok1 := arr.elements[0].(*IntegerNode)
+	_, ok2 := arr.elements[1].(*StringNode)
+	_, ok3 := arr.elements[2].(*FloatNode)
 	if !ok1 || !ok2 || !ok3 {
-		t.Errorf("types: %T, %T, %T", arr.Elements[0], arr.Elements[1], arr.Elements[2])
+		t.Errorf("types: %T, %T, %T", arr.elements[0], arr.elements[1], arr.elements[2])
 	}
 }
 
@@ -714,9 +714,9 @@ func TestAuditArrayEmptyMultiline(t *testing.T) {
 	if err != nil {
 		t.Fatal(err)
 	}
-	arr := doc.Children[0].(*KeyValueNode).Val.(*ArrayNode)
-	if len(arr.Elements) != 0 {
-		t.Errorf("expected empty array, got %d elements", len(arr.Elements))
+	arr := doc.children[0].(*KeyValueNode).val.(*ArrayNode)
+	if len(arr.elements) != 0 {
+		t.Errorf("expected empty array, got %d elements", len(arr.elements))
 	}
 }
 
@@ -726,9 +726,9 @@ func TestAuditArraySingleElementTrailingComma(t *testing.T) {
 	if err != nil {
 		t.Fatal(err)
 	}
-	arr := doc.Children[0].(*KeyValueNode).Val.(*ArrayNode)
-	if len(arr.Elements) != 1 {
-		t.Fatalf("expected 1 element, got %d", len(arr.Elements))
+	arr := doc.children[0].(*KeyValueNode).val.(*ArrayNode)
+	if len(arr.elements) != 1 {
+		t.Fatalf("expected 1 element, got %d", len(arr.elements))
 	}
 }
 
@@ -740,13 +740,13 @@ func TestAuditInlineTableNestedDottedKey(t *testing.T) {
 	if err != nil {
 		t.Fatal(err)
 	}
-	it := doc.Children[0].(*KeyValueNode).Val.(*InlineTableNode)
-	if len(it.Children) != 1 {
-		t.Fatalf("expected 1 child, got %d", len(it.Children))
+	it := doc.children[0].(*KeyValueNode).val.(*InlineTableNode)
+	if len(it.children) != 1 {
+		t.Fatalf("expected 1 child, got %d", len(it.children))
 	}
-	kv := it.Children[0].(*KeyValueNode)
-	if len(kv.Key.Parts) != 3 {
-		t.Errorf("expected 3 key parts, got %d", len(kv.Key.Parts))
+	kv := it.children[0].(*KeyValueNode)
+	if len(kv.key.parts) != 3 {
+		t.Errorf("expected 3 key parts, got %d", len(kv.key.parts))
 	}
 }
 
@@ -756,9 +756,9 @@ func TestAuditInlineTableSingleEntry(t *testing.T) {
 	if err != nil {
 		t.Fatal(err)
 	}
-	it := doc.Children[0].(*KeyValueNode).Val.(*InlineTableNode)
-	if len(it.Children) != 1 {
-		t.Fatalf("expected 1 child, got %d", len(it.Children))
+	it := doc.children[0].(*KeyValueNode).val.(*InlineTableNode)
+	if len(it.children) != 1 {
+		t.Fatalf("expected 1 child, got %d", len(it.children))
 	}
 }
 
@@ -860,9 +860,9 @@ func TestAuditAllBasicEscapes(t *testing.T) {
 			if err != nil {
 				t.Fatal(err)
 			}
-			sv := doc.Children[0].(*KeyValueNode).Val.(*StringNode)
-			if sv.Val != tt.expected {
-				t.Errorf("val = %q, want %q", sv.Val, tt.expected)
+			sv := doc.children[0].(*KeyValueNode).val.(*StringNode)
+			if sv.val.get() != tt.expected {
+				t.Errorf("val = %q, want %q", sv.val.get(), tt.expected)
 			}
 		})
 	}
@@ -884,7 +884,7 @@ func TestAuditTableHeaderInlineComment(t *testing.T) {
 	if err != nil {
 		t.Fatal(err)
 	}
-	tbl := doc.Children[0].(*TableNode)
+	tbl := doc.children[0].(*TableNode)
 	if !strings.Contains(tbl.Comment(), "the server config") {
 		t.Errorf("inline comment = %q", tbl.Comment())
 	}
@@ -903,7 +903,7 @@ func TestAuditArrayTableHeaderInlineComment(t *testing.T) {
 	if err != nil {
 		t.Fatal(err)
 	}
-	atbl := doc.Children[0].(*ArrayTableNode)
+	atbl := doc.children[0].(*ArrayTableNode)
 	if !strings.Contains(atbl.Comment(), "list of items") {
 		t.Errorf("inline comment = %q", atbl.Comment())
 	}
@@ -933,9 +933,9 @@ func TestAuditFloatExponentEdgeCases(t *testing.T) {
 			if err != nil {
 				t.Fatal(err)
 			}
-			fv := doc.Children[0].(*KeyValueNode).Val.(*FloatNode)
-			if fv.Val != tt.val {
-				t.Errorf("val = %f, want %f", fv.Val, tt.val)
+			fv := doc.children[0].(*KeyValueNode).val.(*FloatNode)
+			if fv.val.get() != tt.val {
+				t.Errorf("val = %f, want %f", fv.val.get(), tt.val)
 			}
 		})
 	}
@@ -952,14 +952,14 @@ func TestAuditBareKeyVsQuotedKeyStyle(t *testing.T) {
 	if err != nil {
 		t.Fatal(err)
 	}
-	kv1 := doc.Children[0].(*KeyValueNode)
-	kv2 := doc.Children[1].(*KeyValueNode)
+	kv1 := doc.children[0].(*KeyValueNode)
+	kv2 := doc.children[1].(*KeyValueNode)
 	// Both are StringBasic -- the only way to distinguish is by looking at RawParts
-	if kv1.Key.Styles[0] != kv2.Key.Styles[0] {
-		t.Logf("bare key style %d vs quoted key style %d -- different (unexpected)", kv1.Key.Styles[0], kv2.Key.Styles[0])
+	if kv1.key.styles[0] != kv2.key.styles[0] {
+		t.Logf("bare key style %d vs quoted key style %d -- different (unexpected)", kv1.key.styles[0], kv2.key.styles[0])
 	} else {
 		// They're the same -- check RawParts distinguish them
-		if string(kv1.Key.RawParts[0]) == "bare" && string(kv2.Key.RawParts[0]) == "\"quoted\"" {
+		if string(kv1.key.rawParts[0]) == "bare" && string(kv2.key.rawParts[0]) == "\"quoted\"" {
 			t.Logf("bare vs quoted keys are both StringBasic but distinguishable via RawParts -- this is a known limitation")
 		}
 	}
@@ -1039,9 +1039,9 @@ func TestAuditEmptyQuotedKey(t *testing.T) {
 	if err != nil {
 		t.Fatal(err)
 	}
-	kv := doc.Children[0].(*KeyValueNode)
-	if kv.Key.Parts[0] != "" {
-		t.Errorf("key = %q, want empty string", kv.Key.Parts[0])
+	kv := doc.children[0].(*KeyValueNode)
+	if kv.key.parts[0] != "" {
+		t.Errorf("key = %q, want empty string", kv.key.parts[0])
 	}
 }
 
@@ -1052,8 +1052,8 @@ func TestAuditEmptyLiteralQuotedKey(t *testing.T) {
 	if err != nil {
 		t.Fatal(err)
 	}
-	kv := doc.Children[0].(*KeyValueNode)
-	if kv.Key.Parts[0] != "" {
-		t.Errorf("key = %q, want empty string", kv.Key.Parts[0])
+	kv := doc.children[0].(*KeyValueNode)
+	if kv.key.parts[0] != "" {
+		t.Errorf("key = %q, want empty string", kv.key.parts[0])
 	}
 }

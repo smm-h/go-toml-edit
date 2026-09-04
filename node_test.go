@@ -14,10 +14,10 @@ func TestNodeTypes(t *testing.T) {
 	}{
 		{
 			name:     "Document",
-			node:     &Document{Children: []Node{&CommentNode{Text: "hi"}}},
+			node:     &Document{children: []Node{&CommentNode{text: "hi"}}},
 			wantType: NodeDocument,
 			checkVal: func(t *testing.T, n Node) {
-				children := n.(*Document).Children
+				children := n.(*Document).children
 				if len(children) != 1 {
 					t.Errorf("expected 1 child, got %d", len(children))
 				}
@@ -25,10 +25,10 @@ func TestNodeTypes(t *testing.T) {
 		},
 		{
 			name:     "TableNode",
-			node:     &TableNode{KeyPath: []string{"server"}, Children: nil},
+			node:     &TableNode{keyPath: []string{"server"}, children: nil},
 			wantType: NodeTable,
 			checkVal: func(t *testing.T, n Node) {
-				children := n.(*TableNode).Children
+				children := n.(*TableNode).children
 				if len(children) != 0 {
 					t.Errorf("expected 0 children, got %d", len(children))
 				}
@@ -36,18 +36,18 @@ func TestNodeTypes(t *testing.T) {
 		},
 		{
 			name:     "ArrayTableNode",
-			node:     &ArrayTableNode{KeyPath: []string{"products"}},
+			node:     &ArrayTableNode{keyPath: []string{"products"}},
 			wantType: NodeArrayTable,
 		},
 		{
 			name: "KeyValueNode",
 			node: &KeyValueNode{
-				Key: &KeyNode{Parts: []string{"name"}},
-				Val: &StringNode{Val: "hello"},
+				key: &KeyNode{parts: []string{"name"}},
+				val: &StringNode{val: scalarOf("hello")},
 			},
 			wantType: NodeKeyValue,
 			checkVal: func(t *testing.T, n Node) {
-				valNode := n.(*KeyValueNode).Val
+				valNode := n.(*KeyValueNode).val
 				if valNode.Type() != NodeString {
 					t.Errorf("expected String value node, got %v", valNode.Type())
 				}
@@ -55,10 +55,10 @@ func TestNodeTypes(t *testing.T) {
 		},
 		{
 			name:     "KeyNode",
-			node:     &KeyNode{Parts: []string{"server", "host"}, RawParts: [][]byte{[]byte("server"), []byte("host")}},
+			node:     &KeyNode{parts: []string{"server", "host"}, rawParts: [][]byte{[]byte("server"), []byte("host")}},
 			wantType: NodeKey,
 			checkVal: func(t *testing.T, n Node) {
-				parts := n.(*KeyNode).Parts
+				parts := n.(*KeyNode).parts
 				if len(parts) != 2 || parts[0] != "server" || parts[1] != "host" {
 					t.Errorf("unexpected parts: %v", parts)
 				}
@@ -66,7 +66,7 @@ func TestNodeTypes(t *testing.T) {
 		},
 		{
 			name:     "StringNode/Basic",
-			node:     &StringNode{Val: "hello", Style: StringBasic},
+			node:     &StringNode{val: scalarOf("hello"), style: StringBasic},
 			wantType: NodeString,
 			checkVal: func(t *testing.T, n Node) {
 				v := n.(Scalar).Value()
@@ -77,7 +77,7 @@ func TestNodeTypes(t *testing.T) {
 		},
 		{
 			name:     "StringNode/Literal",
-			node:     &StringNode{Val: `C:\path`, Style: StringLiteral},
+			node:     &StringNode{val: scalarOf(`C:\path`), style: StringLiteral},
 			wantType: NodeString,
 			checkVal: func(t *testing.T, n Node) {
 				v := n.(Scalar).Value()
@@ -88,7 +88,7 @@ func TestNodeTypes(t *testing.T) {
 		},
 		{
 			name:     "IntegerNode/Decimal",
-			node:     &IntegerNode{Val: 42, Base: IntegerDecimal},
+			node:     &IntegerNode{val: scalarOf[int64](42), base: IntegerDecimal},
 			wantType: NodeInteger,
 			checkVal: func(t *testing.T, n Node) {
 				v := n.(Scalar).Value()
@@ -99,7 +99,7 @@ func TestNodeTypes(t *testing.T) {
 		},
 		{
 			name:     "IntegerNode/Hex",
-			node:     &IntegerNode{Val: 0xDEAD, Base: IntegerHex},
+			node:     &IntegerNode{val: scalarOf[int64](0xDEAD), base: IntegerHex},
 			wantType: NodeInteger,
 			checkVal: func(t *testing.T, n Node) {
 				v := n.(Scalar).Value()
@@ -110,7 +110,7 @@ func TestNodeTypes(t *testing.T) {
 		},
 		{
 			name:     "FloatNode",
-			node:     &FloatNode{Val: 3.14},
+			node:     &FloatNode{val: scalarOf(3.14)},
 			wantType: NodeFloat,
 			checkVal: func(t *testing.T, n Node) {
 				v := n.(Scalar).Value()
@@ -121,7 +121,7 @@ func TestNodeTypes(t *testing.T) {
 		},
 		{
 			name:     "BooleanNode",
-			node:     &BooleanNode{Val: true},
+			node:     &BooleanNode{val: scalarOf(true)},
 			wantType: NodeBoolean,
 			checkVal: func(t *testing.T, n Node) {
 				v := n.(Scalar).Value()
@@ -132,7 +132,7 @@ func TestNodeTypes(t *testing.T) {
 		},
 		{
 			name:     "DateTimeNode",
-			node:     &DateTimeNode{Val: time.Date(1979, 5, 27, 7, 32, 0, 0, time.UTC)},
+			node:     &DateTimeNode{val: scalarOf(time.Date(1979, 5, 27, 7, 32, 0, 0, time.UTC))},
 			wantType: NodeDateTime,
 			checkVal: func(t *testing.T, n Node) {
 				v := n.(Scalar).Value()
@@ -144,7 +144,7 @@ func TestNodeTypes(t *testing.T) {
 		},
 		{
 			name:     "LocalDateTimeNode",
-			node:     &LocalDateTimeNode{Val: LocalDateTime{Year: 1979, Month: 5, Day: 27, Hour: 7, Minute: 32}},
+			node:     &LocalDateTimeNode{val: scalarOf(LocalDateTime{Year: 1979, Month: 5, Day: 27, Hour: 7, Minute: 32})},
 			wantType: NodeLocalDateTime,
 			checkVal: func(t *testing.T, n Node) {
 				v := n.(Scalar).Value()
@@ -156,7 +156,7 @@ func TestNodeTypes(t *testing.T) {
 		},
 		{
 			name:     "LocalDateNode",
-			node:     &LocalDateNode{Val: LocalDate{Year: 1979, Month: 5, Day: 27}},
+			node:     &LocalDateNode{val: scalarOf(LocalDate{Year: 1979, Month: 5, Day: 27})},
 			wantType: NodeLocalDate,
 			checkVal: func(t *testing.T, n Node) {
 				v := n.(Scalar).Value()
@@ -168,7 +168,7 @@ func TestNodeTypes(t *testing.T) {
 		},
 		{
 			name:     "LocalTimeNode",
-			node:     &LocalTimeNode{Val: LocalTime{Hour: 7, Minute: 32, Second: 0}},
+			node:     &LocalTimeNode{val: scalarOf(LocalTime{Hour: 7, Minute: 32, Second: 0})},
 			wantType: NodeLocalTime,
 			checkVal: func(t *testing.T, n Node) {
 				v := n.(Scalar).Value()
@@ -180,10 +180,10 @@ func TestNodeTypes(t *testing.T) {
 		},
 		{
 			name:     "ArrayNode",
-			node:     &ArrayNode{Elements: []Node{&IntegerNode{Val: 1}, &IntegerNode{Val: 2}}},
+			node:     &ArrayNode{elements: []Node{&IntegerNode{val: scalarOf[int64](1)}, &IntegerNode{val: scalarOf[int64](2)}}},
 			wantType: NodeArray,
 			checkVal: func(t *testing.T, n Node) {
-				elems := n.(*ArrayNode).Elements
+				elems := n.(*ArrayNode).elements
 				if len(elems) != 2 {
 					t.Errorf("expected 2 elements, got %d", len(elems))
 				}
@@ -191,10 +191,10 @@ func TestNodeTypes(t *testing.T) {
 		},
 		{
 			name:     "InlineTableNode",
-			node:     &InlineTableNode{Children: []Node{&KeyValueNode{Key: &KeyNode{Parts: []string{"a"}}, Val: &IntegerNode{Val: 1}}}},
+			node:     &InlineTableNode{children: []Node{&KeyValueNode{key: &KeyNode{parts: []string{"a"}}, val: &IntegerNode{val: scalarOf[int64](1)}}}},
 			wantType: NodeInlineTable,
 			checkVal: func(t *testing.T, n Node) {
-				children := n.(*InlineTableNode).Children
+				children := n.(*InlineTableNode).children
 				if len(children) != 1 {
 					t.Errorf("expected 1 child, got %d", len(children))
 				}
@@ -202,10 +202,10 @@ func TestNodeTypes(t *testing.T) {
 		},
 		{
 			name:     "CommentNode",
-			node:     &CommentNode{Text: "# this is a comment"},
+			node:     &CommentNode{text: "# this is a comment"},
 			wantType: NodeComment,
 			checkVal: func(t *testing.T, n Node) {
-				if v := n.(*CommentNode).Text; v != "# this is a comment" {
+				if v := n.(*CommentNode).text; v != "# this is a comment" {
 					t.Errorf("unexpected comment text: %v", v)
 				}
 			},
@@ -225,7 +225,7 @@ func TestNodeTypes(t *testing.T) {
 }
 
 func TestTrivia(t *testing.T) {
-	n := &StringNode{Val: "hello"}
+	n := &StringNode{val: scalarOf("hello")}
 
 	// Initially empty
 	if got := n.Comment(); got != "" {
@@ -250,7 +250,7 @@ func TestTrivia(t *testing.T) {
 }
 
 func TestDirtyFlag(t *testing.T) {
-	n := &IntegerNode{Val: 42}
+	n := &IntegerNode{val: scalarOf[int64](42)}
 
 	// Initially clean
 	if n.isDirty() {
@@ -267,21 +267,21 @@ func TestDirtyFlag(t *testing.T) {
 	}
 
 	// SetComment marks dirty
-	n2 := &IntegerNode{Val: 10}
+	n2 := &IntegerNode{val: scalarOf[int64](10)}
 	n2.SetComment("# ten")
 	if !n2.isDirty() {
 		t.Error("SetComment should mark dirty")
 	}
 
 	// SetLeadingComments marks dirty
-	n3 := &IntegerNode{Val: 20}
+	n3 := &IntegerNode{val: scalarOf[int64](20)}
 	n3.SetLeadingComments([]string{"# twenty"})
 	if !n3.isDirty() {
 		t.Error("SetLeadingComments should mark dirty")
 	}
 
 	// markDirty directly
-	n4 := &IntegerNode{Val: 30}
+	n4 := &IntegerNode{val: scalarOf[int64](30)}
 	n4.markDirty()
 	if !n4.isDirty() {
 		t.Error("markDirty should mark dirty")
@@ -289,7 +289,7 @@ func TestDirtyFlag(t *testing.T) {
 }
 
 func TestTriviaAccess(t *testing.T) {
-	n := &StringNode{Val: "test"}
+	n := &StringNode{val: scalarOf("test")}
 	tr := n.trivia()
 	if tr == nil {
 		t.Fatal("trivia() returned nil")

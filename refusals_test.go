@@ -24,6 +24,15 @@ func refuse(t *testing.T, doc *Document, op string, err error, want error) {
 	mustFold(t, doc)
 }
 
+// mustSetContents replaces a container's contents through the structure funnel,
+// which is the only way anything but the parser writes them.
+func mustSetContents(t *testing.T, container Node, items []Node) {
+	t.Helper()
+	if err := setContents(container, items); err != nil {
+		t.Fatalf("setContents: %v", err)
+	}
+}
+
 // mustFold asserts the document still folds -- the property every refusal in
 // this file protects.
 func mustFold(t *testing.T, doc *Document) {

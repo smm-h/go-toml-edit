@@ -133,8 +133,8 @@ func TestEdgeVeryLargeArray(t *testing.T) {
 	if !ok {
 		t.Fatalf("expected ArrayNode, got %T", node)
 	}
-	if len(arr.Elements) != 1000 {
-		t.Fatalf("expected 1000 elements, got %d", len(arr.Elements))
+	if len(arr.elements) != 1000 {
+		t.Fatalf("expected 1000 elements, got %d", len(arr.elements))
 	}
 }
 
@@ -523,8 +523,8 @@ func TestEdgeEmptyKeys(t *testing.T) {
 	if !ok {
 		t.Fatalf("expected StringNode, got %T", node)
 	}
-	if s.Val != "empty key" {
-		t.Fatalf("expected 'empty key', got %q", s.Val)
+	if s.val.get() != "empty key" {
+		t.Fatalf("expected 'empty key', got %q", s.val.get())
 	}
 
 	// Round-trip

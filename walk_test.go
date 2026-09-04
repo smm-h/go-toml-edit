@@ -60,8 +60,8 @@ func TestWalk_SimpleDocument(t *testing.T) {
 	if !ok {
 		t.Fatalf("expected *StringNode, got %T", pns[0].node)
 	}
-	if s.Val != "value" {
-		t.Errorf("expected value %q, got %q", "value", s.Val)
+	if s.val.get() != "value" {
+		t.Errorf("expected value %q, got %q", "value", s.val.get())
 	}
 }
 
