@@ -236,6 +236,10 @@ type eagerTaggedUnexported struct {
 	secret string `toml:"secret"`
 }
 
+// The field exists to be refused, never to be read or written; the read is
+// what tells a linter that.
+var _ = eagerTaggedUnexported{}.secret
+
 type eagerStructField struct {
 	Top    int            `toml:"top"`
 	Nested eagerBadOption `toml:"nested"`
