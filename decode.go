@@ -563,7 +563,7 @@ func (en *engine) unknown(e Entry, path string) {
 	sub := keyPath(path, e.key)
 	switch e.kind {
 	case EntryRecord:
-		pos, span := diagPlace(e.keySpan, e.record.span)
+		pos, span := diagKey(e.keySpan, e.record.span)
 		en.add(newError(KindUnknownTable, "unknown table %q", e.key).
 			listing(recordKeyList(e.record)).at(pos).within(span).atPath(sub))
 	case EntryRecords:
@@ -571,11 +571,11 @@ func (en *engine) unknown(e Entry, path string) {
 		if len(e.records) > 0 {
 			keys = recordKeyList(e.records[0])
 		}
-		pos, span := diagPlace(e.keySpan, e.recordsSpan)
+		pos, span := diagKey(e.keySpan, e.recordsSpan)
 		en.add(newError(KindUnknownTable, "unknown array of tables %q", e.key).
 			listing(keys).at(pos).within(span).atPath(sub))
 	default:
-		pos, span := diagPlace(e.keySpan, e.node.Span())
+		pos, span := diagKey(e.keySpan, e.node.Span())
 		en.add(newError(KindUnknownKey, "unknown key %q", e.key).at(pos).within(span).atPath(sub))
 	}
 }
@@ -587,9 +587,10 @@ func (en *engine) mismatch(d *desc, got valueKind, path string, pos Position, sp
 		expects(d.expects(), got.String()).at(pos).within(span).atPath(path))
 }
 
-// diagPlace picks where a diagnostic points: at the key when the construct
+// diagPlace places a diagnostic about a VALUE: at the key when the construct
 // names one, otherwise at the construct itself, and over the construct's own
-// range when it has one.
+// range when it has one. A diagnostic about the KEY places itself with diagKey
+// instead.
 func diagPlace(keySpan, span Span) (Position, Span) {
 	pos := keySpan.Start
 	if !keySpan.IsValid() {
@@ -599,6 +600,20 @@ func diagPlace(keySpan, span Span) (Position, Span) {
 		span = keySpan
 	}
 	return pos, span
+}
+
+// diagKey places a diagnostic about a KEY: at the key and over the key's own
+// range, so the position and the range describe one construct rather than two.
+// A consumer that underlines Span underlines what the message names.
+//
+// A key whose own range the document does not carry -- a node built
+// programmatically rather than parsed -- falls back to the construct the key
+// binds, which is the only range there is.
+func diagKey(keySpan, span Span) (Position, Span) {
+	if keySpan.IsValid() {
+		return keySpan.Start, keySpan
+	}
+	return span.Start, span
 }
 
 // recordKeyList returns a record's keys in document order, for the inventory
