@@ -252,6 +252,86 @@ func TestAppendToArray_RefusesANonArray(t *testing.T) {
 	}
 }
 
+// --- the ordered inline-table input ---
+
+// Fails if a []Pair stops writing its keys in the order given -- the whole
+// reason it exists beside a map, whose keys are written sorted.
+func TestPair_WritesKeysInOrder(t *testing.T) {
+	doc := parseOrFail(t, "x = 1\n")
+	if err := doc.Set("x", []Pair{{"zulu", 1}, {"alpha", 2}, {"mike", 3}}); err != nil {
+		t.Fatalf("Set: %v", err)
+	}
+	const want = "x = {zulu = 1, alpha = 2, mike = 3}\n"
+	if got := string(doc.Bytes()); got != want {
+		t.Errorf("the document reads %q, want %q", got, want)
+	}
+}
+
+// Fails if a key repeated in the input reaches the document: an inline table
+// carrying one key twice is not valid TOML.
+func TestPair_RefusesADuplicateKey(t *testing.T) {
+	doc := parseOrFail(t, "x = 1\n")
+	err := doc.Set("x", []Pair{{"a", 1}, {"a", 2}})
+	if !errors.Is(err, ErrBadInput) {
+		t.Errorf("Set with a duplicate key reported %v, want a bad-input diagnostic", err)
+	}
+	if got := string(doc.Bytes()); got != "x = 1\n" {
+		t.Errorf("a refused write changed the document: %q", got)
+	}
+}
+
+// Fails if a key that cannot be written as TOML is accepted: no quoting makes
+// invalid UTF-8 a key.
+func TestPair_RefusesAKeyThatIsNotUTF8(t *testing.T) {
+	doc := parseOrFail(t, "x = 1\n")
+	err := doc.Set("x", []Pair{{string([]byte{0xff}), 1}})
+	if !errors.Is(err, ErrBadInput) {
+		t.Errorf("Set with an invalid key reported %v, want a bad-input diagnostic", err)
+	}
+}
+
+// Fails if a Pair's key stops being taken verbatim: it is one key, quoted when
+// it has to be, and never a path into a nested table.
+func TestPair_KeyIsASingleKeyNotAPath(t *testing.T) {
+	doc := parseOrFail(t, "x = 1\n")
+	if err := doc.Set("x", []Pair{{"a.b", 1}}); err != nil {
+		t.Fatalf("Set: %v", err)
+	}
+	const want = "x = {\"a.b\" = 1}\n"
+	if got := string(doc.Bytes()); got != want {
+		t.Errorf("the document reads %q, want %q", got, want)
+	}
+	if v, ok := doc.GetInt(`x."a.b"`); !ok || v != 1 {
+		t.Errorf("the key is not readable as one key: %q", doc.Bytes())
+	}
+}
+
+// Fails if []Pair stops nesting, or stops working wherever a value goes.
+func TestPair_NestsAndTravels(t *testing.T) {
+	doc := parseOrFail(t, "x = 1\nitems = []\n")
+	if err := doc.Set("x", []Pair{{"inner", []Pair{{"b", 2}, {"a", 1}}}}); err != nil {
+		t.Fatalf("Set: %v", err)
+	}
+	if err := doc.AppendToArray("items", []Pair{{"n", 1}}); err != nil {
+		t.Fatalf("AppendToArray: %v", err)
+	}
+	const want = "x = {inner = {b = 2, a = 1}}\nitems = [{n = 1}]\n"
+	if got := string(doc.Bytes()); got != want {
+		t.Errorf("the document reads %q, want %q", got, want)
+	}
+}
+
+// Fails if an empty ordered input stops writing an empty inline table.
+func TestPair_EmptyInputWritesAnEmptyTable(t *testing.T) {
+	doc := parseOrFail(t, "x = 1\n")
+	if err := doc.Set("x", []Pair{}); err != nil {
+		t.Fatalf("Set: %v", err)
+	}
+	if got := string(doc.Bytes()); got != "x = {}\n" {
+		t.Errorf("the document reads %q", got)
+	}
+}
+
 // --- RemoveFromArray ---
 
 // Fails if removing by index stops working, or stops counting a negative index

@@ -5,6 +5,7 @@ import (
 	"reflect"
 	"sort"
 	"time"
+	"unicode/utf8"
 )
 
 // Set updates the value at the given path. If the final key does not exist in
@@ -754,6 +755,9 @@ func valueToNode(v any) (Node, error) {
 
 	case map[string]any:
 		return mapToInlineTableNode(val)
+
+	case []Pair:
+		return pairsToInlineTableNode(val)
 	}
 
 	// Use reflection for typed slices (e.g., []string, []int).
@@ -796,6 +800,48 @@ func sliceToArrayNode(items []any) (Node, error) {
 		arr.Elements = append(arr.Elements, elem)
 	}
 	return arr, nil
+}
+
+// Pair is one key of an ordered inline table, the input any value-writing
+// operation takes as a []Pair: Set, SetCreate, AppendToArray, EnsureDefaults,
+// and the element and value positions inside them.
+//
+// Key is a SINGLE key, taken verbatim -- never a path. "a.b" is one key
+// spelled with a dot in it, written quoted, and not a table "a" holding a "b".
+// Use a nested []Pair (or a Default's path) to reach into a table. A duplicate
+// key and a key that is not valid UTF-8 are each refused with KindBadInput
+// when the operation converts the value.
+//
+// A map[string]any is the unordered alternative: its keys are written in
+// sorted order, where a []Pair is written in the order given.
+type Pair struct {
+	Key   string
+	Value any
+}
+
+// pairsToInlineTableNode converts an ordered []Pair to an InlineTableNode,
+// keeping the order it was given.
+func pairsToInlineTableNode(pairs []Pair) (Node, error) {
+	tbl := &InlineTableNode{}
+	tbl.markDirty()
+	seen := make(map[string]struct{}, len(pairs))
+	for _, pair := range pairs {
+		if !utf8.ValidString(pair.Key) {
+			return nil, newError(KindBadInput,
+				"key %q is not valid UTF-8 and cannot be written as a TOML key", pair.Key).withValue(pair.Key)
+		}
+		if _, dup := seen[pair.Key]; dup {
+			return nil, newError(KindBadInput,
+				"key %q appears twice in the ordered inline table", pair.Key).withValue(pair.Key)
+		}
+		seen[pair.Key] = struct{}{}
+		valNode, err := valueToNode(pair.Value)
+		if err != nil {
+			return nil, wrapError(err, "inline table key %q", pair.Key)
+		}
+		tbl.Children = append(tbl.Children, newKeyValueNode(pair.Key, valNode))
+	}
+	return tbl, nil
 }
 
 // mapToInlineTableNode converts a map[string]any to an InlineTableNode.

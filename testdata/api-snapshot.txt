@@ -410,6 +410,10 @@ type Node interface (sealed)
 type NodeType int
 	method (NodeType) String() string
 
+type Pair struct
+	field Key string
+	field Value any
+
 type PathSegment struct
 	field Kind SegmentKind
 	field Key string
