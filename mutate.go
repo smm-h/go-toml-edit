@@ -348,6 +348,32 @@ func (k *KeyNode) renamePart(i int, name string) {
 	invalidateLayer(k)
 }
 
+// renameHeaderPart changes one part of a header's key path in place, on the
+// same terms as renamePart: the renamed part's bytes become the canonical
+// spelling of the new name, and every other part, dot and bracket of the header
+// still splices.
+func renameHeaderPart(n Node, i int, name string) {
+	var (
+		path []string
+		frag *keyFragments
+	)
+	switch h := n.(type) {
+	case *TableNode:
+		path, frag = h.keyPath, &h.header
+	case *ArrayTableNode:
+		path, frag = h.keyPath, &h.header
+	default:
+		return
+	}
+	if i < 0 || i >= len(path) {
+		return
+	}
+	path[i] = name
+	frag.rename(i, name)
+	n.markDirty()
+	invalidateLayer(n)
+}
+
 // --- building, at parse time ---
 //
 // A node the parser is assembling has nothing to invalidate: its contents and

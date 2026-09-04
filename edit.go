@@ -589,10 +589,20 @@ func (d *Document) deleteIndexFromParent(parent layerPos, index int) error {
 
 // RenameKey changes the key name of the node at the given path to newKey.
 //
+// It renames the BINDING, whatever constructs spell it out. A name bound by a
+// value is renamed in the pair that writes it; a name bound by a table is
+// renamed in every header that names that table, the headers of the tables
+// nested inside it included, and in every dotted pair written under it. A name
+// bound by an array-of-tables is renamed in every entry's header. The renamed
+// key part is the only fragment invalidated: the brackets, the other parts, the
+// whitespace between them and the line's comment all splice as written.
+//
 // It reports KindNotFound when the path names nothing, KindWrongContainer when
-// the last path segment is an array index (an element has no key to rename),
-// and KindConflict when anything in the parent already binds newKey -- a value,
-// a table in any spelling, or an array-of-tables.
+// the last path segment is an array index (an element has no key to rename) or
+// when the parent names an array-of-tables rather than one of its entries, and
+// KindConflict when anything in the parent already binds newKey -- a value, a
+// table in any spelling, or an array-of-tables. A refused rename changes
+// nothing.
 func (d *Document) RenameKey(path string, newKey string) error {
 	return d.diag(d.renameKeyAt(path, newKey), path)
 }
@@ -619,44 +629,108 @@ func (d *Document) renameKeyAt(path string, newKey string) error {
 		return wrapError(err, "path not found")
 	}
 
-	return renameKeyInParent(parent, lastSeg.Key, newKey)
+	// An array-of-tables holds no keys of its own; an entry of it does.
+	if parent.records != nil {
+		return parent.noNodeError()
+	}
+
+	return renameKeyInParent(parent, keyDepth(segments), lastSeg.Key, newKey)
 }
 
-// renameKeyInParent renames a key inside a parent container.
-func renameKeyInParent(parent layerPos, oldKey, newKey string) error {
+// keyDepth returns how many table levels down a path's last key sits: the
+// number of key steps to it, minus itself. An index step addresses an entry of
+// a collection and adds no level, so "s[0].x" reaches the same depth as "s.x" --
+// which is the part of a header's key path a rename there has to change.
+func keyDepth(segments []PathSegment) int {
+	keys := 0
+	for _, seg := range segments {
+		if seg.Kind == SegmentKey {
+			keys++
+		}
+	}
+	return keys - 1
+}
+
+// renameKeyInParent renames everything that binds oldKey inside a parent
+// position: the pairs written under the name, and the headers of the tables
+// written under it. depth is the position of the renamed part in a header's key
+// path.
+func renameKeyInParent(parent layerPos, depth int, oldKey, newKey string) error {
+	// The old name must bind something, and the new one must be free. Every
+	// construct binds its name -- a value, a table in any spelling, an
+	// array-of-tables -- and renaming onto one would leave two constructs on
+	// one key. Both questions are asked before anything is renamed, so a
+	// refused rename changes nothing.
 	switch parent.node.(type) {
 	case *Document, *TableNode, *ArrayTableNode, *InlineTableNode:
+		// A concrete container: the pairs are written among its children.
 	default:
-		return newError(KindWrongContainer, "cannot rename key in %s", parent.describe())
-	}
-	children, err := contents(parent.node)
-	if err != nil {
-		return err
-	}
-
-	// The new name must be free. Every construct binds its name -- a value, a
-	// table in any spelling, an array-of-tables -- and renaming onto one would
-	// leave two constructs on one key.
-	existing, bound, err := parent.binding(newKey)
-	if err != nil {
-		return err
-	}
-	if bound {
-		return newError(KindConflict, "key %q is already %s here", newKey, describeBinding(existing))
-	}
-
-	// Find the KV with the old key.
-	for _, child := range children {
-		if kv, ok := child.(*KeyValueNode); ok {
-			if len(kv.key.parts) > 0 && kv.key.parts[0] == oldKey {
-				// Update the last matching part (for simple keys, index 0).
-				kv.key.renamePart(0, newKey)
-				return nil
-			}
+		// A table no single node stands for still has constructs spelling it
+		// out; anything else -- a scalar, an array -- holds no keys at all.
+		if parent.node != nil || parent.rec == nil {
+			return newError(KindWrongContainer, "cannot rename key in %s", parent.describe())
 		}
 	}
 
-	return newError(KindNotFound, "key %q not found", oldKey)
+	target, bound, err := parent.binding(oldKey)
+	if err != nil {
+		return err
+	}
+	if !bound {
+		return newError(KindNotFound, "key %q not found", oldKey)
+	}
+	existing, taken, err := parent.binding(newKey)
+	if err != nil {
+		return err
+	}
+	if taken {
+		return newError(KindConflict, "key %q is already %s here", newKey, describeBinding(existing))
+	}
+
+	// The headers: the table's own, and those of every table nested inside it.
+	// A nested header carries the renamed part at the same depth, since it is
+	// the same table level the name stands at.
+	for _, header := range headerNodesOf(target) {
+		renameHeaderPart(header, depth, newKey)
+	}
+
+	// The pairs: those written in the container the position stands for, or --
+	// for a table no single node stands for -- in the region that spells it
+	// out, where the key path the pairs carry starts with that region's prefix.
+	container, prefix := parent.node, []string(nil)
+	if container == nil {
+		// A table only a longer header implies writes no pairs of its own:
+		// everything under it is a header, and those are already renamed. One a
+		// dotted key spelled out does, in the region that spelled it.
+		var spelled bool
+		container, prefix, spelled = parent.rec.impliedRegion()
+		if !spelled {
+			return nil
+		}
+	}
+	renamePairsUnder(container, prefix, oldKey, newKey)
+	return nil
+}
+
+// renamePairsUnder renames the key part that binds oldKey in every pair of a
+// container written under prefix: a pair binding the name itself, and a dotted
+// pair reaching through it into a table the name spells out.
+func renamePairsUnder(container Node, prefix []string, oldKey, newKey string) {
+	children, err := contents(container)
+	if err != nil {
+		return
+	}
+	at := len(prefix)
+	for _, child := range children {
+		kv, ok := child.(*KeyValueNode)
+		if !ok || len(kv.key.parts) <= at {
+			continue
+		}
+		if kv.key.parts[at] != oldKey || !pathsEqual(kv.key.parts[:at], prefix) {
+			continue
+		}
+		kv.key.renamePart(at, newKey)
+	}
 }
 
 // NewTable creates a new [table] header at the given path and appends it to
