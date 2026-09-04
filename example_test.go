@@ -147,7 +147,7 @@ port = 8080
 		panic(err)
 	}
 	err = doc.Walk(func(path string, node tomledit.Node) error {
-		fmt.Printf("%s = %v\n", path, node.Value())
+		fmt.Printf("%s = %v\n", path, node.(tomledit.Scalar).Value())
 		return nil
 	}, tomledit.WalkLeaves)
 	if err != nil {

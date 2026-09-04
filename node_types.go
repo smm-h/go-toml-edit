@@ -35,9 +35,6 @@ type Document struct {
 // Type returns NodeDocument.
 func (n *Document) Type() NodeType { return NodeDocument }
 
-// Value returns the document's child nodes.
-func (n *Document) Value() any { return n.Children }
-
 // TableNode represents a [table] header and its children.
 type TableNode struct {
 	nodeBase
@@ -51,9 +48,6 @@ type TableNode struct {
 
 // Type returns NodeTable.
 func (n *TableNode) Type() NodeType { return NodeTable }
-
-// Value returns the table's child nodes.
-func (n *TableNode) Value() any { return n.Children }
 
 // ArrayTableNode represents an [[array-table]] header and its children.
 type ArrayTableNode struct {
@@ -69,9 +63,6 @@ type ArrayTableNode struct {
 // Type returns NodeArrayTable.
 func (n *ArrayTableNode) Type() NodeType { return NodeArrayTable }
 
-// Value returns the array table's child nodes.
-func (n *ArrayTableNode) Value() any { return n.Children }
-
 // KeyValueNode represents a key = value pair.
 type KeyValueNode struct {
 	nodeBase
@@ -81,9 +72,6 @@ type KeyValueNode struct {
 
 // Type returns NodeKeyValue.
 func (n *KeyValueNode) Type() NodeType { return NodeKeyValue }
-
-// Value returns the value node of this key-value pair.
-func (n *KeyValueNode) Value() any { return n.Val }
 
 // KeyNode represents a (possibly dotted) key.
 type KeyNode struct {
@@ -109,9 +97,6 @@ func (n *KeyNode) partSpan(i int) Span {
 
 // Type returns NodeKey.
 func (n *KeyNode) Type() NodeType { return NodeKey }
-
-// Value returns the key's decoded parts.
-func (n *KeyNode) Value() any { return n.Parts }
 
 // StringNode represents a string value.
 type StringNode struct {
@@ -221,9 +206,6 @@ type ArrayNode struct {
 // Type returns NodeArray.
 func (n *ArrayNode) Type() NodeType { return NodeArray }
 
-// Value returns the array's elements.
-func (n *ArrayNode) Value() any { return n.Elements }
-
 // InlineTableNode represents an inline table value.
 type InlineTableNode struct {
 	nodeBase
@@ -233,9 +215,6 @@ type InlineTableNode struct {
 // Type returns NodeInlineTable.
 func (n *InlineTableNode) Type() NodeType { return NodeInlineTable }
 
-// Value returns the inline table's child nodes.
-func (n *InlineTableNode) Value() any { return n.Children }
-
 // CommentNode represents a standalone comment line.
 type CommentNode struct {
 	nodeBase
@@ -244,6 +223,3 @@ type CommentNode struct {
 
 // Type returns NodeComment.
 func (n *CommentNode) Type() NodeType { return NodeComment }
-
-// Value returns the comment text.
-func (n *CommentNode) Value() any { return n.Text }

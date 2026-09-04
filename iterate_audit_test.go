@@ -158,7 +158,7 @@ func TestAudit_Items_ModifyDuringIteration_NoPanic(t *testing.T) {
 
 	// Just verify it doesn't panic when we read values during iteration.
 	for _, node := range doc.Items("values") {
-		_ = node.Value()
+		_ = node.(Scalar).Value()
 	}
 }
 

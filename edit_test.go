@@ -710,7 +710,7 @@ func TestSet_RoundTrip_Comprehensive(t *testing.T) {
 			t.Errorf("Lookup(%q) returned nil after round-trip", c.path)
 			continue
 		}
-		got := node.Value()
+		got := node.(Scalar).Value()
 		if got != c.want {
 			t.Errorf("Lookup(%q) = %v (%T), want %v (%T)", c.path, got, got, c.want, c.want)
 		}

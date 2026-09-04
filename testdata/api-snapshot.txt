@@ -125,7 +125,6 @@ type ArrayNode struct
 	method (*ArrayNode) SetLeadingComments(comments []string)
 	method (*ArrayNode) Span() Span
 	method (*ArrayNode) Type() NodeType
-	method (*ArrayNode) Value() any
 
 type ArrayTableNode struct
 	field KeyPath []string
@@ -137,7 +136,6 @@ type ArrayTableNode struct
 	method (*ArrayTableNode) SetLeadingComments(comments []string)
 	method (*ArrayTableNode) Span() Span
 	method (*ArrayTableNode) Type() NodeType
-	method (*ArrayTableNode) Value() any
 
 type BooleanNode struct
 	field Val bool
@@ -168,7 +166,6 @@ type CommentNode struct
 	method (*CommentNode) SetLeadingComments(comments []string)
 	method (*CommentNode) Span() Span
 	method (*CommentNode) Type() NodeType
-	method (*CommentNode) Value() any
 
 type Cursor struct
 	method (*Cursor) At(index int) *Cursor
@@ -234,7 +231,6 @@ type Document struct
 	method (*Document) Span() Span
 	method (*Document) Type() NodeType
 	method (*Document) Validate(spec *Spec) error
-	method (*Document) Value() any
 	method (*Document) Walk(fn func(path string, node Node) error, mode WalkMode) error
 
 type Entry struct
@@ -309,7 +305,6 @@ type InlineTableNode struct
 	method (*InlineTableNode) SetLeadingComments(comments []string)
 	method (*InlineTableNode) Span() Span
 	method (*InlineTableNode) Type() NodeType
-	method (*InlineTableNode) Value() any
 
 type IntegerBase int
 
@@ -336,7 +331,6 @@ type KeyNode struct
 	method (*KeyNode) SetLeadingComments(comments []string)
 	method (*KeyNode) Span() Span
 	method (*KeyNode) Type() NodeType
-	method (*KeyNode) Value() any
 
 type KeyValueNode struct
 	field Key *KeyNode
@@ -348,7 +342,6 @@ type KeyValueNode struct
 	method (*KeyValueNode) SetLeadingComments(comments []string)
 	method (*KeyValueNode) Span() Span
 	method (*KeyValueNode) Type() NodeType
-	method (*KeyValueNode) Value() any
 
 type LocalDate struct
 	field Year int
@@ -409,7 +402,6 @@ type Node interface (sealed)
 	method Raw() []byte
 	method Span() Span
 	method Type() NodeType
-	method Value() any
 
 type NodeType int
 	method (NodeType) String() string
@@ -435,6 +427,14 @@ type Record struct
 	method (*Record) Len() int
 	method (*Record) Node() (Node, bool)
 	method (*Record) Span() Span
+
+type Scalar interface (sealed)
+	method Comment() string
+	method LeadingComments() []string
+	method Raw() []byte
+	method Span() Span
+	method Type() NodeType
+	method Value() any
 
 type SegmentKind int
 
@@ -471,7 +471,6 @@ type TableNode struct
 	method (*TableNode) SetLeadingComments(comments []string)
 	method (*TableNode) Span() Span
 	method (*TableNode) Type() NodeType
-	method (*TableNode) Value() any
 
 type Token struct
 	field Type TokenType

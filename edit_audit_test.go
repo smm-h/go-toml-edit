@@ -899,8 +899,8 @@ func TestAudit_SetInlineArrayElement(t *testing.T) {
 	if !ok {
 		t.Fatal("arr[1] not found after round-trip")
 	}
-	if node.Value() != int64(42) {
-		t.Errorf("expected 42, got %v", node.Value())
+	if node.(Scalar).Value() != int64(42) {
+		t.Errorf("expected 42, got %v", node.(Scalar).Value())
 	}
 }
 
@@ -929,11 +929,11 @@ func TestAudit_DeleteInlineArrayElement(t *testing.T) {
 	if len(arr.Elements) != 2 {
 		t.Errorf("expected 2 elements, got %d", len(arr.Elements))
 	}
-	if arr.Elements[0].Value() != int64(10) {
-		t.Errorf("expected arr[0]=10, got %v", arr.Elements[0].Value())
+	if arr.Elements[0].(Scalar).Value() != int64(10) {
+		t.Errorf("expected arr[0]=10, got %v", arr.Elements[0].(Scalar).Value())
 	}
-	if arr.Elements[1].Value() != int64(30) {
-		t.Errorf("expected arr[1]=30, got %v", arr.Elements[1].Value())
+	if arr.Elements[1].(Scalar).Value() != int64(30) {
+		t.Errorf("expected arr[1]=30, got %v", arr.Elements[1].(Scalar).Value())
 	}
 }
 

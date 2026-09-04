@@ -98,7 +98,11 @@ func collectLeaves(doc *Document) map[string]any {
 		return leaves
 	}
 	doc.Walk(func(path string, node Node) error {
-		leaves[path] = node.Value()
+		// WalkLeaves yields only value-carrying nodes, which are exactly the
+		// ones that answer for a value.
+		if s, ok := node.(Scalar); ok {
+			leaves[path] = s.Value()
+		}
 		return nil
 	}, WalkLeaves)
 	return leaves

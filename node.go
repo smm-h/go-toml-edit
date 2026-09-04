@@ -76,12 +76,12 @@ func (t *Trivia) blankRun(i int) []byte {
 }
 
 // Node is the interface implemented by all AST nodes.
-// Every node carries its original raw bytes, trivia (whitespace and comments),
-// and a semantic value accessible via Value. Implementation is restricted to
-// this package.
+// Every node carries its original raw bytes, its trivia (whitespace and
+// comments) and its source range. It carries no value: only the value-carrying
+// kinds do, and those implement Scalar. Implementation is restricted to this
+// package.
 type Node interface {
 	Type() NodeType
-	Value() any
 	Comment() string
 	LeadingComments() []string
 	Raw() []byte
@@ -101,6 +101,32 @@ type Node interface {
 	markDirty()
 	trivia() *Trivia
 }
+
+// Scalar is the sub-interface of Node the value-carrying node kinds implement:
+// strings, integers, floats, booleans and the four date-time flavors. Every
+// other kind holds structure rather than a value -- a document, a table, an
+// array-of-tables, an array, an inline table, a key, a key-value pair, a
+// comment -- and is read through its own accessors instead.
+type Scalar interface {
+	Node
+
+	// Value returns the node's payload as the Go type the conversion table
+	// gives that TOML type: string, int64, float64, bool, time.Time, or one of
+	// LocalDateTime, LocalDate and LocalTime.
+	Value() any
+}
+
+// Every value-carrying node kind, and no other, implements Scalar.
+var (
+	_ Scalar = (*StringNode)(nil)
+	_ Scalar = (*IntegerNode)(nil)
+	_ Scalar = (*FloatNode)(nil)
+	_ Scalar = (*BooleanNode)(nil)
+	_ Scalar = (*DateTimeNode)(nil)
+	_ Scalar = (*LocalDateTimeNode)(nil)
+	_ Scalar = (*LocalDateNode)(nil)
+	_ Scalar = (*LocalTimeNode)(nil)
+)
 
 // nodeBase provides the shared implementation for all concrete node types.
 type nodeBase struct {

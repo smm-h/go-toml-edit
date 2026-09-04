@@ -10,14 +10,14 @@ func TestNodeTypes(t *testing.T) {
 		name     string
 		node     Node
 		wantType NodeType
-		checkVal func(t *testing.T, v any)
+		checkVal func(t *testing.T, n Node)
 	}{
 		{
 			name:     "Document",
 			node:     &Document{Children: []Node{&CommentNode{Text: "hi"}}},
 			wantType: NodeDocument,
-			checkVal: func(t *testing.T, v any) {
-				children := v.([]Node)
+			checkVal: func(t *testing.T, n Node) {
+				children := n.(*Document).Children
 				if len(children) != 1 {
 					t.Errorf("expected 1 child, got %d", len(children))
 				}
@@ -27,8 +27,8 @@ func TestNodeTypes(t *testing.T) {
 			name:     "TableNode",
 			node:     &TableNode{KeyPath: []string{"server"}, Children: nil},
 			wantType: NodeTable,
-			checkVal: func(t *testing.T, v any) {
-				children := v.([]Node)
+			checkVal: func(t *testing.T, n Node) {
+				children := n.(*TableNode).Children
 				if len(children) != 0 {
 					t.Errorf("expected 0 children, got %d", len(children))
 				}
@@ -46,8 +46,8 @@ func TestNodeTypes(t *testing.T) {
 				Val: &StringNode{Val: "hello"},
 			},
 			wantType: NodeKeyValue,
-			checkVal: func(t *testing.T, v any) {
-				valNode := v.(Node)
+			checkVal: func(t *testing.T, n Node) {
+				valNode := n.(*KeyValueNode).Val
 				if valNode.Type() != NodeString {
 					t.Errorf("expected String value node, got %v", valNode.Type())
 				}
@@ -57,8 +57,8 @@ func TestNodeTypes(t *testing.T) {
 			name:     "KeyNode",
 			node:     &KeyNode{Parts: []string{"server", "host"}, RawParts: [][]byte{[]byte("server"), []byte("host")}},
 			wantType: NodeKey,
-			checkVal: func(t *testing.T, v any) {
-				parts := v.([]string)
+			checkVal: func(t *testing.T, n Node) {
+				parts := n.(*KeyNode).Parts
 				if len(parts) != 2 || parts[0] != "server" || parts[1] != "host" {
 					t.Errorf("unexpected parts: %v", parts)
 				}
@@ -68,7 +68,8 @@ func TestNodeTypes(t *testing.T) {
 			name:     "StringNode/Basic",
 			node:     &StringNode{Val: "hello", Style: StringBasic},
 			wantType: NodeString,
-			checkVal: func(t *testing.T, v any) {
+			checkVal: func(t *testing.T, n Node) {
+				v := n.(Scalar).Value()
 				if v.(string) != "hello" {
 					t.Errorf("expected hello, got %v", v)
 				}
@@ -78,7 +79,8 @@ func TestNodeTypes(t *testing.T) {
 			name:     "StringNode/Literal",
 			node:     &StringNode{Val: `C:\path`, Style: StringLiteral},
 			wantType: NodeString,
-			checkVal: func(t *testing.T, v any) {
+			checkVal: func(t *testing.T, n Node) {
+				v := n.(Scalar).Value()
 				if v.(string) != `C:\path` {
 					t.Errorf("expected C:\\path, got %v", v)
 				}
@@ -88,7 +90,8 @@ func TestNodeTypes(t *testing.T) {
 			name:     "IntegerNode/Decimal",
 			node:     &IntegerNode{Val: 42, Base: IntegerDecimal},
 			wantType: NodeInteger,
-			checkVal: func(t *testing.T, v any) {
+			checkVal: func(t *testing.T, n Node) {
+				v := n.(Scalar).Value()
 				if v.(int64) != 42 {
 					t.Errorf("expected 42, got %v", v)
 				}
@@ -98,7 +101,8 @@ func TestNodeTypes(t *testing.T) {
 			name:     "IntegerNode/Hex",
 			node:     &IntegerNode{Val: 0xDEAD, Base: IntegerHex},
 			wantType: NodeInteger,
-			checkVal: func(t *testing.T, v any) {
+			checkVal: func(t *testing.T, n Node) {
+				v := n.(Scalar).Value()
 				if v.(int64) != 0xDEAD {
 					t.Errorf("expected 0xDEAD, got %v", v)
 				}
@@ -108,7 +112,8 @@ func TestNodeTypes(t *testing.T) {
 			name:     "FloatNode",
 			node:     &FloatNode{Val: 3.14},
 			wantType: NodeFloat,
-			checkVal: func(t *testing.T, v any) {
+			checkVal: func(t *testing.T, n Node) {
+				v := n.(Scalar).Value()
 				if v.(float64) != 3.14 {
 					t.Errorf("expected 3.14, got %v", v)
 				}
@@ -118,7 +123,8 @@ func TestNodeTypes(t *testing.T) {
 			name:     "BooleanNode",
 			node:     &BooleanNode{Val: true},
 			wantType: NodeBoolean,
-			checkVal: func(t *testing.T, v any) {
+			checkVal: func(t *testing.T, n Node) {
+				v := n.(Scalar).Value()
 				if v.(bool) != true {
 					t.Errorf("expected true, got %v", v)
 				}
@@ -128,7 +134,8 @@ func TestNodeTypes(t *testing.T) {
 			name:     "DateTimeNode",
 			node:     &DateTimeNode{Val: time.Date(1979, 5, 27, 7, 32, 0, 0, time.UTC)},
 			wantType: NodeDateTime,
-			checkVal: func(t *testing.T, v any) {
+			checkVal: func(t *testing.T, n Node) {
+				v := n.(Scalar).Value()
 				dt := v.(time.Time)
 				if dt.Year() != 1979 {
 					t.Errorf("expected year 1979, got %d", dt.Year())
@@ -139,7 +146,8 @@ func TestNodeTypes(t *testing.T) {
 			name:     "LocalDateTimeNode",
 			node:     &LocalDateTimeNode{Val: LocalDateTime{Year: 1979, Month: 5, Day: 27, Hour: 7, Minute: 32}},
 			wantType: NodeLocalDateTime,
-			checkVal: func(t *testing.T, v any) {
+			checkVal: func(t *testing.T, n Node) {
+				v := n.(Scalar).Value()
 				ldt := v.(LocalDateTime)
 				if ldt.Year != 1979 || ldt.Month != 5 {
 					t.Errorf("unexpected local datetime: %+v", ldt)
@@ -150,7 +158,8 @@ func TestNodeTypes(t *testing.T) {
 			name:     "LocalDateNode",
 			node:     &LocalDateNode{Val: LocalDate{Year: 1979, Month: 5, Day: 27}},
 			wantType: NodeLocalDate,
-			checkVal: func(t *testing.T, v any) {
+			checkVal: func(t *testing.T, n Node) {
+				v := n.(Scalar).Value()
 				ld := v.(LocalDate)
 				if ld.Year != 1979 {
 					t.Errorf("expected year 1979, got %d", ld.Year)
@@ -161,7 +170,8 @@ func TestNodeTypes(t *testing.T) {
 			name:     "LocalTimeNode",
 			node:     &LocalTimeNode{Val: LocalTime{Hour: 7, Minute: 32, Second: 0}},
 			wantType: NodeLocalTime,
-			checkVal: func(t *testing.T, v any) {
+			checkVal: func(t *testing.T, n Node) {
+				v := n.(Scalar).Value()
 				lt := v.(LocalTime)
 				if lt.Hour != 7 || lt.Minute != 32 {
 					t.Errorf("unexpected local time: %+v", lt)
@@ -172,8 +182,8 @@ func TestNodeTypes(t *testing.T) {
 			name:     "ArrayNode",
 			node:     &ArrayNode{Elements: []Node{&IntegerNode{Val: 1}, &IntegerNode{Val: 2}}},
 			wantType: NodeArray,
-			checkVal: func(t *testing.T, v any) {
-				elems := v.([]Node)
+			checkVal: func(t *testing.T, n Node) {
+				elems := n.(*ArrayNode).Elements
 				if len(elems) != 2 {
 					t.Errorf("expected 2 elements, got %d", len(elems))
 				}
@@ -183,8 +193,8 @@ func TestNodeTypes(t *testing.T) {
 			name:     "InlineTableNode",
 			node:     &InlineTableNode{Children: []Node{&KeyValueNode{Key: &KeyNode{Parts: []string{"a"}}, Val: &IntegerNode{Val: 1}}}},
 			wantType: NodeInlineTable,
-			checkVal: func(t *testing.T, v any) {
-				children := v.([]Node)
+			checkVal: func(t *testing.T, n Node) {
+				children := n.(*InlineTableNode).Children
 				if len(children) != 1 {
 					t.Errorf("expected 1 child, got %d", len(children))
 				}
@@ -194,8 +204,8 @@ func TestNodeTypes(t *testing.T) {
 			name:     "CommentNode",
 			node:     &CommentNode{Text: "# this is a comment"},
 			wantType: NodeComment,
-			checkVal: func(t *testing.T, v any) {
-				if v.(string) != "# this is a comment" {
+			checkVal: func(t *testing.T, n Node) {
+				if v := n.(*CommentNode).Text; v != "# this is a comment" {
 					t.Errorf("unexpected comment text: %v", v)
 				}
 			},
@@ -208,7 +218,7 @@ func TestNodeTypes(t *testing.T) {
 				t.Errorf("Type() = %v, want %v", got, tt.wantType)
 			}
 			if tt.checkVal != nil {
-				tt.checkVal(t, tt.node.Value())
+				tt.checkVal(t, tt.node)
 			}
 		})
 	}

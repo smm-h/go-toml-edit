@@ -93,8 +93,8 @@ func TestArrayComments_SetPreservesOtherComments(t *testing.T) {
 	if !ok {
 		t.Fatalf("Get arr[1]: not found")
 	}
-	if node.Value() != int64(42) {
-		t.Errorf("arr[1] = %v, want 42", node.Value())
+	if node.(Scalar).Value() != int64(42) {
+		t.Errorf("arr[1] = %v, want 42", node.(Scalar).Value())
 	}
 }
 
@@ -182,8 +182,8 @@ func TestArrayComments_SetPreservesInlineOnUnchanged(t *testing.T) {
 	if !ok {
 		t.Fatalf("Get arr[1]: not found")
 	}
-	if node.Value() != "B" {
-		t.Errorf("arr[1] = %v, want \"B\"", node.Value())
+	if node.(Scalar).Value() != "B" {
+		t.Errorf("arr[1] = %v, want \"B\"", node.(Scalar).Value())
 	}
 }
 

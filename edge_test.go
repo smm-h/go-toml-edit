@@ -428,7 +428,7 @@ func TestEdgeSetThenGetConsistency(t *testing.T) {
 		if !ok {
 			t.Fatalf("Lookup(%q) returned nil after Set", tc.path)
 		}
-		got := node.Value()
+		got := node.(Scalar).Value()
 		switch expected := tc.val.(type) {
 		case string:
 			if s, ok := got.(string); !ok || s != expected {
