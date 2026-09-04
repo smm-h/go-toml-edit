@@ -161,8 +161,15 @@ func TestEditRefusals_NoSequenceCanBreakTheFold(t *testing.T) {
 		"[[a]]\nb = 1\n[[a]]\nb = 2\n",
 		"[[a]]\nb = 1\n[a.c]\nd = 2\n",
 		"x = 1\n[a]\nb = 2\n[[c]]\nd = 3\n",
+		// Arrays, so the element operations and the index paths reach a real
+		// one rather than refusing on every source in the grid.
+		"items = [1, 2]\n",
+		"a = { items = [1, 2] }\n",
 	}
-	paths := []string{"a", "b", "a.b", "a.b.c", "a[0]", "a[0].b", "x"}
+	paths := []string{
+		"a", "b", "a.b", "a.b.c", "a[0]", "a[0].b", "x",
+		"items", "items[0]", "a.items", "a.items[0]",
+	}
 
 	for _, src := range sources {
 		for _, path := range paths {
@@ -554,6 +561,24 @@ func TestDelete_MissingPathStaysASilentNoOp(t *testing.T) {
 }
 
 // --- table creation, continued ---
+
+// Fails if a sub-table under a table only a LONGER header implies stops being
+// creatable: "t.a" has no header of its own there, and neither TOML nor the
+// fold has anything against [t.a.c].
+func TestNewTable_AllowsASubTableUnderAHeaderImpliedTable(t *testing.T) {
+	doc := parseOrFail(t, "[t.a.b]\nx = 1\n")
+	if err := doc.NewTable("t.a.c"); err != nil {
+		t.Fatalf(`NewTable("t.a.c") was refused: %v`, err)
+	}
+	mustFold(t, doc)
+	again, err := Parse(doc.Bytes())
+	if err != nil {
+		t.Fatalf("the result is not valid TOML: %v\n%s", err, doc.Bytes())
+	}
+	if !again.Has("t.a.c") {
+		t.Errorf("the created table is not there: %q", doc.Bytes())
+	}
+}
 
 // Fails if a sub-table under an existing header stops being creatable.
 func TestNewTable_AllowsASubTable(t *testing.T) {
