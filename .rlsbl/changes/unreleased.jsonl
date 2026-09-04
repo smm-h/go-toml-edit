@@ -113,3 +113,4 @@
 {"format_version":1,"id":"18d2368f5857e1d10a5d4b685228492e833fdce3be28c365","commits":["56159a1765bfe5e3ba6ac865877b4e4a62a90fd8"],"user_facing":false}
 {"format_version":1,"id":"18d236a81dc1617190f3237d16794127928d88c38dd1c319","commits":["085f980194aefd2973e59482a543e519db8054e0"],"user_facing":false}
 {"format_version":1,"id":"18d238dfc9f80a4003fc5c2badb44b538ec81a0606e5b3b6","commits":["89ad3d048fb4d6a0ba3fa967afa31dd4358e6d78"],"user_facing":false}
+{"format_version":1,"id":"18d239087e63a8232efb04932aac43249d688047f88a25d0","commits":["b58afa03f5bec5eab19c3ea16729c0fed99f6f29"],"user_facing":true,"description":"**Value renderers exported.** `QuoteString`, `QuoteKey` and `FormatFloat` write the same TOML spellings the library writes; `FormatFloat` is total, rendering every float64 including NaN and the infinities.","type":"feature"}
