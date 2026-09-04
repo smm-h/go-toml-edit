@@ -307,6 +307,39 @@ func TestNodeModel_StructuralWritesBumpTheGeneration(t *testing.T) {
 	}
 }
 
+// Fails if RawParts hands out the byte slices the key holds rather than copies
+// of them. Copying only the outer slice leaves every part shared, so writing
+// into one of them edits the key through a read -- the hole
+// TestNodeModel_AccessorsAnswerWithCopies cannot see, because it only replaces
+// the outer slice's entries.
+func TestNodeModel_RawPartsCopiesEachPart(t *testing.T) {
+	const src = "a.b = 1\n[t]\nplain = 2\n"
+	doc := parseOrFail(t, src)
+
+	for _, kv := range []*KeyValueNode{
+		doc.Children()[0].(*KeyValueNode),
+		doc.Children()[1].(*TableNode).Children()[0].(*KeyValueNode),
+	} {
+		key := kv.Key()
+		want := string(key.RawParts()[0])
+
+		handed := key.RawParts()
+		for i := range handed {
+			for j := range handed[i] {
+				handed[i][j] = 'Z'
+			}
+		}
+
+		if got := string(key.RawParts()[0]); got != want {
+			t.Errorf("writing into what RawParts returned changed the key's first part: got %q, want %q", got, want)
+		}
+	}
+
+	if got := string(doc.Bytes()); got != src {
+		t.Errorf("writing into what RawParts returned changed the document:\n  got:  %q\n  want: %q", got, src)
+	}
+}
+
 // Fails if a node kind that holds structure rather than a value starts
 // carrying Value(). The compile-time assertions in node.go hold the other half
 // -- that every value-carrying kind implements Scalar -- and together they pin
