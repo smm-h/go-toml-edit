@@ -2,6 +2,7 @@ package tomledit
 
 import (
 	"errors"
+	"math"
 	"strings"
 	"testing"
 )
@@ -479,6 +480,45 @@ func TestSetCreate_RefusesAnArrayOfTablesName(t *testing.T) {
 func TestSetCreate_RefusesAKeyUnderAnArrayOfTables(t *testing.T) {
 	doc := parseOrFail(t, "[[s]]\nx = 1\n")
 	refuse(t, doc, `SetCreate("s.k", 5)`, doc.SetCreate("s.k", 5), ErrWrongContainer)
+}
+
+// Fails if SetCreate leaves the tables it made along the way behind when the
+// value it was handed is refused. The intermediate tables exist to carry the
+// value; a write that does not happen creates nothing, whatever it was about
+// the value that the library would not write.
+func TestSetCreate_ARefusedValueCreatesNothing(t *testing.T) {
+	const src = "x = 1\n"
+	cases := []struct {
+		name  string
+		value any
+	}{
+		{"a NaN with its sign bit set", math.Copysign(math.NaN(), -1)},
+		{"an unsigned value past int64", uint64(math.MaxUint64)},
+		{"an unsupported type", make(chan int)},
+		{"nil", nil},
+		{"a duplicate ordered key", []Pair{{Key: "a", Value: 1}, {Key: "a", Value: 2}}},
+		{"a refused value inside a container", []any{1, math.Copysign(math.NaN(), -1)}},
+	}
+	for _, tc := range cases {
+		t.Run(tc.name, func(t *testing.T) {
+			doc := parseOrFail(t, src)
+			refuseWrite(t, doc, src, "SetCreate", doc.SetCreate("brand.new.deep.key", tc.value))
+			mustFold(t, doc)
+		})
+	}
+}
+
+// Fails if EnsureDefaults reports a path as added, or leaves a table behind,
+// for a seed value the library refuses: it seeds through SetCreate, so it
+// inherits that operation's all-or-nothing rule.
+func TestEnsureDefaults_ARefusedValueCreatesNothing(t *testing.T) {
+	const src = "x = 1\n"
+	doc := parseOrFail(t, src)
+	added, err := doc.EnsureDefaults([]Default{{Path: "server.tls.port", Value: make(chan int)}})
+	refuseWrite(t, doc, src, "EnsureDefaults", err)
+	if len(added) != 0 {
+		t.Errorf("EnsureDefaults reported %v as added", added)
+	}
 }
 
 // Fails if a value write starts binding the name of a table only implied by a
