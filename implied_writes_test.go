@@ -165,3 +165,78 @@ func TestSet_NewKeyUnderADottedTableInsideAnInlineTable(t *testing.T) {
 		t.Errorf("t.a.b reads %d (ok=%v) in %q", got, ok, doc.Bytes())
 	}
 }
+
+// --- removal ---
+
+// Fails if deleting a key a dotted pair binds removes nothing: the pair is
+// there, so the removal is not the missing-path no-op the contract allows.
+func TestDelete_KeyUnderADottedTable(t *testing.T) {
+	doc := parseOrFail(t, "a.b = 1\n")
+	if err := doc.Delete("a.b"); err != nil {
+		t.Fatalf(`Delete("a.b") reported %v`, err)
+	}
+	if got := string(doc.Bytes()); got != "" {
+		t.Errorf("the document reads %q, want the pair gone", got)
+	}
+	mustFold(t, doc)
+}
+
+// Fails if deleting one pair of a dotted region takes the others with it, or
+// leaves the named one behind.
+func TestDelete_OnePairOfADottedRegion(t *testing.T) {
+	doc := parseOrFail(t, "a.b = 1\na.c = 2\n")
+	if err := doc.Delete("a.b"); err != nil {
+		t.Fatalf(`Delete("a.b") reported %v`, err)
+	}
+	if got := string(doc.Bytes()); got != "a.c = 2\n" {
+		t.Errorf("the document reads %q, want %q", got, "a.c = 2\n")
+	}
+	mustFold(t, doc)
+}
+
+// Fails if the removal stops at the document level: a dotted pair inside a
+// [header] table is bound the same way.
+func TestDelete_KeyUnderADottedTableInsideATable(t *testing.T) {
+	doc := parseOrFail(t, "[t]\na.b = 1\n")
+	if err := doc.Delete("t.a.b"); err != nil {
+		t.Fatalf(`Delete("t.a.b") reported %v`, err)
+	}
+	if got := string(doc.Bytes()); got != "[t]\n" {
+		t.Errorf("the document reads %q, want %q", got, "[t]\n")
+	}
+	mustFold(t, doc)
+}
+
+// Fails if a table under a table only a longer header implies survives its own
+// removal: [a.b] is what "a.b" names, and the headers written under it go with
+// it.
+func TestDelete_TableUnderAHeaderImpliedTable(t *testing.T) {
+	doc := parseOrFail(t, "[a.b]\nx = 1\n")
+	if err := doc.Delete("a.b"); err != nil {
+		t.Fatalf(`Delete("a.b") reported %v`, err)
+	}
+	if got := string(doc.Bytes()); got != "" {
+		t.Errorf("the document reads %q, want the table gone", got)
+	}
+
+	nested := parseOrFail(t, "[a.b.c]\nx = 1\n")
+	if err := nested.Delete("a.b"); err != nil {
+		t.Fatalf(`Delete("a.b") reported %v`, err)
+	}
+	if got := string(nested.Bytes()); got != "" {
+		t.Errorf("the document reads %q, want the nested table gone with it", got)
+	}
+}
+
+// Fails if an array-of-tables under a table only a longer header implies
+// survives its own removal.
+func TestDelete_ArrayOfTablesUnderAHeaderImpliedTable(t *testing.T) {
+	doc := parseOrFail(t, "[a.b]\nx = 1\n[[a.c]]\ny = 2\n[[a.c]]\ny = 3\n")
+	if err := doc.Delete("a.c"); err != nil {
+		t.Fatalf(`Delete("a.c") reported %v`, err)
+	}
+	if got := string(doc.Bytes()); got != "[a.b]\nx = 1\n" {
+		t.Errorf("the document reads %q, want both entries gone", got)
+	}
+	mustFold(t, doc)
+}
