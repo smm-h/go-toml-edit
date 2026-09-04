@@ -61,8 +61,8 @@ func TestAuditStringEscapeControlCharUnicodeEscape(t *testing.T) {
 	}{
 		{0x00, "\\u0000"},
 		{0x01, "\\u0001"},
-		{0x1F, "\\u001F"},
-		{0x7F, "\\u007F"},
+		{0x1F, "\\u001f"},
+		{0x7F, "\\u007f"},
 	}
 	for _, tt := range tests {
 		n := &StringNode{val: scalarOf(string(tt.char)), style: StringBasic}
@@ -190,8 +190,8 @@ func TestAuditFloatVerySmall(t *testing.T) {
 	n := &FloatNode{val: scalarOf(0.000001)}
 	n.markDirty()
 	got := string(renderValue(n))
-	if !strings.Contains(got, ".") {
-		t.Errorf("very small float should have decimal point, got %q", got)
+	if !strings.ContainsAny(got, ".e") {
+		t.Errorf("very small float should carry a float marker, got %q", got)
 	}
 	toml := "x = " + got + "\n"
 	doc, err := Parse([]byte(toml))
@@ -209,8 +209,8 @@ func TestAuditFloatVeryLarge(t *testing.T) {
 	n := &FloatNode{val: scalarOf(1e15)}
 	n.markDirty()
 	got := string(renderValue(n))
-	if !strings.Contains(got, ".") {
-		t.Errorf("large float should have decimal point, got %q", got)
+	if !strings.ContainsAny(got, ".e") {
+		t.Errorf("large float should carry a float marker, got %q", got)
 	}
 	toml := "x = " + got + "\n"
 	doc, err := Parse([]byte(toml))

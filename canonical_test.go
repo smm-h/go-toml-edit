@@ -161,3 +161,118 @@ func mustTime(t *testing.T, s string) any {
 	}
 	return v
 }
+
+// uEsc spells the four-digit unicode escape for a code point, built rather than
+// written out so the test source carries no control characters of its own.
+func uEsc(hex string) string { return "\\u" + hex }
+
+// Fails if QuoteString stops producing a basic string that reads back as its
+// input, or stops writing non-ASCII verbatim.
+func TestQuoteString(t *testing.T) {
+	cases := []struct {
+		in   string
+		want string
+	}{
+		{"", `""`},
+		{"plain", `"plain"`},
+		{"with \"quotes\"", `"with \"quotes\""`},
+		{`back\slash`, `"back\\slash"`},
+		{"tab\t", `"tab\t"`},
+		{"nl\n", `"nl\n"`},
+		{"cr\r", `"cr\r"`},
+		{"bs\b", `"bs\b"`},
+		{"ff\f", `"ff\f"`},
+		{"\x00", `"` + uEsc("0000") + `"`},
+		{"\x1f", `"` + uEsc("001f") + `"`},
+		{"\x7f", `"` + uEsc("007f") + `"`},
+		{"héllo", `"héllo"`},
+		{"日本語", `"日本語"`},
+		{"emoji 🍕", `"emoji 🍕"`},
+	}
+	for _, tc := range cases {
+		got := QuoteString(tc.in)
+		if got != tc.want {
+			t.Errorf("QuoteString(%q) = %s, want %s", tc.in, got, tc.want)
+		}
+		// The quoted form must read back as the value it was built from.
+		doc, err := Parse([]byte("x = " + got + "\n"))
+		if err != nil {
+			t.Errorf("QuoteString(%q) produced %s, which does not parse: %v", tc.in, got, err)
+			continue
+		}
+		if v, ok := doc.GetString("x"); !ok || v != tc.in {
+			t.Errorf("QuoteString(%q) read back as (%q, %v)", tc.in, v, ok)
+		}
+	}
+}
+
+// Fails if QuoteKey stops leaving a bare-writable key bare, or stops quoting one
+// TOML's bare-key rule does not allow.
+func TestQuoteKey(t *testing.T) {
+	cases := []struct {
+		in   string
+		want string
+	}{
+		{"key", "key"},
+		{"KEY-1_2", "KEY-1_2"},
+		{"1234", "1234"},
+		{"", `""`},
+		{"with space", `"with space"`},
+		{"with.dot", `"with.dot"`},
+		{"héllo", `"héllo"`},
+		{"quote\"here", `"quote\"here"`},
+	}
+	for _, tc := range cases {
+		if got := QuoteKey(tc.in); got != tc.want {
+			t.Errorf("QuoteKey(%q) = %s, want %s", tc.in, got, tc.want)
+		}
+	}
+}
+
+// Fails if FormatFloat stops being total -- every float64, the non-finite ones
+// included, has exactly one output and no NaN spelling carries a sign.
+func TestFormatFloatIsTotal(t *testing.T) {
+	negNaN := math.Float64frombits(math.Float64bits(math.NaN()) | (1 << 63))
+	if !math.IsNaN(negNaN) || !math.Signbit(negNaN) {
+		t.Fatalf("the sign-bit NaN fixture is not one: %v", negNaN)
+	}
+	cases := []struct {
+		name string
+		in   float64
+		want string
+	}{
+		{"nan", math.NaN(), "nan"},
+		{"sign-bit nan", negNaN, "nan"},
+		{"inf", math.Inf(1), "inf"},
+		{"-inf", math.Inf(-1), "-inf"},
+		{"zero", 0, "0.0"},
+		{"negative zero", math.Copysign(0, -1), "-0.0"},
+		{"whole", 42, "42.0"},
+		{"fraction", 1.5, "1.5"},
+		{"tiny", 5e-324, "5e-324"},
+		{"huge", math.MaxFloat64, "1.7976931348623157e+308"},
+	}
+	for _, tc := range cases {
+		if got := FormatFloat(tc.in); got != tc.want {
+			t.Errorf("%s: FormatFloat = %q, want %q", tc.name, got, tc.want)
+		}
+	}
+
+	// Every finite output reads back as the same float64.
+	for _, f := range []float64{0, -0.5, 1, 1e300, 1e-300, math.Pi, math.SmallestNonzeroFloat64, math.MaxFloat64} {
+		s := FormatFloat(f)
+		doc, err := Parse([]byte("x = " + s + "\n"))
+		if err != nil {
+			t.Errorf("FormatFloat(%v) produced %q, which does not parse: %v", f, s, err)
+			continue
+		}
+		back, ok := doc.GetFloat("x")
+		if !ok {
+			t.Errorf("FormatFloat(%v) produced %q, which does not read back as a float", f, s)
+			continue
+		}
+		if back != f {
+			t.Errorf("FormatFloat(%v) produced %q, which reads back as %v", f, s, back)
+		}
+	}
+}

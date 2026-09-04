@@ -2,7 +2,6 @@ package tomledit
 
 import (
 	"fmt"
-	"math"
 	"strconv"
 	"strings"
 	"unicode/utf8"
@@ -127,39 +126,10 @@ func renderString(n *StringNode) []byte {
 	}
 }
 
-// renderBasicString renders a value as a TOML basic string with proper escaping.
+// renderBasicString renders a value as a TOML basic string with proper
+// escaping. It is QuoteString, the exported form of the same rule.
 func renderBasicString(s string) []byte {
-	var b strings.Builder
-	b.WriteByte('"')
-	for i := 0; i < len(s); {
-		r, size := utf8.DecodeRuneInString(s[i:])
-		switch r {
-		case '\\':
-			b.WriteString(`\\`)
-		case '"':
-			b.WriteString(`\"`)
-		case '\b':
-			b.WriteString(`\b`)
-		case '\t':
-			b.WriteString(`\t`)
-		case '\n':
-			b.WriteString(`\n`)
-		case '\f':
-			b.WriteString(`\f`)
-		case '\r':
-			b.WriteString(`\r`)
-		default:
-			if r < 0x20 || r == 0x7F {
-				// Control character: use \u escape
-				b.WriteString(fmt.Sprintf(`\u%04X`, r))
-			} else {
-				b.WriteRune(r)
-			}
-		}
-		i += size
-	}
-	b.WriteByte('"')
-	return []byte(b.String())
+	return []byte(QuoteString(s))
 }
 
 // renderMultiLineBasicString renders a value as a TOML multi-line basic string.
@@ -200,7 +170,7 @@ func renderMultiLineBasicString(s string) []byte {
 		default:
 			consecutiveQuotes = 0
 			if r < 0x20 || r == 0x7F {
-				b.WriteString(fmt.Sprintf(`\u%04X`, r))
+				b.WriteString(fmt.Sprintf(`\u%04x`, r))
 			} else {
 				b.WriteRune(r)
 			}
@@ -245,23 +215,9 @@ func renderInteger(n *IntegerNode) []byte {
 	}
 }
 
-// renderFloat renders a FloatNode.
+// renderFloat renders a FloatNode in the canonical form of FormatFloat.
 func renderFloat(n *FloatNode) []byte {
-	if math.IsInf(n.val.get(), 1) {
-		return []byte("inf")
-	}
-	if math.IsInf(n.val.get(), -1) {
-		return []byte("-inf")
-	}
-	if math.IsNaN(n.val.get()) {
-		return []byte("nan")
-	}
-	s := strconv.FormatFloat(n.val.get(), 'f', -1, 64)
-	// Ensure there's a decimal point so it's recognized as a float
-	if !strings.Contains(s, ".") {
-		s += ".0"
-	}
-	return []byte(s)
+	return []byte(FormatFloat(n.val.get()))
 }
 
 // renderBoolean renders a BooleanNode.
@@ -480,13 +436,9 @@ func renderKeyParts(k *KeyNode) []byte {
 // ignoring raw bytes. Used when the parent KV is dirty to avoid trailing
 // whitespace from the key's raw bytes.
 func renderKeyFromParts(k *KeyNode) []byte {
-	var parts []string
-	for _, part := range k.parts {
-		if isBareKey(part) {
-			parts = append(parts, part)
-		} else {
-			parts = append(parts, string(renderBasicString(part)))
-		}
+	parts := make([]string, len(k.parts))
+	for i, part := range k.parts {
+		parts[i] = QuoteKey(part)
 	}
 	return []byte(strings.Join(parts, "."))
 }
@@ -552,13 +504,9 @@ func renderArrayTableHeader(n *ArrayTableNode) []byte {
 
 // renderKeyPath renders a dotted key path (for table headers).
 func renderKeyPath(parts []string) []byte {
-	var rendered []string
-	for _, part := range parts {
-		if isBareKey(part) {
-			rendered = append(rendered, part)
-		} else {
-			rendered = append(rendered, string(renderBasicString(part)))
-		}
+	rendered := make([]string, len(parts))
+	for i, part := range parts {
+		rendered[i] = QuoteKey(part)
 	}
 	return []byte(strings.Join(rendered, "."))
 }
