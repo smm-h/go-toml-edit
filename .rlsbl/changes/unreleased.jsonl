@@ -94,3 +94,4 @@
 {"format_version":1,"id":"18d229c1431e90a4a9d0de0496f74327b00dda7ab876ca1c","commits":["a668478c0d09d2f352ddaf332038e8134f0048fc"],"user_facing":false}
 {"format_version":1,"id":"18d229c3942730541981bf9124e4431ea3106a7f0e5d1655","commits":["b2720234de7bd3c3c565d2c01e702fce72581622"],"user_facing":true,"description":"**Fix.** `SetCreate` no longer writes a `[table]` header for an intermediate under an inline table, which produced bytes the parser rejects; TOML gives an inline table no way to be added to, so the write is refused as it was before.","type":"fix"}
 {"format_version":1,"id":"18d229c68a58ba72b60f7862880d4ba99f3dfa8069bd6fef","commits":["eaff076e9cdb1783a6fcaf031f5f61ed2ce0f7c6"],"user_facing":false}
+{"format_version":1,"id":"18d229f09c6b955291d4eb36d8cd41008ade8d7e93d5f01f","commits":["da8e7c0d360da39c189418a6d0f05035f9cc379f"],"user_facing":false}
