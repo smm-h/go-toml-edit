@@ -150,7 +150,9 @@ func (d *Document) createIntermediateTable(parent layerPos, segs []PathSegment) 
 	case *ArrayTableNode:
 		newPath = append(append([]string(nil), scope.KeyPath...), key)
 	default:
-		if parent.rec == nil {
+		if parent.node != nil || parent.rec == nil {
+			// A concrete node no table can be nested in -- an inline table,
+			// which TOML gives no way to add to, or a value.
 			return newError(KindWrongContainer, "cannot create intermediate table under %s", parent.describe())
 		}
 		path, ok := keyPathOfSegments(segs)
@@ -207,7 +209,7 @@ func (d *Document) setKeyInParent(parent layerPos, parentSegs []PathSegment, key
 			// An array-of-tables holds no keys of its own; an entry of it does.
 			return parent.noNodeError()
 		}
-		if parent.rec != nil {
+		if parent.node == nil && parent.rec != nil {
 			return d.setKeyInImpliedTable(parent.rec, parentSegs, key, valNode)
 		}
 		return newError(KindWrongContainer, "cannot set key %q in %s", key, parent.describe())
@@ -491,7 +493,7 @@ func (d *Document) deleteKeyFromParent(parent layerPos, key string) error {
 		}
 		return nil
 	default:
-		if parent.rec != nil {
+		if parent.node == nil && parent.rec != nil {
 			return d.deleteKeyFromImpliedTable(parent.rec, key)
 		}
 		// Silent no-op for unsupported parent types.
