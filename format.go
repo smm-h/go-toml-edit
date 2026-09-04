@@ -11,7 +11,7 @@ import (
 type FormatConfig struct {
 	IndentWidth    int  // spaces per indent level (default: 0, no indentation of values)
 	LineWidth      int  // max line width before arrays go multi-line (default: 80)
-	TableBlankLine bool // insert blank line before tables (default: true)
+	TableBlankLine bool // insert a blank line before a table that has none (default: true)
 }
 
 // DefaultFormatConfig returns a FormatConfig with sensible defaults.
@@ -42,8 +42,11 @@ func WithLineWidth(n int) FormatOption {
 	}
 }
 
-// WithTableBlankLine controls whether a blank line is inserted before
-// table headers.
+// WithTableBlankLine controls whether a blank line is INSERTED before a table
+// header that has none. It never removes one: blank lines the document already
+// carries are preserved either way (each run collapsing to a single blank
+// line), so turning it off only stops the formatter from adding separation
+// where the writer left none.
 func WithTableBlankLine(b bool) FormatOption {
 	return func(cfg *FormatConfig) {
 		cfg.TableBlankLine = b
@@ -55,6 +58,11 @@ func WithTableBlankLine(b bool) FormatOption {
 // with consistent formatting, ignoring all raw bytes. This is useful for
 // enforcing a canonical style. Pass zero or more FormatOption values (e.g.
 // WithIndentWidth, WithLineWidth) to customize the output.
+//
+// The writer's blank-line grouping survives: a run of blank lines becomes
+// exactly one, and where the writer left no gap the formatter opens none. The
+// output never begins with a blank line and always ends with exactly one
+// newline, so blank lines at either end of the document are dropped.
 func (d *Document) Format(opts ...FormatOption) []byte {
 	cfg := DefaultFormatConfig()
 	for _, opt := range opts {
@@ -67,39 +75,32 @@ func (d *Document) Format(opts ...FormatOption) []byte {
 
 // formatDocument walks all document children and formats them.
 func formatDocument(buf *bytes.Buffer, doc *Document, cfg *FormatConfig) {
-	// Track whether we've emitted any content, to know whether to insert
-	// blank lines before table headers.
-	emittedContent := false
-
 	for _, child := range doc.children {
-		switch node := child.(type) {
-		case *TableNode:
-			formatTableNode(buf, node, cfg, &emittedContent, 0)
-		case *ArrayTableNode:
-			formatArrayTableNode(buf, node, cfg, &emittedContent, 0)
-		case *KeyValueNode:
-			formatLeadingComments(buf, node, cfg)
-			formatKeyValueLine(buf, node, cfg, 0)
-			emittedContent = true
-		case *CommentNode:
-			formatStandaloneComment(buf, node, cfg)
-			emittedContent = true
-		}
+		formatChild(buf, child, cfg, 0)
 	}
 
 	// Ensure trailing newline: the output must end with exactly one \n.
 	ensureTrailingNewline(buf)
 }
 
-// formatTableNode formats a [table] header and its children.
-func formatTableNode(buf *bytes.Buffer, node *TableNode, cfg *FormatConfig, emittedContent *bool, depth int) {
-	// Blank line before table header (unless it's the first content).
-	if *emittedContent && cfg.TableBlankLine {
-		buf.WriteByte('\n')
+// formatChild formats one child of a document, table or array-table body.
+func formatChild(buf *bytes.Buffer, child Node, cfg *FormatConfig, indent int) {
+	switch node := child.(type) {
+	case *TableNode:
+		formatTableNode(buf, node, cfg, indent)
+	case *ArrayTableNode:
+		formatArrayTableNode(buf, node, cfg, indent)
+	case *KeyValueNode:
+		formatLeadingTrivia(buf, node)
+		formatKeyValueLine(buf, node, cfg, indent)
+	case *CommentNode:
+		formatStandaloneComment(buf, node)
 	}
+}
 
-	// Leading comments on the table header.
-	formatLeadingComments(buf, node, cfg)
+// formatTableNode formats a [table] header and its children.
+func formatTableNode(buf *bytes.Buffer, node *TableNode, cfg *FormatConfig, depth int) {
+	formatTableSeparation(buf, node, cfg)
 
 	// Table header: [key.path]
 	buf.WriteByte('[')
@@ -110,30 +111,17 @@ func formatTableNode(buf *bytes.Buffer, node *TableNode, cfg *FormatConfig, emit
 	formatInlineComment(buf, node)
 
 	buf.WriteByte('\n')
-	*emittedContent = true
 
 	// Children.
 	indent := depth + 1
 	for _, child := range node.children {
-		switch c := child.(type) {
-		case *KeyValueNode:
-			formatLeadingComments(buf, c, cfg)
-			formatKeyValueLine(buf, c, cfg, indent)
-		case *CommentNode:
-			formatStandaloneComment(buf, c, cfg)
-		}
+		formatChild(buf, child, cfg, indent)
 	}
 }
 
 // formatArrayTableNode formats an [[array-table]] header and its children.
-func formatArrayTableNode(buf *bytes.Buffer, node *ArrayTableNode, cfg *FormatConfig, emittedContent *bool, depth int) {
-	// Blank line before table header (unless it's the first content).
-	if *emittedContent && cfg.TableBlankLine {
-		buf.WriteByte('\n')
-	}
-
-	// Leading comments on the table header.
-	formatLeadingComments(buf, node, cfg)
+func formatArrayTableNode(buf *bytes.Buffer, node *ArrayTableNode, cfg *FormatConfig, depth int) {
+	formatTableSeparation(buf, node, cfg)
 
 	// Array table header: [[key.path]]
 	buf.WriteString("[[")
@@ -144,19 +132,24 @@ func formatArrayTableNode(buf *bytes.Buffer, node *ArrayTableNode, cfg *FormatCo
 	formatInlineComment(buf, node)
 
 	buf.WriteByte('\n')
-	*emittedContent = true
 
 	// Children.
 	indent := depth + 1
 	for _, child := range node.children {
-		switch c := child.(type) {
-		case *KeyValueNode:
-			formatLeadingComments(buf, c, cfg)
-			formatKeyValueLine(buf, c, cfg, indent)
-		case *CommentNode:
-			formatStandaloneComment(buf, c, cfg)
-		}
+		formatChild(buf, child, cfg, indent)
 	}
+}
+
+// formatTableSeparation writes what stands between the previous construct and
+// a table header: the blank line the option asks for where none is written
+// already, then the node's own leading trivia -- its blank-line runs and its
+// comments. The option is insertion-only, and writeBlankLine collapses, so a
+// document that already separates its tables is not double-spaced by it.
+func formatTableSeparation(buf *bytes.Buffer, node Node, cfg *FormatConfig) {
+	if cfg.TableBlankLine {
+		writeBlankLine(buf)
+	}
+	formatLeadingTrivia(buf, node)
 }
 
 // formatKeyValueLine formats a key = value line with optional indentation.
@@ -337,11 +330,16 @@ func formatInlineTable(buf *bytes.Buffer, it *InlineTableNode, cfg *FormatConfig
 	buf.WriteByte('}')
 }
 
-// formatLeadingComments emits leading comments attached to a node.
-// Each comment is rendered as a clean "# text\n" line.
-func formatLeadingComments(buf *bytes.Buffer, n Node, cfg *FormatConfig) {
+// formatLeadingTrivia emits what a node carries above itself: its blank-line
+// runs and its leading comments, in the order they were written. Each comment
+// is rendered as a clean "# text\n" line and each run of blank lines as a
+// single blank line.
+func formatLeadingTrivia(buf *bytes.Buffer, n Node) {
 	t := n.trivia()
-	for _, c := range t.LeadingComments {
+	for i, c := range t.LeadingComments {
+		if len(t.blankRun(i)) > 0 {
+			writeBlankLine(buf)
+		}
 		line := strings.TrimRight(string(c), " \t\r\n")
 		if line == "" {
 			// Blank comment line -- skip or preserve as empty line.
@@ -351,6 +349,26 @@ func formatLeadingComments(buf *bytes.Buffer, n Node, cfg *FormatConfig) {
 		buf.WriteString(line)
 		buf.WriteByte('\n')
 	}
+	// The run between the last comment (or the construct above, when there are
+	// no comments) and the node itself.
+	if len(t.blankRun(len(t.LeadingComments))) > 0 {
+		writeBlankLine(buf)
+	}
+}
+
+// writeBlankLine writes the single blank line a run of them collapses to. It
+// writes nothing when nothing stands above it -- the output never opens with a
+// blank line -- and nothing where a blank line already stands, which is what
+// makes runs collapse and the table-blank-line option insertion-only.
+func writeBlankLine(buf *bytes.Buffer) {
+	b := buf.Bytes()
+	if len(b) == 0 || b[len(b)-1] != '\n' {
+		return
+	}
+	if len(b) >= 2 && b[len(b)-2] == '\n' {
+		return
+	}
+	buf.WriteByte('\n')
 }
 
 // formatInlineComment appends an inline comment if one exists.
@@ -375,11 +393,16 @@ func formatInlineComment(buf *bytes.Buffer, n Node) {
 	}
 }
 
-// formatStandaloneComment formats a standalone CommentNode.
-func formatStandaloneComment(buf *bytes.Buffer, cn *CommentNode, cfg *FormatConfig) {
+// formatStandaloneComment formats a standalone CommentNode. A comment node
+// with no text stands for a run of blank lines that no following construct
+// could carry, and contributes the one blank line that run collapses to.
+func formatStandaloneComment(buf *bytes.Buffer, cn *CommentNode) {
+	formatLeadingTrivia(buf, cn)
 	text := strings.TrimRight(cn.text, " \t\r\n")
 	if text == "" {
-		// Empty comment node -- might represent blank lines. Skip it.
+		if bytes.ContainsRune(cn.rawBytes(), '\n') {
+			writeBlankLine(buf)
+		}
 		return
 	}
 	// If it already starts with #, emit as-is.
