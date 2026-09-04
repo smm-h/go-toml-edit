@@ -149,6 +149,43 @@ func TestNewTable_AllowsASubTableUnderAnArrayOfTables(t *testing.T) {
 	}
 }
 
+// --- RenameKey ---
+
+// Fails if RenameKey only looks at sibling key-value pairs: a [header] table
+// binds its name just as much, and renaming onto it builds a document with two
+// constructs on one key.
+func TestRenameKey_RefusesANameATableBinds(t *testing.T) {
+	doc := parseOrFail(t, "x = 1\n[a]\ny = 2\n")
+	refuse(t, doc, `RenameKey("x", "a")`, doc.RenameKey("x", "a"), ErrConflict)
+}
+
+// Fails if RenameKey stops seeing an array-of-tables as a binding of its name.
+func TestRenameKey_RefusesANameAnArrayOfTablesBinds(t *testing.T) {
+	doc := parseOrFail(t, "x = 1\n[[a]]\ny = 2\n")
+	refuse(t, doc, `RenameKey("x", "a")`, doc.RenameKey("x", "a"), ErrConflict)
+}
+
+// Fails if RenameKey stops seeing the table a dotted key implies as a binding.
+func TestRenameKey_RefusesANameADottedKeyImplies(t *testing.T) {
+	doc := parseOrFail(t, "[t]\nx = 1\na.b = 2\n")
+	refuse(t, doc, `RenameKey("t.x", "a")`, doc.RenameKey("t.x", "a"), ErrConflict)
+}
+
+// Fails if the refusal grows into an over-refusal: renaming onto a free name
+// is the operation's whole purpose.
+func TestRenameKey_AllowsAFreeName(t *testing.T) {
+	doc := parseOrFail(t, "x = 1\n[a]\ny = 2\n")
+	if err := doc.RenameKey("x", "z"); err != nil {
+		t.Fatalf(`RenameKey("x", "z") was refused: %v`, err)
+	}
+	mustFold(t, doc)
+	if !doc.Has("z") {
+		t.Errorf("after the rename the document reads %q", doc.Bytes())
+	}
+}
+
+// --- table creation, continued ---
+
 // Fails if a sub-table under an existing header stops being creatable.
 func TestNewTable_AllowsASubTable(t *testing.T) {
 	doc := parseOrFail(t, "[a]\nx = 1\n")
