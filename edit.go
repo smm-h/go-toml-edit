@@ -424,6 +424,12 @@ func newDottedKeyValueNode(parts []string, val Node) *KeyValueNode {
 // Removal is idempotent: a path the document does not carry is a silent no-op,
 // so an ensure-absent loop can call it unconditionally. A path that cannot be
 // parsed, and a document the read-layer cannot fold at all, are still reported.
+//
+// The spelling of the table the key sits in changes nothing about that. In a
+// table no single node stands for -- one a dotted key spelled out, or one only
+// a longer header implies -- the removal reaches the dotted pair that binds a
+// value, or the headers that spell a table out, those of the tables nested
+// inside it included.
 func (d *Document) Delete(path string) error {
 	return d.diag(d.deleteAt(path), path)
 }
@@ -485,8 +491,94 @@ func (d *Document) deleteKeyFromParent(parent layerPos, key string) error {
 		}
 		return nil
 	default:
+		if parent.rec != nil {
+			return d.deleteKeyFromImpliedTable(parent.rec, key)
+		}
 		// Silent no-op for unsupported parent types.
 		return nil
+	}
+}
+
+// deleteKeyFromImpliedTable removes a key from a table no single node stands
+// for. The table has no children of its own, so what the key binds is removed
+// where the document writes it: the dotted pair that binds a value, or the
+// headers that spell a table out, those of the tables nested inside it
+// included. A key the table does not carry is the contract's silent no-op.
+func (d *Document) deleteKeyFromImpliedTable(rec *Record, key string) error {
+	if kv := rec.dottedKV(key); kv != nil {
+		return removeFromRegion(rec, kv)
+	}
+	e, ok := rec.Get(key)
+	if !ok {
+		return nil
+	}
+	for _, header := range headerNodesOf(e) {
+		d.removeChild(header)
+	}
+	return nil
+}
+
+// removeFromRegion removes one pair from the region that spells a record out.
+func removeFromRegion(rec *Record, kv *KeyValueNode) error {
+	container, _, ok := rec.impliedRegion()
+	if !ok {
+		return nil
+	}
+	children, valueFragment, err := containerChildren(container)
+	if err != nil {
+		return err
+	}
+	for i, child := range *children {
+		if child == Node(kv) {
+			*children = append((*children)[:i], (*children)[i+1:]...)
+			if valueFragment {
+				// An array and an inline table render as one value fragment,
+				// so their own bytes no longer describe their contents.
+				container.markDirty()
+			}
+			return nil
+		}
+	}
+	return nil
+}
+
+// headerNodesOf collects the [header] and [[header]] nodes that spell an
+// entry's table out, and those of every table nested inside it: a sub-table's
+// header is a child of the document, not of the table it names, so removing a
+// table has to take them along.
+func headerNodesOf(e Entry) []Node {
+	switch e.kind {
+	case EntryRecord:
+		return appendHeaderNodes(nil, e.record)
+	case EntryRecords:
+		var out []Node
+		for _, r := range e.records {
+			out = appendHeaderNodes(out, r)
+		}
+		return out
+	default:
+		return nil
+	}
+}
+
+func appendHeaderNodes(out []Node, r *Record) []Node {
+	switch r.node.(type) {
+	case *TableNode, *ArrayTableNode:
+		out = append(out, r.node)
+	}
+	for _, e := range r.entries {
+		out = append(out, headerNodesOf(e)...)
+	}
+	return out
+}
+
+// removeChild removes one node from the document's own children, by identity.
+func (d *Document) removeChild(target Node) {
+	for i, child := range d.Children {
+		if child == target {
+			d.Children = append(d.Children[:i], d.Children[i+1:]...)
+			return
+		}
 	}
 }
 
