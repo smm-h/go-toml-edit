@@ -415,13 +415,15 @@ func renameKeyInParent(parent layerPos, oldKey, newKey string) error {
 		return newError(KindWrongContainer, "cannot rename key in %s", parent.describe())
 	}
 
-	// Check for duplicate: does newKey already exist?
-	for _, child := range *children {
-		if kv, ok := child.(*KeyValueNode); ok {
-			if len(kv.Key.Parts) == 1 && kv.Key.Parts[0] == newKey {
-				return newError(KindConflict, "key %q already exists in parent", newKey)
-			}
-		}
+	// The new name must be free. Every construct binds its name -- a value, a
+	// table in any spelling, an array-of-tables -- and renaming onto one would
+	// leave two constructs on one key.
+	existing, bound, err := parent.binding(newKey)
+	if err != nil {
+		return err
+	}
+	if bound {
+		return newError(KindConflict, "key %q is already %s here", newKey, describeBinding(existing))
 	}
 
 	// Find the KV with the old key.
@@ -536,6 +538,27 @@ func (d *Document) newArrayTableAt(path string) error {
 
 	d.Children = append(d.Children, atbl)
 	return nil
+}
+
+// describeBinding names what an entry binds its key to, the way a diagnostic
+// reads it: the construct behind the binding rather than the layer's own
+// vocabulary.
+func describeBinding(e Entry) string {
+	switch e.kind {
+	case EntryRecords:
+		return "an array of tables"
+	case EntryRecord:
+		switch e.node.(type) {
+		case *InlineTableNode:
+			return "an inline table"
+		case *TableNode:
+			return "a table with a header of its own"
+		default:
+			return "a table another construct spelled out"
+		}
+	default:
+		return "a value"
+	}
 }
 
 // headerKeyPath parses a header path into its key parts, refusing an empty

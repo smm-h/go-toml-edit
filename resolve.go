@@ -126,6 +126,30 @@ func (p layerPos) key(name string) (layerPos, error) {
 	return layerPos{}, newError(KindWrongContainer, "cannot look up key %q in %s", name, p.describe())
 }
 
+// binding reports what the position's logical view already binds the key to,
+// and whether it binds it at all. It is what an edit asks before writing a key:
+// the answer covers every spelling -- a value, a table in any form, a table
+// another construct only implied, an array-of-tables -- where a scan of the
+// container's own children would see only the pairs written there literally.
+//
+// A position with no record of its own -- an inline table reached as an array
+// element, say -- folds on demand.
+func (p layerPos) binding(key string) (Entry, bool, error) {
+	if p.rec != nil {
+		e, ok := p.rec.Get(key)
+		return e, ok, nil
+	}
+	if inline, ok := p.node.(*InlineTableNode); ok {
+		rec, err := foldInlineTable(inline)
+		if err != nil {
+			return Entry{}, false, err
+		}
+		e, ok := rec.Get(key)
+		return e, ok, nil
+	}
+	return Entry{}, false, nil
+}
+
 // at navigates to an element of the position by index. A negative index counts
 // from the end.
 func (p layerPos) at(index int) (layerPos, error) {
