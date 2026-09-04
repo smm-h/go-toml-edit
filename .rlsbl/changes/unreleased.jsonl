@@ -126,3 +126,4 @@
 {"format_version":1,"id":"18d23ac0bacf659995218a1a8d6c498faeab7b9576e61882","commits":["523f970c635851b941a1eaf97225665ec07f8a29"],"user_facing":true,"description":"**Writing into a file whose last line has no newline no longer corrupts it.** The appended key or header used to continue the last line, producing a document that would not parse.","type":"fix"}
 {"format_version":1,"id":"18d23ad6bcfe5f0d138a334362204db0820afdc6bff899fe","commits":["f91710c79a67821e512dd0bb4e8139aa752c3b1a"],"user_facing":false}
 {"format_version":1,"id":"18d23c6e5ff05c6b5c320b1d8b0b438393ef01c6d4d02616","commits":["6106c03347e9f23dee9edcadf6bff5c554eaa41a"],"user_facing":false}
+{"format_version":1,"id":"18d23c9822b4b65613d5daa892a5482c9575f2e03be4dc76","commits":["2683f5c5bc9cdf72dccaabf353324c8c92784683"],"user_facing":false}
