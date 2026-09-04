@@ -116,14 +116,20 @@ func (d *Document) Decode(v any) error {
 // and a scalar node decodes into a scalar target. A key, a key-value pair and
 // a comment carry no value of their own and are refused.
 //
-// The rules are Decode's, including strictness.
+// The rules are Decode's, including strictness. A diagnostic names the file the
+// node's document was read from, which the node reaches through the parent
+// links its container maintains; a node not attached to a document names none.
 func DecodeNode(n Node, v any) error {
+	if n == nil {
+		return fmt.Errorf("tomledit: DecodeNode needs a node, got nil")
+	}
+	return documentOf(n).diag(decodeNode(n, v), "")
+}
+
+func decodeNode(n Node, v any) error {
 	dst, err := decodeTarget(v, "DecodeNode")
 	if err != nil {
 		return err
-	}
-	if n == nil {
-		return fmt.Errorf("tomledit: DecodeNode needs a node, got nil")
 	}
 	en := newEngine()
 	switch node := n.(type) {

@@ -142,3 +142,39 @@ func TestParseCarriesNoFile(t *testing.T) {
 		t.Errorf("File = %q, want empty for a document parsed from bytes", diag.File)
 	}
 }
+
+// Fails if a DecodeNode diagnostic stops naming the file its node came from.
+// A node reaches its document through the parent links the structure funnel
+// maintains, which is how a decode scoped to one construct still knows where
+// the construct was read from.
+func TestParseFileDecodeNodeDiagnosticsNameTheFile(t *testing.T) {
+	const content = "[server]\nport = \"eighty\"\n"
+	path := writeTOML(t, "config.toml", content)
+
+	doc, err := ParseFile(path)
+	if err != nil {
+		t.Fatalf("ParseFile failed: %v", err)
+	}
+	node, ok := doc.Lookup("server")
+	if !ok {
+		t.Fatal("server not found")
+	}
+
+	var target struct {
+		Port int `toml:"port"`
+	}
+	err = DecodeNode(node, &target)
+	if err == nil {
+		t.Fatal("expected an error decoding a string into an int field")
+	}
+	var diag *Error
+	if !errors.As(err, &diag) {
+		t.Fatalf("expected *Error, got %T: %v", err, err)
+	}
+	if diag.File != path {
+		t.Errorf("File = %q, want %q (err: %v)", diag.File, path, err)
+	}
+	if !strings.HasPrefix(err.Error(), path+":") {
+		t.Errorf("Error() = %q, want it to start with %q", err.Error(), path+":")
+	}
+}
