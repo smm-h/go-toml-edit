@@ -196,6 +196,7 @@ var kindSentinels = map[string]struct {
 	"KindBadInput":       {tomledit.KindBadInput, tomledit.ErrBadInput},
 	"KindConflict":       {tomledit.KindConflict, tomledit.ErrConflict},
 	"KindRoundTrip":      {tomledit.KindRoundTrip, tomledit.ErrRoundTrip},
+	"KindHookError":      {tomledit.KindHookError, tomledit.ErrHookError},
 }
 
 // sentinelName is the sentinel a kind constant must have: KindFoo has ErrFoo.

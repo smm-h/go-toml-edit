@@ -47,6 +47,11 @@ const (
 	// re-parse; the diagnostic's Offset field carries the byte offset of the
 	// first divergence.
 	KindRoundTrip
+	// KindHookError is a failure reported by a consumer's own decoder -- an
+	// UnmarshalTOML or an UnmarshalText the target implements. The diagnostic
+	// wraps the error the decoder returned, so a caller still matches the
+	// consumer's own sentinels through it.
+	KindHookError
 )
 
 var errorKindNames = [...]string{
@@ -62,6 +67,7 @@ var errorKindNames = [...]string{
 	KindBadInput:       "bad input",
 	KindConflict:       "conflict",
 	KindRoundTrip:      "round-trip failure",
+	KindHookError:      "custom decoder error",
 }
 
 // String returns the human-readable name of the kind.
@@ -98,6 +104,7 @@ var (
 	ErrBadInput       error = kindError(KindBadInput)       // an invalid input to an editing operation
 	ErrConflict       error = kindError(KindConflict)       // an edit that would produce an invalid document
 	ErrRoundTrip      error = kindError(KindRoundTrip)      // rendered bytes that did not survive a re-parse
+	ErrHookError      error = kindError(KindHookError)      // a failure reported by a consumer's own decoder
 )
 
 // Error is the one diagnostic type of this package. Parse, edit, and access

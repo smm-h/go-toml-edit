@@ -2,6 +2,7 @@ package tomledit
 
 import (
 	"errors"
+	"fmt"
 	"reflect"
 	"strings"
 	"testing"
@@ -262,6 +263,111 @@ func TestEngine_CustomDecoderNeedsANodeToDecode(t *testing.T) {
 	}
 	if !errors.Is(err, ErrWrongContainer) {
 		t.Fatalf("err = %v, want a wrong-container diagnostic", err)
+	}
+}
+
+// errConsumerRefused is a consumer's own sentinel: a caller matches it through
+// whatever the package wraps its decoder's error in, so the wrapping has to be
+// transparent to errors.Is.
+var errConsumerRefused = errors.New("the consumer's decoder refused")
+
+// refusingTOMLHook is a target whose UnmarshalTOML always fails.
+type refusingTOMLHook struct{}
+
+func (h *refusingTOMLHook) UnmarshalTOML(node Node) error {
+	return fmt.Errorf("refusing a %s node: %w", node.Type(), errConsumerRefused)
+}
+
+// refusingTextHook is a target whose UnmarshalText always fails.
+type refusingTextHook struct{}
+
+func (h *refusingTextHook) UnmarshalText(text []byte) error {
+	return fmt.Errorf("refusing %q: %w", string(text), errConsumerRefused)
+}
+
+// hookDoc carries an independent violation before the hooked key and another
+// after it: a type mismatch, then the key whose target's own decoder fails,
+// then an unknown key.
+const hookDoc = `before = "not a number"
+hooked = "x"
+after = true
+`
+
+// Fails if a consumer decoder's error stops being collected like any other
+// violation: it is one diagnostic among the document's own, in document order,
+// carrying KindHookError and still matching the consumer's own sentinel -- not
+// a single error that discards everything the walk had already found.
+func TestEngine_HookErrorIsCollectedAndTheWalkContinues(t *testing.T) {
+	tests := []struct {
+		name   string
+		target func() any
+	}{
+		{
+			name: "UnmarshalTOML",
+			target: func() any {
+				return &struct {
+					Before int              `toml:"before"`
+					Hooked refusingTOMLHook `toml:"hooked"`
+				}{}
+			},
+		},
+		{
+			name: "UnmarshalText",
+			target: func() any {
+				return &struct {
+					Before int              `toml:"before"`
+					Hooked refusingTextHook `toml:"hooked"`
+				}{}
+			},
+		},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			doc, err := Parse([]byte(hookDoc))
+			if err != nil {
+				t.Fatalf("parse error: %v", err)
+			}
+			err = doc.Decode(tt.target())
+			if err == nil {
+				t.Fatal("Decode accepted a document whose target's own decoder failed")
+			}
+
+			want := []struct {
+				kind ErrorKind
+				path string
+				line int
+			}{
+				{KindTypeMismatch, "before", 1},
+				{KindHookError, "hooked", 2},
+				{KindUnknownKey, "after", 3},
+			}
+			diags := diagnosticsOf(t, err)
+			if len(diags) != len(want) {
+				for _, d := range diags {
+					t.Logf("diagnostic: %s at %q (line %d): %v", d.Kind, d.Path, d.Pos.Line, d)
+				}
+				t.Fatalf("got %d diagnostics, want %d", len(diags), len(want))
+			}
+			for i, w := range want {
+				d := diags[i]
+				if d.Kind != w.kind || d.Path != w.path {
+					t.Errorf("diagnostic %d = %s at %q, want %s at %q", i, d.Kind, d.Path, w.kind, w.path)
+				}
+				if d.Pos.Line != w.line {
+					t.Errorf("diagnostic %d (%s) is at line %d, want line %d", i, d.Path, d.Pos.Line, w.line)
+				}
+			}
+			if !errors.Is(err, ErrHookError) {
+				t.Error("the aggregate does not match ErrHookError")
+			}
+			if !errors.Is(err, errConsumerRefused) {
+				t.Error("the aggregate no longer matches the consumer's own sentinel through the diagnostic")
+			}
+			if !diags[1].Span.IsValid() {
+				t.Error("the hook diagnostic carries no span")
+			}
+		})
 	}
 }
 
