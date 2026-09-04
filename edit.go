@@ -1,6 +1,7 @@
 package tomledit
 
 import (
+	"math"
 	"reflect"
 	"sort"
 	"time"
@@ -256,8 +257,11 @@ func (d *Document) deleteKeyFromParent(parent layerPos, key string) error {
 		deleteKeyFromChildren(&p.Children, key)
 		return nil
 	case *InlineTableNode:
-		deleteKeyFromChildren(&p.Children, key)
-		p.markDirty()
+		// Only a delete that removed something invalidates the table's bytes:
+		// a key the table never carried leaves it exactly as written.
+		if deleteKeyFromChildren(&p.Children, key) {
+			p.markDirty()
+		}
 		return nil
 	default:
 		// Silent no-op for unsupported parent types.
@@ -265,16 +269,18 @@ func (d *Document) deleteKeyFromParent(parent layerPos, key string) error {
 	}
 }
 
-// deleteKeyFromChildren removes the first KV with the given key from a children slice.
-func deleteKeyFromChildren(children *[]Node, key string) {
+// deleteKeyFromChildren removes the first KV with the given key from a children
+// slice, and reports whether it removed one.
+func deleteKeyFromChildren(children *[]Node, key string) bool {
 	for i, child := range *children {
 		if kv, ok := child.(*KeyValueNode); ok {
 			if len(kv.Key.Parts) > 0 && kv.Key.Parts[0] == key {
 				*children = append((*children)[:i], (*children)[i+1:]...)
-				return
+				return true
 			}
 		}
 	}
+	return false
 }
 
 // deleteTableOrArrayTableByFirstKey removes a table or array-table from the
@@ -559,9 +565,7 @@ func valueToNode(v any) (Node, error) {
 		return n, nil
 
 	case uint:
-		n := &IntegerNode{Val: int64(val), Base: IntegerDecimal}
-		n.markDirty()
-		return n, nil
+		return unsignedToNode(uint64(val), val)
 	case uint8:
 		n := &IntegerNode{Val: int64(val), Base: IntegerDecimal}
 		n.markDirty()
@@ -575,9 +579,7 @@ func valueToNode(v any) (Node, error) {
 		n.markDirty()
 		return n, nil
 	case uint64:
-		n := &IntegerNode{Val: int64(val), Base: IntegerDecimal}
-		n.markDirty()
-		return n, nil
+		return unsignedToNode(val, val)
 
 	case float32:
 		n := &FloatNode{Val: float64(val)}
@@ -626,6 +628,21 @@ func valueToNode(v any) (Node, error) {
 	}
 
 	return nil, newError(KindBadInput, "unsupported type: %T", v).withValue(v)
+}
+
+// unsignedToNode converts an unsigned Go value to an integer node, refusing one
+// that does not fit in the int64 a TOML integer is. Wrapping it around would
+// write a negative number the caller never asked for. orig is the value as the
+// caller passed it, so the diagnostic reports its own type.
+func unsignedToNode(v uint64, orig any) (Node, error) {
+	if v > math.MaxInt64 {
+		return nil, newError(KindBadInput,
+			"unsigned value %d does not fit in a TOML integer (the maximum is %d)",
+			v, int64(math.MaxInt64)).withValue(orig)
+	}
+	n := &IntegerNode{Val: int64(v), Base: IntegerDecimal}
+	n.markDirty()
+	return n, nil
 }
 
 // sliceToArrayNode converts a []any to an ArrayNode with recursive conversion.
