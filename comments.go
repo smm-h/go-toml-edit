@@ -6,7 +6,16 @@ package tomledit
 // For table paths, the comment is set on the table header line.
 // Returns an error if the path does not exist or targets a member of an
 // inline table (TOML forbids comments inside inline tables).
+//
+// The text has to be something a comment can carry: valid UTF-8, and no
+// control character other than a tab -- so a newline, a carriage return and
+// U+0000 are each refused with KindBadInput, and the document is left as it
+// was. These are the lexer's rules for reading a comment; text breaking them
+// would render bytes the parser cannot read back.
 func (d *Document) SetComment(path string, comment string) error {
+	if err := checkWritableComment(comment); err != nil {
+		return d.diag(err, path)
+	}
 	node, err := d.resolveCommentTarget(path)
 	if err != nil {
 		return d.diag(err, path)
@@ -24,7 +33,21 @@ func (d *Document) SetComment(path string, comment string) error {
 // path. Each string should NOT include the "# " prefix -- it will be added
 // automatically. For table paths, the comments are set on the table header.
 // Returns an error if the path does not exist.
+//
+// Each element is ONE comment line, and each is held to what SetComment holds
+// its text to: valid UTF-8, no control character other than a tab. An element
+// carrying a newline would be a second line it does not get to open, so it is
+// refused with KindBadInput -- and one refused element refuses the whole call,
+// leaving the node's comments as they were.
 func (d *Document) SetLeadingComments(path string, comments []string) error {
+	// Every line is checked before the first is written: the caller asked for
+	// one block of comments, so a document carrying part of it is one the
+	// caller never described.
+	for _, c := range comments {
+		if err := checkWritableComment(c); err != nil {
+			return d.diag(err, path)
+		}
+	}
 	node, err := d.resolveCommentTarget(path)
 	if err != nil {
 		return d.diag(err, path)
@@ -35,6 +58,27 @@ func (d *Document) SetLeadingComments(path string, comments []string) error {
 	}
 	node.setLeadingComments(formatted)
 	node.markDirty()
+	return nil
+}
+
+// checkWritableComment refuses comment text a comment cannot carry. What one
+// may hold is the lexer's rule, mirrored here: valid UTF-8, and no control
+// character other than a tab (U+0000-U+0008, U+000A-U+001F and U+007F are all
+// out, which covers the newline and the carriage return that would end the
+// comment and turn its tail into a line of TOML nobody wrote). Checking at the
+// write keeps the document renderable back into itself.
+func checkWritableComment(text string) error {
+	if err := checkWritableText(text, "comment"); err != nil {
+		return err
+	}
+	for i := 0; i < len(text); i++ {
+		ch := text[i]
+		if ch < 0x80 && isControlChar(ch) {
+			return newError(KindBadInput,
+				"the comment %q carries the control character U+%04X, which TOML does not allow in a comment",
+				text, ch).withValue(text)
+		}
+	}
 	return nil
 }
 
