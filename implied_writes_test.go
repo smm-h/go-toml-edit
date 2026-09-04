@@ -55,8 +55,8 @@ func TestSet_NewKeyUnderADottedTableExtendsTheDottedRegion(t *testing.T) {
 	if err != nil {
 		t.Fatalf("the result is not valid TOML: %v\n%s", err, doc.Bytes())
 	}
-	if got, ok := again.GetInt("a.new"); !ok || got != 5 {
-		t.Errorf("after the round-trip a.new reads %d (ok=%v), want 5", got, ok)
+	if got, err := again.GetInt("a.new"); err != nil || got != 5 {
+		t.Errorf("after the round-trip a.new reads %d (ok=%v), want 5", got, err)
 	}
 }
 
@@ -88,8 +88,8 @@ func TestSet_NewKeyUnderADottedTableInsideATable(t *testing.T) {
 	if err != nil {
 		t.Fatalf("the result is not valid TOML: %v\n%s", err, doc.Bytes())
 	}
-	if got, ok := again.GetInt("t.a.new"); !ok || got != 5 {
-		t.Errorf("after the round-trip t.a.new reads %d (ok=%v), want 5", got, ok)
+	if got, err := again.GetInt("t.a.new"); err != nil || got != 5 {
+		t.Errorf("after the round-trip t.a.new reads %d (ok=%v), want 5", got, err)
 	}
 }
 
@@ -109,11 +109,11 @@ func TestSet_NewKeyUnderAHeaderImpliedTableMaterializesTheHeader(t *testing.T) {
 	if err != nil {
 		t.Fatalf("the result is not valid TOML: %v\n%s", err, doc.Bytes())
 	}
-	if got, ok := again.GetInt("a.new"); !ok || got != 5 {
-		t.Errorf("after the round-trip a.new reads %d (ok=%v), want 5", got, ok)
+	if got, err := again.GetInt("a.new"); err != nil || got != 5 {
+		t.Errorf("after the round-trip a.new reads %d (ok=%v), want 5", got, err)
 	}
-	if got, ok := again.GetInt("a.b.x"); !ok || got != 1 {
-		t.Errorf("after the round-trip a.b.x reads %d (ok=%v), want 1", got, ok)
+	if got, err := again.GetInt("a.b.x"); err != nil || got != 1 {
+		t.Errorf("after the round-trip a.b.x reads %d (ok=%v), want 1", got, err)
 	}
 }
 
@@ -141,11 +141,11 @@ func TestEnsureDefaults_SeedsBesideADottedKey(t *testing.T) {
 	if err != nil {
 		t.Fatalf("the result is not valid TOML: %v\n%s", err, doc.Bytes())
 	}
-	if got, ok := again.GetString("server.log.level"); !ok || got != "info" {
-		t.Errorf("the document's own value was overwritten: %q (ok=%v)", got, ok)
+	if got, err := again.GetString("server.log.level"); err != nil || got != "info" {
+		t.Errorf("the document's own value was overwritten: %q (ok=%v)", got, err)
 	}
-	if got, ok := again.GetString("server.log.file"); !ok || got != "/var/log/app.log" {
-		t.Errorf("the seeded value reads %q (ok=%v)", got, ok)
+	if got, err := again.GetString("server.log.file"); err != nil || got != "/var/log/app.log" {
+		t.Errorf("the seeded value reads %q (ok=%v)", got, err)
 	}
 }
 
@@ -161,11 +161,11 @@ func TestSet_NewKeyUnderADottedTableInsideAnInlineTable(t *testing.T) {
 	if err != nil {
 		t.Fatalf("the result is not valid TOML: %v\n%s", err, doc.Bytes())
 	}
-	if got, ok := again.GetInt("t.a.new"); !ok || got != 5 {
-		t.Errorf("t.a.new reads %d (ok=%v) in %q", got, ok, doc.Bytes())
+	if got, err := again.GetInt("t.a.new"); err != nil || got != 5 {
+		t.Errorf("t.a.new reads %d (ok=%v) in %q", got, err, doc.Bytes())
 	}
-	if got, ok := again.GetInt("t.a.b"); !ok || got != 1 {
-		t.Errorf("t.a.b reads %d (ok=%v) in %q", got, ok, doc.Bytes())
+	if got, err := again.GetInt("t.a.b"); err != nil || got != 1 {
+		t.Errorf("t.a.b reads %d (ok=%v) in %q", got, err, doc.Bytes())
 	}
 }
 

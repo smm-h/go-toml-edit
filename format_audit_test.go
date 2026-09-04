@@ -282,20 +282,20 @@ func TestAuditIntegerHexOctalBinary(t *testing.T) {
 		t.Fatalf("formatted output not valid TOML: %v\noutput:\n%s", err, got)
 	}
 
-	hexVal, ok := doc2.GetInt("hex")
-	if !ok || hexVal != 0xff {
+	hexVal, err := doc2.GetInt("hex")
+	if err != nil || hexVal != 0xff {
 		t.Errorf("hex value incorrect: got %d, want %d", hexVal, 0xff)
 	}
-	octVal, ok := doc2.GetInt("oct")
-	if !ok || octVal != 0o77 {
+	octVal, err := doc2.GetInt("oct")
+	if err != nil || octVal != 0o77 {
 		t.Errorf("oct value incorrect: got %d, want %d", octVal, 0o77)
 	}
-	binVal, ok := doc2.GetInt("bin")
-	if !ok || binVal != 0b1010 {
+	binVal, err := doc2.GetInt("bin")
+	if err != nil || binVal != 0b1010 {
 		t.Errorf("bin value incorrect: got %d, want %d", binVal, 0b1010)
 	}
-	decVal, ok := doc2.GetInt("dec")
-	if !ok || decVal != 42 {
+	decVal, err := doc2.GetInt("dec")
+	if err != nil || decVal != 42 {
 		t.Errorf("dec value incorrect: got %d, want %d", decVal, 42)
 	}
 
@@ -320,8 +320,8 @@ func TestAuditMultiLineStrings(t *testing.T) {
 	if err != nil {
 		t.Fatalf("formatted output not valid TOML: %v\noutput:\n%s", err, got)
 	}
-	v, ok := doc2.GetString("val")
-	if !ok {
+	v, err := doc2.GetString("val")
+	if err != nil {
 		t.Fatal("val not found after re-parse")
 	}
 	if v != "hello\nworld" {
@@ -548,8 +548,8 @@ func TestAuditLiteralStringPreserved(t *testing.T) {
 	if err != nil {
 		t.Fatalf("formatted output not valid TOML: %v\noutput:\n%s", err, got)
 	}
-	v, ok := doc2.GetString("path")
-	if !ok || v != `C:\Users\dir` {
+	v, err := doc2.GetString("path")
+	if err != nil || v != `C:\Users\dir` {
 		t.Errorf("literal string value incorrect: got %q, want %q", v, `C:\Users\dir`)
 	}
 }

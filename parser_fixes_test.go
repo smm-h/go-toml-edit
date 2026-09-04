@@ -12,13 +12,13 @@ func TestParseArrayOfInlineTables(t *testing.T) {
 		t.Fatalf("parse error: %v", err)
 	}
 	// Verify we can read values from the array of inline tables
-	s, ok := doc.GetString("items[0].name")
-	if !ok || s != "a" {
-		t.Fatalf("expected 'a', got %q (ok=%v)", s, ok)
+	s, err := doc.GetString("items[0].name")
+	if err != nil || s != "a" {
+		t.Fatalf("expected 'a', got %q (ok=%v)", s, err)
 	}
-	s, ok = doc.GetString("items[1].name")
-	if !ok || s != "b" {
-		t.Fatalf("expected 'b', got %q (ok=%v)", s, ok)
+	s, err = doc.GetString("items[1].name")
+	if err != nil || s != "b" {
+		t.Fatalf("expected 'b', got %q (ok=%v)", s, err)
 	}
 	// Round-trip
 	out := doc.Bytes()

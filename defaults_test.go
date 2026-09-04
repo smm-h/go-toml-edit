@@ -29,8 +29,8 @@ func TestEnsureDefaults_SeedsOnlyMissingPaths(t *testing.T) {
 	if port, _ := doc.GetInt("server.port"); port != 9090 {
 		t.Errorf("port = %d, want the document's own value", port)
 	}
-	if workers, ok := doc.GetInt("server.workers"); !ok || workers != 4 {
-		t.Errorf("workers = %d (ok=%v), want 4", workers, ok)
+	if workers, err := doc.GetInt("server.workers"); err != nil || workers != 4 {
+		t.Errorf("workers = %d (ok=%v), want 4", workers, err)
 	}
 	roundTrip(t, doc)
 }
@@ -79,8 +79,8 @@ func TestEnsureDefaults_ThreeLevelsDeep(t *testing.T) {
 	for path, want := range map[string]int64{
 		"a.x": 1, "a.w": 10, "a.b.y": 2, "a.b.v": 20, "a.b.c.z": 3, "a.b.c.u": 30,
 	} {
-		if got, ok := doc.GetInt(path); !ok || got != want {
-			t.Errorf("%s = %d (ok=%v), want %d", path, got, ok, want)
+		if got, err := doc.GetInt(path); err != nil || got != want {
+			t.Errorf("%s = %d (ok=%v), want %d", path, got, err, want)
 		}
 	}
 	roundTrip(t, doc)

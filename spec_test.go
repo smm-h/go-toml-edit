@@ -220,8 +220,8 @@ func TestValidate_ReportsWithoutDecoding(t *testing.T) {
 	if err := doc.Validate(spec); err != nil {
 		t.Fatalf("Validate: %v", err)
 	}
-	if got, ok := doc.GetInt("port"); !ok || got != 9000 {
-		t.Errorf("port = %d (%v) after Validate, want the document untouched", got, ok)
+	if got, err := doc.GetInt("port"); err != nil || got != 9000 {
+		t.Errorf("port = %d (%v) after Validate, want the document untouched", got, err)
 	}
 }
 

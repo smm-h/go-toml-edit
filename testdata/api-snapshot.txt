@@ -136,6 +136,14 @@ type ArrayTableNode struct
 	method (*ArrayTableNode) Type() NodeType
 
 type BooleanNode struct
+	method (*BooleanNode) AsBool() (bool, error)
+	method (*BooleanNode) AsFloat() (float64, error)
+	method (*BooleanNode) AsInt() (int64, error)
+	method (*BooleanNode) AsLocalDate() (LocalDate, error)
+	method (*BooleanNode) AsLocalDateTime() (LocalDateTime, error)
+	method (*BooleanNode) AsLocalTime() (LocalTime, error)
+	method (*BooleanNode) AsString() (string, error)
+	method (*BooleanNode) AsTime() (time.Time, error)
 	method (*BooleanNode) Comment() string
 	method (*BooleanNode) LeadingComments() []string
 	method (*BooleanNode) Raw() []byte
@@ -162,18 +170,26 @@ type CommentNode struct
 
 type Cursor struct
 	method (*Cursor) At(index int) *Cursor
-	method (*Cursor) Bool() (bool, bool)
+	method (*Cursor) Bool() (bool, error)
 	method (*Cursor) Err() error
-	method (*Cursor) Float() (float64, bool)
-	method (*Cursor) Int() (int64, bool)
+	method (*Cursor) Float() (float64, error)
+	method (*Cursor) Int() (int64, error)
 	method (*Cursor) Items() iter.Seq2[int, Node]
 	method (*Cursor) Key(name string) *Cursor
 	method (*Cursor) Len() int
 	method (*Cursor) Node() Node
-	method (*Cursor) String() (string, bool)
-	method (*Cursor) Time() (time.Time, bool)
+	method (*Cursor) String() (string, error)
+	method (*Cursor) Time() (time.Time, error)
 
 type DateTimeNode struct
+	method (*DateTimeNode) AsBool() (bool, error)
+	method (*DateTimeNode) AsFloat() (float64, error)
+	method (*DateTimeNode) AsInt() (int64, error)
+	method (*DateTimeNode) AsLocalDate() (LocalDate, error)
+	method (*DateTimeNode) AsLocalDateTime() (LocalDateTime, error)
+	method (*DateTimeNode) AsLocalTime() (LocalTime, error)
+	method (*DateTimeNode) AsString() (string, error)
+	method (*DateTimeNode) AsTime() (time.Time, error)
 	method (*DateTimeNode) Comment() string
 	method (*DateTimeNode) LeadingComments() []string
 	method (*DateTimeNode) Raw() []byte
@@ -194,11 +210,11 @@ type Document struct
 	method (*Document) Delete(path string) error
 	method (*Document) EnsureDefaults(defaults []Default) (added []string, err error)
 	method (*Document) Format(opts ...FormatOption) []byte
-	method (*Document) GetBool(path string) (bool, bool)
-	method (*Document) GetFloat(path string) (float64, bool)
-	method (*Document) GetInt(path string) (int64, bool)
-	method (*Document) GetString(path string) (string, bool)
-	method (*Document) GetTime(path string) (time.Time, bool)
+	method (*Document) GetBool(path string) (bool, error)
+	method (*Document) GetFloat(path string) (float64, error)
+	method (*Document) GetInt(path string) (int64, error)
+	method (*Document) GetString(path string) (string, error)
+	method (*Document) GetTime(path string) (time.Time, error)
 	method (*Document) Has(path string) bool
 	method (*Document) Items(path string) iter.Seq2[int, Node]
 	method (*Document) Key(name string) *Cursor
@@ -269,6 +285,14 @@ type FieldKind int
 	method (FieldKind) String() string
 
 type FloatNode struct
+	method (*FloatNode) AsBool() (bool, error)
+	method (*FloatNode) AsFloat() (float64, error)
+	method (*FloatNode) AsInt() (int64, error)
+	method (*FloatNode) AsLocalDate() (LocalDate, error)
+	method (*FloatNode) AsLocalDateTime() (LocalDateTime, error)
+	method (*FloatNode) AsLocalTime() (LocalTime, error)
+	method (*FloatNode) AsString() (string, error)
+	method (*FloatNode) AsTime() (time.Time, error)
 	method (*FloatNode) Comment() string
 	method (*FloatNode) LeadingComments() []string
 	method (*FloatNode) Raw() []byte
@@ -294,6 +318,14 @@ type InlineTableNode struct
 type IntegerBase int
 
 type IntegerNode struct
+	method (*IntegerNode) AsBool() (bool, error)
+	method (*IntegerNode) AsFloat() (float64, error)
+	method (*IntegerNode) AsInt() (int64, error)
+	method (*IntegerNode) AsLocalDate() (LocalDate, error)
+	method (*IntegerNode) AsLocalDateTime() (LocalDateTime, error)
+	method (*IntegerNode) AsLocalTime() (LocalTime, error)
+	method (*IntegerNode) AsString() (string, error)
+	method (*IntegerNode) AsTime() (time.Time, error)
 	method (*IntegerNode) Base() IntegerBase
 	method (*IntegerNode) Comment() string
 	method (*IntegerNode) LeadingComments() []string
@@ -327,6 +359,14 @@ type LocalDate struct
 	field Day int
 
 type LocalDateNode struct
+	method (*LocalDateNode) AsBool() (bool, error)
+	method (*LocalDateNode) AsFloat() (float64, error)
+	method (*LocalDateNode) AsInt() (int64, error)
+	method (*LocalDateNode) AsLocalDate() (LocalDate, error)
+	method (*LocalDateNode) AsLocalDateTime() (LocalDateTime, error)
+	method (*LocalDateNode) AsLocalTime() (LocalTime, error)
+	method (*LocalDateNode) AsString() (string, error)
+	method (*LocalDateNode) AsTime() (time.Time, error)
 	method (*LocalDateNode) Comment() string
 	method (*LocalDateNode) LeadingComments() []string
 	method (*LocalDateNode) Raw() []byte
@@ -344,6 +384,14 @@ type LocalDateTime struct
 	field Nanosecond int
 
 type LocalDateTimeNode struct
+	method (*LocalDateTimeNode) AsBool() (bool, error)
+	method (*LocalDateTimeNode) AsFloat() (float64, error)
+	method (*LocalDateTimeNode) AsInt() (int64, error)
+	method (*LocalDateTimeNode) AsLocalDate() (LocalDate, error)
+	method (*LocalDateTimeNode) AsLocalDateTime() (LocalDateTime, error)
+	method (*LocalDateTimeNode) AsLocalTime() (LocalTime, error)
+	method (*LocalDateTimeNode) AsString() (string, error)
+	method (*LocalDateTimeNode) AsTime() (time.Time, error)
 	method (*LocalDateTimeNode) Comment() string
 	method (*LocalDateTimeNode) LeadingComments() []string
 	method (*LocalDateTimeNode) Raw() []byte
@@ -358,6 +406,14 @@ type LocalTime struct
 	field Nanosecond int
 
 type LocalTimeNode struct
+	method (*LocalTimeNode) AsBool() (bool, error)
+	method (*LocalTimeNode) AsFloat() (float64, error)
+	method (*LocalTimeNode) AsInt() (int64, error)
+	method (*LocalTimeNode) AsLocalDate() (LocalDate, error)
+	method (*LocalTimeNode) AsLocalDateTime() (LocalDateTime, error)
+	method (*LocalTimeNode) AsLocalTime() (LocalTime, error)
+	method (*LocalTimeNode) AsString() (string, error)
+	method (*LocalTimeNode) AsTime() (time.Time, error)
 	method (*LocalTimeNode) Comment() string
 	method (*LocalTimeNode) LeadingComments() []string
 	method (*LocalTimeNode) Raw() []byte
@@ -398,6 +454,14 @@ type Record struct
 	method (*Record) Span() Span
 
 type Scalar interface (sealed)
+	method AsBool() (bool, error)
+	method AsFloat() (float64, error)
+	method AsInt() (int64, error)
+	method AsLocalDate() (LocalDate, error)
+	method AsLocalDateTime() (LocalDateTime, error)
+	method AsLocalTime() (LocalTime, error)
+	method AsString() (string, error)
+	method AsTime() (time.Time, error)
 	method Comment() string
 	method LeadingComments() []string
 	method Raw() []byte
@@ -417,6 +481,14 @@ type Spec struct
 	field Dynamic *Field
 
 type StringNode struct
+	method (*StringNode) AsBool() (bool, error)
+	method (*StringNode) AsFloat() (float64, error)
+	method (*StringNode) AsInt() (int64, error)
+	method (*StringNode) AsLocalDate() (LocalDate, error)
+	method (*StringNode) AsLocalDateTime() (LocalDateTime, error)
+	method (*StringNode) AsLocalTime() (LocalTime, error)
+	method (*StringNode) AsString() (string, error)
+	method (*StringNode) AsTime() (time.Time, error)
 	method (*StringNode) Comment() string
 	method (*StringNode) LeadingComments() []string
 	method (*StringNode) Raw() []byte

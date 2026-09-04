@@ -38,20 +38,20 @@ level = "debug"
 	if host != "myhost" {
 		t.Errorf("expected host %q, got %q", "myhost", host)
 	}
-	port, ok := target.GetInt("server.port")
-	if !ok || port != 9090 {
+	port, err := target.GetInt("server.port")
+	if err != nil || port != 9090 {
 		t.Errorf("expected port %d, got %d", 9090, port)
 	}
 
 	// New keys added.
-	workers, ok := target.GetInt("server.workers")
-	if !ok || workers != 4 {
-		t.Errorf("expected workers %d, got %d (ok=%v)", 4, workers, ok)
+	workers, err := target.GetInt("server.workers")
+	if err != nil || workers != 4 {
+		t.Errorf("expected workers %d, got %d (ok=%v)", 4, workers, err)
 	}
 
-	level, ok := target.GetString("logging.level")
-	if !ok || level != "debug" {
-		t.Errorf("expected logging.level %q, got %q (ok=%v)", "debug", level, ok)
+	level, err := target.GetString("logging.level")
+	if err != nil || level != "debug" {
+		t.Errorf("expected logging.level %q, got %q (ok=%v)", "debug", level, err)
 	}
 
 	// Round-trip.
@@ -108,9 +108,9 @@ workers = 4
 		t.Fatalf("Merge returned error: %v", err)
 	}
 
-	workers, ok := target.GetInt("server.workers")
-	if !ok || workers != 4 {
-		t.Errorf("expected workers %d, got %d (ok=%v)", 4, workers, ok)
+	workers, err := target.GetInt("server.workers")
+	if err != nil || workers != 4 {
+		t.Errorf("expected workers %d, got %d (ok=%v)", 4, workers, err)
 	}
 
 	out := string(target.Bytes())
@@ -172,33 +172,33 @@ format = "json"
 	}
 
 	// New values added.
-	version, ok := target.GetString("version")
-	if !ok || version != "1.0.0" {
-		t.Errorf("version not added: %q (ok=%v)", version, ok)
+	version, err := target.GetString("version")
+	if err != nil || version != "1.0.0" {
+		t.Errorf("version not added: %q (ok=%v)", version, err)
 	}
-	workers, ok := target.GetInt("server.workers")
-	if !ok || workers != 4 {
-		t.Errorf("server.workers not added: %d (ok=%v)", workers, ok)
+	workers, err := target.GetInt("server.workers")
+	if err != nil || workers != 4 {
+		t.Errorf("server.workers not added: %d (ok=%v)", workers, err)
 	}
-	debug, ok := target.GetBool("server.debug")
-	if !ok || debug != false {
-		t.Errorf("server.debug not added: %v (ok=%v)", debug, ok)
+	debug, err := target.GetBool("server.debug")
+	if err != nil || debug != false {
+		t.Errorf("server.debug not added: %v (ok=%v)", debug, err)
 	}
-	poolSize, ok := target.GetInt("database.pool_size")
-	if !ok || poolSize != 5 {
-		t.Errorf("database.pool_size not added: %d (ok=%v)", poolSize, ok)
+	poolSize, err := target.GetInt("database.pool_size")
+	if err != nil || poolSize != 5 {
+		t.Errorf("database.pool_size not added: %d (ok=%v)", poolSize, err)
 	}
-	timeout, ok := target.GetInt("database.timeout")
-	if !ok || timeout != 30 {
-		t.Errorf("database.timeout not added: %d (ok=%v)", timeout, ok)
+	timeout, err := target.GetInt("database.timeout")
+	if err != nil || timeout != 30 {
+		t.Errorf("database.timeout not added: %d (ok=%v)", timeout, err)
 	}
-	level, ok := target.GetString("logging.level")
-	if !ok || level != "info" {
-		t.Errorf("logging.level not added: %q (ok=%v)", level, ok)
+	level, err := target.GetString("logging.level")
+	if err != nil || level != "info" {
+		t.Errorf("logging.level not added: %q (ok=%v)", level, err)
 	}
-	format, ok := target.GetString("logging.format")
-	if !ok || format != "json" {
-		t.Errorf("logging.format not added: %q (ok=%v)", format, ok)
+	format, err := target.GetString("logging.format")
+	if err != nil || format != "json" {
+		t.Errorf("logging.format not added: %q (ok=%v)", format, err)
 	}
 
 	// Round-trip.

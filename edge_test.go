@@ -55,9 +55,9 @@ func TestEdgeDeeplyNestedTables(t *testing.T) {
 	}
 
 	// Verify we can access the value through the hierarchy
-	val, ok := doc.GetString("a.b.c.d.e.f.g.h.i.j.key")
-	if !ok || val != "deep" {
-		t.Fatalf("GetString on deep table: got %q, %v; want %q, true", val, ok, "deep")
+	val, err := doc.GetString("a.b.c.d.e.f.g.h.i.j.key")
+	if err != nil || val != "deep" {
+		t.Fatalf("GetString on deep table: got %q, %v; want %q, true", val, err, "deep")
 	}
 }
 
@@ -92,8 +92,8 @@ func TestEdgeVeryLongString(t *testing.T) {
 	if err != nil {
 		t.Fatalf("Parse failed: %v", err)
 	}
-	val, ok := doc.GetString("key")
-	if !ok || val != longStr {
+	val, err := doc.GetString("key")
+	if err != nil || val != longStr {
 		t.Fatalf("GetString: got len=%d, want len=%d", len(val), len(longStr))
 	}
 	out := doc.Bytes()
@@ -101,8 +101,8 @@ func TestEdgeVeryLongString(t *testing.T) {
 	if err != nil {
 		t.Fatalf("re-parse failed: %v", err)
 	}
-	val2, ok := doc2.GetString("key")
-	if !ok || val2 != longStr {
+	val2, err := doc2.GetString("key")
+	if err != nil || val2 != longStr {
 		t.Fatalf("round-trip lost long string: got len=%d, want len=%d", len(val2), len(longStr))
 	}
 }
@@ -146,8 +146,8 @@ func TestEdgeAllEscapeSequences(t *testing.T) {
 	if err != nil {
 		t.Fatalf("Parse failed: %v", err)
 	}
-	val, ok := doc.GetString("key")
-	if !ok {
+	val, err := doc.GetString("key")
+	if err != nil {
 		t.Fatal("GetString failed")
 	}
 	// Expected: tab:\there\nnewline etc. with actual control chars
@@ -185,8 +185,8 @@ func TestEdgeAllEscapeSequences(t *testing.T) {
 	if err != nil {
 		t.Fatalf("re-parse failed: %v", err)
 	}
-	val2, ok := doc2.GetString("key")
-	if !ok || val2 != val {
+	val2, err := doc2.GetString("key")
+	if err != nil || val2 != val {
 		t.Fatalf("round-trip changed escape values:\noriginal: %q\nafter:    %q", val, val2)
 	}
 }
@@ -216,8 +216,8 @@ func TestEdgeUnicodeDirectChars(t *testing.T) {
 	if err != nil {
 		t.Fatalf("Parse failed: %v", err)
 	}
-	val, ok := doc.GetString("greeting")
-	if !ok || val != "\xe4\xbd\xa0\xe5\xa5\xbd" {
+	val, err := doc.GetString("greeting")
+	if err != nil || val != "\xe4\xbd\xa0\xe5\xa5\xbd" {
 		t.Fatalf("expected '你好', got %q", val)
 	}
 }
@@ -237,21 +237,21 @@ level = "info"
 	}
 
 	// Standard key under table
-	val, ok := doc.GetString("server.host")
-	if !ok || val != "localhost" {
-		t.Fatalf("expected 'localhost', got %q, %v", val, ok)
+	val, err := doc.GetString("server.host")
+	if err != nil || val != "localhost" {
+		t.Fatalf("expected 'localhost', got %q, %v", val, err)
 	}
 
 	// Dotted key: database.host under [server]
-	val, ok = doc.GetString("server.database.host")
-	if !ok || val != "db.example.com" {
-		t.Fatalf("expected 'db.example.com', got %q, %v", val, ok)
+	val, err = doc.GetString("server.database.host")
+	if err != nil || val != "db.example.com" {
+		t.Fatalf("expected 'db.example.com', got %q, %v", val, err)
 	}
 
 	// Sub-table key
-	val, ok = doc.GetString("server.logging.level")
-	if !ok || val != "info" {
-		t.Fatalf("expected 'info', got %q, %v", val, ok)
+	val, err = doc.GetString("server.logging.level")
+	if err != nil || val != "info" {
+		t.Fatalf("expected 'info', got %q, %v", val, err)
 	}
 
 	// Round-trip
@@ -282,14 +282,14 @@ func TestEdgeCRLFLineEndings(t *testing.T) {
 		t.Fatalf("Parse failed: %v", err)
 	}
 
-	val, ok := doc.GetString("server.host")
-	if !ok || val != "localhost" {
-		t.Fatalf("expected 'localhost', got %q, %v", val, ok)
+	val, err := doc.GetString("server.host")
+	if err != nil || val != "localhost" {
+		t.Fatalf("expected 'localhost', got %q, %v", val, err)
 	}
 
-	port, ok := doc.GetInt("server.port")
-	if !ok || port != 8080 {
-		t.Fatalf("expected 8080, got %d, %v", port, ok)
+	port, err := doc.GetInt("server.port")
+	if err != nil || port != 8080 {
+		t.Fatalf("expected 8080, got %d, %v", port, err)
 	}
 }
 
@@ -300,9 +300,9 @@ func TestEdgeNoTrailingNewline(t *testing.T) {
 	if err != nil {
 		t.Fatalf("Parse failed: %v", err)
 	}
-	val, ok := doc.GetString("key")
-	if !ok || val != "value" {
-		t.Fatalf("expected 'value', got %q, %v", val, ok)
+	val, err := doc.GetString("key")
+	if err != nil || val != "value" {
+		t.Fatalf("expected 'value', got %q, %v", val, err)
 	}
 
 	// Round-trip should still produce valid TOML
@@ -311,8 +311,8 @@ func TestEdgeNoTrailingNewline(t *testing.T) {
 	if err != nil {
 		t.Fatalf("re-parse of no-trailing-newline output failed: %v\noutput: %q", err, out)
 	}
-	val2, ok := doc2.GetString("key")
-	if !ok || val2 != "value" {
+	val2, err := doc2.GetString("key")
+	if err != nil || val2 != "value" {
 		t.Fatalf("round-trip changed value: %q", val2)
 	}
 }
@@ -324,9 +324,9 @@ func TestEdgeTabIndentation(t *testing.T) {
 	if err != nil {
 		t.Fatalf("Parse failed: %v", err)
 	}
-	val, ok := doc.GetString("server.host")
-	if !ok || val != "localhost" {
-		t.Fatalf("expected 'localhost', got %q, %v", val, ok)
+	val, err := doc.GetString("server.host")
+	if err != nil || val != "localhost" {
+		t.Fatalf("expected 'localhost', got %q, %v", val, err)
 	}
 }
 
@@ -371,24 +371,24 @@ func TestEdgeMultipleOperationsThenRoundTrip(t *testing.T) {
 	}
 
 	// Verify modifications
-	val, ok := doc2.GetString("server.host")
-	if !ok || val != "newhost" {
-		t.Fatalf("expected 'newhost', got %q, %v", val, ok)
+	val, err := doc2.GetString("server.host")
+	if err != nil || val != "newhost" {
+		t.Fatalf("expected 'newhost', got %q, %v", val, err)
 	}
 
-	_, ok = doc2.GetInt("server.port")
-	if ok {
+	_, err = doc2.GetInt("server.port")
+	if err == nil {
 		t.Fatal("expected server.port to be deleted")
 	}
 
-	val, ok = doc2.GetString("products[0].title")
-	if !ok || val != "Widget" {
-		t.Fatalf("expected renamed key 'title' = 'Widget', got %q, %v", val, ok)
+	val, err = doc2.GetString("products[0].title")
+	if err != nil || val != "Widget" {
+		t.Fatalf("expected renamed key 'title' = 'Widget', got %q, %v", val, err)
 	}
 
-	val, ok = doc2.GetString("logging.level")
-	if !ok || val != "info" {
-		t.Fatalf("expected 'info', got %q, %v", val, ok)
+	val, err = doc2.GetString("logging.level")
+	if err != nil || val != "info" {
+		t.Fatalf("expected 'info', got %q, %v", val, err)
 	}
 
 	// Second round-trip must be stable
@@ -548,19 +548,19 @@ func TestEdgeIntegerLikeKeys(t *testing.T) {
 	}
 
 	// These should be found as string keys, not confused with array indices
-	val, ok := doc.GetString(`"0"`)
-	if !ok || val != "zero" {
-		t.Fatalf("expected 'zero', got %q, %v", val, ok)
+	val, err := doc.GetString(`"0"`)
+	if err != nil || val != "zero" {
+		t.Fatalf("expected 'zero', got %q, %v", val, err)
 	}
 
-	val, ok = doc.GetString(`"1"`)
-	if !ok || val != "one" {
-		t.Fatalf("expected 'one', got %q, %v", val, ok)
+	val, err = doc.GetString(`"1"`)
+	if err != nil || val != "one" {
+		t.Fatalf("expected 'one', got %q, %v", val, err)
 	}
 
-	val, ok = doc.GetString(`"42"`)
-	if !ok || val != "answer" {
-		t.Fatalf("expected 'answer', got %q, %v", val, ok)
+	val, err = doc.GetString(`"42"`)
+	if err != nil || val != "answer" {
+		t.Fatalf("expected 'answer', got %q, %v", val, err)
 	}
 
 	// Round-trip

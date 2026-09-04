@@ -36,8 +36,8 @@ func TestParseFile(t *testing.T) {
 	if got := string(doc.Bytes()); got != content {
 		t.Errorf("round-trip = %q, want %q", got, content)
 	}
-	if host, ok := doc.GetString("server.host"); !ok || host != "localhost" {
-		t.Errorf("server.host = %q, %v; want \"localhost\", true", host, ok)
+	if host, err := doc.GetString("server.host"); err != nil || host != "localhost" {
+		t.Errorf("server.host = %q, %v; want \"localhost\", true", host, err)
 	}
 }
 

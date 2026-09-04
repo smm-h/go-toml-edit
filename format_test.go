@@ -551,7 +551,7 @@ name = "two"
 		t.Fatalf("formatted output is not valid TOML: %v\noutput:\n%s", err, string(formatted))
 	}
 	// Verify some values survived.
-	if v, ok := doc2.GetString("title"); !ok || v != "Test" {
+	if v, err := doc2.GetString("title"); err != nil || v != "Test" {
 		t.Errorf("title not preserved: %q", v)
 	}
 }

@@ -1,6 +1,9 @@
 package tomledit
 
-import "strings"
+import (
+	"strings"
+	"time"
+)
 
 // NodeType identifies the kind of AST node.
 type NodeType int
@@ -141,6 +144,42 @@ type Scalar interface {
 	// gives that TOML type: string, int64, float64, bool, time.Time, or one of
 	// LocalDateTime, LocalDate and LocalTime.
 	Value() any
+
+	// The typed accessor family. Each one reads this node through the
+	// conversion table -- the same table and the same conversion the decode
+	// engine runs -- so a value a decode target accepts is a value the matching
+	// accessor accepts. A value the table refuses for the target is a
+	// KindTypeMismatch diagnostic naming both sides; a value it accepts by kind
+	// but cannot carry exactly is KindInexact.
+
+	// AsString reads the node as a string. Only a string is one.
+	AsString() (string, error)
+
+	// AsInt reads the node as an int64. Only an integer is one: a float is
+	// never an integer, however whole it is written.
+	AsInt() (int64, error)
+
+	// AsFloat reads the node as a float64: a float verbatim, and an integer
+	// the target holds exactly.
+	AsFloat() (float64, error)
+
+	// AsBool reads the node as a bool. Only a boolean is one.
+	AsBool() (bool, error)
+
+	// AsTime reads the node as a time.Time: an offset date-time verbatim, and
+	// a local date-time or local date read as UTC, because a time.Time target
+	// declares that intent. A local time carries no date and is refused.
+	AsTime() (time.Time, error)
+
+	// AsLocalDateTime reads the node as a LocalDateTime. Only a local
+	// date-time is one.
+	AsLocalDateTime() (LocalDateTime, error)
+
+	// AsLocalDate reads the node as a LocalDate. Only a local date is one.
+	AsLocalDate() (LocalDate, error)
+
+	// AsLocalTime reads the node as a LocalTime. Only a local time is one.
+	AsLocalTime() (LocalTime, error)
 }
 
 // Every value-carrying node kind, and no other, implements Scalar.

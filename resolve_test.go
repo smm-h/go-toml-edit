@@ -183,7 +183,7 @@ func TestResolve_EditPathsKeepCollectionAddressing(t *testing.T) {
 	if err := doc.Set("coll[0].name", "renamed"); err != nil {
 		t.Fatalf("Set(coll[0].name): %v", err)
 	}
-	if got, ok := doc.GetString("coll[0].name"); !ok || got != "renamed" {
+	if got, err := doc.GetString("coll[0].name"); err != nil || got != "renamed" {
 		t.Errorf("coll[0].name = %q, want %q", got, "renamed")
 	}
 	if err := doc.Delete("coll[0]"); err != nil {
@@ -192,7 +192,7 @@ func TestResolve_EditPathsKeepCollectionAddressing(t *testing.T) {
 	if n := doc.Len("coll"); n != 1 {
 		t.Errorf("after deleting an entry the collection holds %d, want 1", n)
 	}
-	if got, ok := doc.GetString("coll[0].name"); !ok || got != "second" {
+	if got, err := doc.GetString("coll[0].name"); err != nil || got != "second" {
 		t.Errorf("the surviving entry is %q, want %q", got, "second")
 	}
 }

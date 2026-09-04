@@ -76,62 +76,41 @@ func (c *Cursor) Err() error {
 	return c.doc.diag(c.err, "")
 }
 
-// String extracts a string value from the current node.
-// Returns ("", false) if the cursor has an error or the node is not a string.
-func (c *Cursor) String() (string, bool) {
-	if c.err != nil {
-		return "", false
-	}
-	if s, ok := c.pos.node.(*StringNode); ok {
-		return s.val.get(), true
-	}
-	return "", false
-}
+// The terminals. Each reports the navigation failure the chain already carries,
+// then reads the node the cursor stands on through the accessor stages of
+// access.go -- so a terminal answers exactly what the path-level getter of the
+// same type answers, for the same document position.
 
-// Int extracts an integer value from the current node.
-// Returns (0, false) if the cursor has an error or the node is not an integer.
-func (c *Cursor) Int() (int64, bool) {
-	if c.err != nil {
-		return 0, false
-	}
-	if n, ok := c.pos.node.(*IntegerNode); ok {
-		return n.val.get(), true
-	}
-	return 0, false
-}
+// String reads the value at the cursor as a string. It is deliberately not a
+// fmt.Stringer: a cursor is a position, not a rendering of one.
+//
+// The error is the navigation failure that ended the chain, or
+// KindTypeMismatch when the value is not a string.
+func (c *Cursor) String() (string, error) { return cursorAs[string](c) }
 
-// Bool extracts a boolean value from the current node.
-// Returns (false, false) if the cursor has an error or the node is not a boolean.
-func (c *Cursor) Bool() (bool, bool) {
-	if c.err != nil {
-		return false, false
-	}
-	if b, ok := c.pos.node.(*BooleanNode); ok {
-		return b.val.get(), true
-	}
-	return false, false
-}
+// Int reads the value at the cursor as an int64.
+//
+// The error is the navigation failure that ended the chain, or
+// KindTypeMismatch when the value is not an integer.
+func (c *Cursor) Int() (int64, error) { return cursorAs[int64](c) }
 
-// Float extracts a float64 value from the current node.
-// Returns (0, false) if the cursor has an error or the node is not a float.
-func (c *Cursor) Float() (float64, bool) {
-	if c.err != nil {
-		return 0, false
-	}
-	if f, ok := c.pos.node.(*FloatNode); ok {
-		return f.val.get(), true
-	}
-	return 0, false
-}
+// Bool reads the value at the cursor as a bool.
+//
+// The error is the navigation failure that ended the chain, or
+// KindTypeMismatch when the value is not a boolean.
+func (c *Cursor) Bool() (bool, error) { return cursorAs[bool](c) }
 
-// Time extracts a time.Time value from the current node.
-// Returns (time.Time{}, false) if the cursor has an error or the node is not an offset date-time.
-func (c *Cursor) Time() (time.Time, bool) {
-	if c.err != nil {
-		return time.Time{}, false
-	}
-	if dt, ok := c.pos.node.(*DateTimeNode); ok {
-		return dt.val.get(), true
-	}
-	return time.Time{}, false
-}
+// Float reads the value at the cursor as a float64: a float verbatim, and an
+// integer the target holds exactly.
+//
+// The error is the navigation failure that ended the chain, KindTypeMismatch
+// when the value is neither a float nor an integer, or KindInexact for an
+// integer no float64 holds exactly.
+func (c *Cursor) Float() (float64, error) { return cursorAs[float64](c) }
+
+// Time reads the value at the cursor as a time.Time: an offset date-time
+// verbatim, and a local date-time or local date read as UTC.
+//
+// The error is the navigation failure that ended the chain, or
+// KindTypeMismatch when the value is not one of those three flavors.
+func (c *Cursor) Time() (time.Time, error) { return cursorAs[time.Time](c) }

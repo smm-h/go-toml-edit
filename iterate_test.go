@@ -177,8 +177,8 @@ func TestItems_NegativeIndex(t *testing.T) {
 	doc := parseIterateTestDoc(t)
 	// Access the last product via negative index after iterating
 	last := doc.Key("products").At(-1)
-	name, ok := last.Key("name").String()
-	if !ok {
+	name, err := last.Key("name").String()
+	if err != nil {
 		t.Fatal("could not get name from last product")
 	}
 	if name != "Doohickey" {

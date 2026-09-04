@@ -26,8 +26,8 @@ z = 3
 	}
 
 	// a.b.c.z should resolve
-	val, ok := doc.GetInt("a.b.c.z")
-	if !ok {
+	val, err := doc.GetInt("a.b.c.z")
+	if err != nil {
 		t.Fatal("GetInt(\"a.b.c.z\") returned false")
 	}
 	if val != 3 {
@@ -35,8 +35,8 @@ z = 3
 	}
 
 	// a.b.y should resolve
-	val, ok = doc.GetInt("a.b.y")
-	if !ok {
+	val, err = doc.GetInt("a.b.y")
+	if err != nil {
 		t.Fatal("GetInt(\"a.b.y\") returned false")
 	}
 	if val != 2 {
@@ -44,8 +44,8 @@ z = 3
 	}
 
 	// a.x should resolve
-	val, ok = doc.GetInt("a.x")
-	if !ok {
+	val, err = doc.GetInt("a.x")
+	if err != nil {
 		t.Fatal("GetInt(\"a.x\") returned false")
 	}
 	if val != 1 {
@@ -64,8 +64,8 @@ b.c = "hello"
 		t.Fatalf("parse error: %v", err)
 	}
 
-	val, ok := doc.GetString("a.b.c")
-	if !ok {
+	val, err := doc.GetString("a.b.c")
+	if err != nil {
 		t.Fatal("GetString(\"a.b.c\") returned false")
 	}
 	if val != "hello" {
@@ -94,8 +94,8 @@ color = "blue"
 	}
 
 	// products[0].name
-	val, ok := doc.GetString("products[0].name")
-	if !ok {
+	val, err := doc.GetString("products[0].name")
+	if err != nil {
 		t.Fatal("GetString(\"products[0].name\") returned false")
 	}
 	if val != "Widget" {
@@ -103,8 +103,8 @@ color = "blue"
 	}
 
 	// products[0].details.color
-	val, ok = doc.GetString("products[0].details.color")
-	if !ok {
+	val, err = doc.GetString("products[0].details.color")
+	if err != nil {
 		t.Fatal("GetString(\"products[0].details.color\") returned false")
 	}
 	if val != "red" {
@@ -112,8 +112,8 @@ color = "blue"
 	}
 
 	// products[1].details.color
-	val, ok = doc.GetString("products[1].details.color")
-	if !ok {
+	val, err = doc.GetString("products[1].details.color")
+	if err != nil {
 		t.Fatal("GetString(\"products[1].details.color\") returned false")
 	}
 	if val != "blue" {
@@ -269,8 +269,8 @@ val = 42
 		t.Fatalf("parse error: %v", err)
 	}
 
-	val, ok := doc.GetInt("a.b.c.d.e.f.val")
-	if !ok {
+	val, err := doc.GetInt("a.b.c.d.e.f.val")
+	if err != nil {
 		t.Fatal("GetInt(\"a.b.c.d.e.f.val\") returned false")
 	}
 	if val != 42 {
@@ -285,8 +285,8 @@ func TestAudit_GetStringOnInt(t *testing.T) {
 	if err != nil {
 		t.Fatalf("parse error: %v", err)
 	}
-	val, ok := doc.GetString("val")
-	if ok {
+	val, err := doc.GetString("val")
+	if err == nil {
 		t.Errorf("GetString on integer should return false, got (%q, true)", val)
 	}
 	if val != "" {
@@ -299,8 +299,8 @@ func TestAudit_GetIntOnString(t *testing.T) {
 	if err != nil {
 		t.Fatalf("parse error: %v", err)
 	}
-	val, ok := doc.GetInt("val")
-	if ok {
+	val, err := doc.GetInt("val")
+	if err == nil {
 		t.Errorf("GetInt on string should return false, got (%d, true)", val)
 	}
 	if val != 0 {
@@ -313,8 +313,8 @@ func TestAudit_GetBoolOnString(t *testing.T) {
 	if err != nil {
 		t.Fatalf("parse error: %v", err)
 	}
-	val, ok := doc.GetBool("val")
-	if ok {
+	val, err := doc.GetBool("val")
+	if err == nil {
 		t.Errorf("GetBool on string should return false")
 	}
 	if val != false {
@@ -327,8 +327,8 @@ func TestAudit_GetFloatOnBool(t *testing.T) {
 	if err != nil {
 		t.Fatalf("parse error: %v", err)
 	}
-	val, ok := doc.GetFloat("val")
-	if ok {
+	val, err := doc.GetFloat("val")
+	if err == nil {
 		t.Errorf("GetFloat on bool should return false")
 	}
 	if val != 0 {
@@ -341,9 +341,9 @@ func TestAudit_GetTimeOnString(t *testing.T) {
 	if err != nil {
 		t.Fatalf("parse error: %v", err)
 	}
-	_, ok := doc.GetTime("val")
-	if ok {
-		t.Error("GetTime on string should return false")
+	_, err = doc.GetTime("val")
+	if err == nil {
+		t.Error("GetTime on a string reported no error")
 	}
 }
 
@@ -352,20 +352,26 @@ func TestAudit_GetIntOnFloat(t *testing.T) {
 	if err != nil {
 		t.Fatalf("parse error: %v", err)
 	}
-	val, ok := doc.GetInt("val")
-	if ok {
+	val, err := doc.GetInt("val")
+	if err == nil {
 		t.Errorf("GetInt on float should return false, got (%d, true)", val)
 	}
 }
 
+// Fails if GetFloat stops reading the conversion table's integer-into-float
+// row: an integer a float64 holds exactly is a float64, and one it does not is
+// an inexact-value diagnostic rather than a silent answer.
 func TestAudit_GetFloatOnInt(t *testing.T) {
-	doc, err := Parse([]byte(`val = 42`))
+	doc, err := Parse([]byte("exact = 42\ninexact = 9007199254740993\n"))
 	if err != nil {
 		t.Fatalf("parse error: %v", err)
 	}
-	val, ok := doc.GetFloat("val")
-	if ok {
-		t.Errorf("GetFloat on int should return false, got (%f, true)", val)
+	val, err := doc.GetFloat("exact")
+	if err != nil || val != 42 {
+		t.Errorf("GetFloat on an exactly representable integer: (%f, %v)", val, err)
+	}
+	if _, err := doc.GetFloat("inexact"); !errors.Is(err, ErrInexact) {
+		t.Errorf("GetFloat on an integer no float64 holds exactly = %v, want an inexact-value diagnostic", err)
 	}
 }
 
@@ -464,8 +470,8 @@ func TestAudit_DottedKeyIntermediateAccess(t *testing.T) {
 	}
 
 	// Full path should work
-	val, ok := doc.GetString("a.b.c")
-	if !ok {
+	val, err := doc.GetString("a.b.c")
+	if err != nil {
 		t.Fatal("GetString(\"a.b.c\") returned false")
 	}
 	if val != "deep" {
@@ -509,8 +515,8 @@ nested = {a = {b = {c = 42}}}
 		t.Fatalf("parse error: %v", err)
 	}
 
-	val, ok := doc.GetInt("section.nested.a.b.c")
-	if !ok {
+	val, err := doc.GetInt("section.nested.a.b.c")
+	if err != nil {
 		t.Fatal("GetInt(\"section.nested.a.b.c\") returned false")
 	}
 	if val != 42 {
@@ -530,8 +536,8 @@ arr = ["a", "b", "c"]
 	}
 
 	// arr[0]
-	val, ok := doc.GetString("arr[0]")
-	if !ok {
+	val, err := doc.GetString("arr[0]")
+	if err != nil {
 		t.Fatal("GetString(\"arr[0]\") returned false")
 	}
 	if val != "a" {
@@ -539,8 +545,8 @@ arr = ["a", "b", "c"]
 	}
 
 	// arr[-1]
-	val, ok = doc.GetString("arr[-1]")
-	if !ok {
+	val, err = doc.GetString("arr[-1]")
+	if err != nil {
 		t.Fatal("GetString(\"arr[-1]\") returned false")
 	}
 	if val != "c" {
@@ -598,19 +604,19 @@ func TestAudit_GettersSilentOnErrors(t *testing.T) {
 	}
 
 	// All should return zero values silently
-	if s, ok := doc.GetString("bad["); ok || s != "" {
-		t.Errorf("GetString on bad path: (%q, %v)", s, ok)
+	if s, err := doc.GetString("bad["); err == nil || s != "" {
+		t.Errorf("GetString on bad path: (%q, %v)", s, err)
 	}
-	if n, ok := doc.GetInt("bad["); ok || n != 0 {
-		t.Errorf("GetInt on bad path: (%d, %v)", n, ok)
+	if n, err := doc.GetInt("bad["); err == nil || n != 0 {
+		t.Errorf("GetInt on bad path: (%d, %v)", n, err)
 	}
-	if b, ok := doc.GetBool("bad["); ok || b != false {
-		t.Errorf("GetBool on bad path: (%v, %v)", b, ok)
+	if b, err := doc.GetBool("bad["); err == nil || b != false {
+		t.Errorf("GetBool on bad path: (%v, %v)", b, err)
 	}
-	if f, ok := doc.GetFloat("bad["); ok || f != 0 {
-		t.Errorf("GetFloat on bad path: (%f, %v)", f, ok)
+	if f, err := doc.GetFloat("bad["); err == nil || f != 0 {
+		t.Errorf("GetFloat on bad path: (%f, %v)", f, err)
 	}
-	if _, ok := doc.GetTime("bad["); ok {
+	if _, err := doc.GetTime("bad["); err == nil {
 		t.Error("GetTime on bad path should return false")
 	}
 	if node, ok := doc.Lookup("bad["); ok {
@@ -627,8 +633,8 @@ func TestAudit_TopLevelKey(t *testing.T) {
 		t.Fatalf("parse error: %v", err)
 	}
 
-	val, ok := doc.GetString("title")
-	if !ok {
+	val, err := doc.GetString("title")
+	if err != nil {
 		t.Fatal("GetString(\"title\") returned false")
 	}
 	if val != "My TOML" {

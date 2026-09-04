@@ -24,19 +24,19 @@ x = 1
 	}
 
 	// All typed extractors should return zero/false
-	if s, ok := c.String(); ok || s != "" {
-		t.Errorf("String() after error: (%q, %v)", s, ok)
+	if s, err := c.String(); err == nil || s != "" {
+		t.Errorf("String() after error: (%q, %v)", s, err)
 	}
-	if n, ok := c.Int(); ok || n != 0 {
-		t.Errorf("Int() after error: (%d, %v)", n, ok)
+	if n, err := c.Int(); err == nil || n != 0 {
+		t.Errorf("Int() after error: (%d, %v)", n, err)
 	}
-	if b, ok := c.Bool(); ok || b != false {
-		t.Errorf("Bool() after error: (%v, %v)", b, ok)
+	if b, err := c.Bool(); err == nil || b != false {
+		t.Errorf("Bool() after error: (%v, %v)", b, err)
 	}
-	if f, ok := c.Float(); ok || f != 0 {
-		t.Errorf("Float() after error: (%f, %v)", f, ok)
+	if f, err := c.Float(); err == nil || f != 0 {
+		t.Errorf("Float() after error: (%f, %v)", f, err)
 	}
-	if _, ok := c.Time(); ok {
+	if _, err := c.Time(); err == nil {
 		t.Error("Time() after error should return false")
 	}
 }
@@ -145,8 +145,8 @@ z = 3
 		t.Fatalf("parse error: %v", err)
 	}
 
-	val, ok := doc.Key("a").Key("b").Key("c").Key("z").Int()
-	if !ok {
+	val, err := doc.Key("a").Key("b").Key("c").Key("z").Int()
+	if err != nil {
 		t.Fatal("cursor a.b.c.z Int() returned false")
 	}
 	if val != 3 {
@@ -173,8 +173,8 @@ name = "Doohickey"
 	}
 
 	// Positive index
-	val, ok := doc.Key("products").At(2).Key("name").String()
-	if !ok {
+	val, err := doc.Key("products").At(2).Key("name").String()
+	if err != nil {
 		t.Fatal("products[2].name returned false")
 	}
 	if val != "Doohickey" {
@@ -182,8 +182,8 @@ name = "Doohickey"
 	}
 
 	// Negative index
-	val, ok = doc.Key("products").At(-1).Key("name").String()
-	if !ok {
+	val, err = doc.Key("products").At(-1).Key("name").String()
+	if err != nil {
 		t.Fatal("products[-1].name returned false")
 	}
 	if val != "Doohickey" {
@@ -208,24 +208,24 @@ tbl = {a = 1, b = "hello", c = true}
 		t.Fatalf("parse error: %v", err)
 	}
 
-	val, ok := doc.Key("tbl").Key("a").Int()
-	if !ok {
+	val, err := doc.Key("tbl").Key("a").Int()
+	if err != nil {
 		t.Fatal("tbl.a returned false")
 	}
 	if val != 1 {
 		t.Errorf("expected 1, got %d", val)
 	}
 
-	sval, ok := doc.Key("tbl").Key("b").String()
-	if !ok {
+	sval, err := doc.Key("tbl").Key("b").String()
+	if err != nil {
 		t.Fatal("tbl.b returned false")
 	}
 	if sval != "hello" {
 		t.Errorf("expected \"hello\", got %q", sval)
 	}
 
-	bval, ok := doc.Key("tbl").Key("c").Bool()
-	if !ok {
+	bval, err := doc.Key("tbl").Key("c").Bool()
+	if err != nil {
 		t.Fatal("tbl.c returned false")
 	}
 	if bval != true {
@@ -245,28 +245,29 @@ func TestAuditCursor_TypeMismatch(t *testing.T) {
 	c := doc.Key("val")
 
 	// Int on int should work
-	if n, ok := c.Int(); !ok || n != 42 {
-		t.Errorf("Int() on int: (%d, %v)", n, ok)
+	if n, err := c.Int(); err != nil || n != 42 {
+		t.Errorf("Int() on int: (%d, %v)", n, err)
 	}
 
 	// String on int should fail
-	if s, ok := c.String(); ok || s != "" {
-		t.Errorf("String() on int: (%q, %v)", s, ok)
+	if s, err := c.String(); err == nil || s != "" {
+		t.Errorf("String() on int: (%q, %v)", s, err)
 	}
 
 	// Bool on int should fail
-	if b, ok := c.Bool(); ok || b != false {
-		t.Errorf("Bool() on int: (%v, %v)", b, ok)
+	if b, err := c.Bool(); err == nil || b != false {
+		t.Errorf("Bool() on int: (%v, %v)", b, err)
 	}
 
-	// Float on int should fail
-	if f, ok := c.Float(); ok || f != 0 {
-		t.Errorf("Float() on int: (%f, %v)", f, ok)
+	// Float on an integer the target holds exactly is the conversion table's
+	// widening row, and answers.
+	if f, err := c.Float(); err != nil || f != 42 {
+		t.Errorf("Float() on int: (%f, %v)", f, err)
 	}
 
 	// Time on int should fail
-	if _, ok := c.Time(); ok {
-		t.Error("Time() on int should return false")
+	if _, err := c.Time(); err == nil {
+		t.Error("Time() on an integer reported no error")
 	}
 }
 
@@ -313,8 +314,8 @@ a.b.c = "dotted"
 		t.Fatalf("parse error: %v", err)
 	}
 
-	val, ok := doc.Key("section").Key("a").Key("b").Key("c").String()
-	if !ok {
+	val, err := doc.Key("section").Key("a").Key("b").Key("c").String()
+	if err != nil {
 		t.Fatal("section.a.b.c String() returned false")
 	}
 	if val != "dotted" {
@@ -331,8 +332,8 @@ func TestAuditCursor_ArrayValueIndexing(t *testing.T) {
 		t.Fatalf("parse error: %v", err)
 	}
 
-	val, ok := doc.Key("arr").At(1).Int()
-	if !ok {
+	val, err := doc.Key("arr").At(1).Int()
+	if err != nil {
 		t.Fatal("arr[1] Int() returned false")
 	}
 	if val != 20 {
@@ -340,8 +341,8 @@ func TestAuditCursor_ArrayValueIndexing(t *testing.T) {
 	}
 
 	// Negative index
-	val, ok = doc.Key("arr").At(-1).Int()
-	if !ok {
+	val, err = doc.Key("arr").At(-1).Int()
+	if err != nil {
 		t.Fatal("arr[-1] Int() returned false")
 	}
 	if val != 30 {

@@ -53,8 +53,8 @@ kind = "index"
 	byKind := map[string][]string{}
 	var unranked []string
 	for entry := range doc.Root().Entries() {
-		kind, ok := doc.GetString(entry.Key() + ".kind")
-		if !ok {
+		kind, err := doc.GetString(entry.Key() + ".kind")
+		if err != nil {
 			t.Fatalf("table %q carries no kind", entry.Key())
 		}
 		if !contains(ranking, kind) {

@@ -1,6 +1,7 @@
 package tomledit_test
 
 import (
+	"errors"
 	"fmt"
 
 	"github.com/smm-h/go-toml-edit"
@@ -14,11 +15,19 @@ port = 8080
 	if err != nil {
 		panic(err)
 	}
-	fmt.Println(doc.GetString("server.host"))
-	fmt.Println(doc.GetInt("server.port"))
+	host, err := doc.GetString("server.host")
+	if err != nil {
+		panic(err)
+	}
+	port, err := doc.GetInt("server.port")
+	if err != nil {
+		panic(err)
+	}
+	fmt.Println(host)
+	fmt.Println(port)
 	// Output:
-	// localhost true
-	// 8080 true
+	// localhost
+	// 8080
 }
 
 func ExampleDocument_Set() {
@@ -33,9 +42,13 @@ port = 8080
 	if err != nil {
 		panic(err)
 	}
-	fmt.Println(doc.GetInt("server.port"))
+	port, err := doc.GetInt("server.port")
+	if err != nil {
+		panic(err)
+	}
+	fmt.Println(port)
 	// Output:
-	// 9090 true
+	// 9090
 }
 
 func ExampleDocument_SetCreate() {
@@ -49,9 +62,13 @@ func ExampleDocument_SetCreate() {
 	if err != nil {
 		panic(err)
 	}
-	fmt.Println(doc.GetString("database.host"))
+	host, err := doc.GetString("database.host")
+	if err != nil {
+		panic(err)
+	}
+	fmt.Println(host)
 	// Output:
-	// db.example.com true
+	// db.example.com
 }
 
 func ExampleDocument_Delete() {
@@ -67,9 +84,11 @@ debug = true
 	if err != nil {
 		panic(err)
 	}
-	fmt.Println(doc.GetBool("server.debug"))
+	// The key is gone, so reading it is a not-found diagnostic.
+	_, err = doc.GetBool("server.debug")
+	fmt.Println(errors.Is(err, tomledit.ErrNotFound))
 	// Output:
-	// false false
+	// true
 }
 
 func ExampleDocument_Format() {
@@ -99,14 +118,20 @@ port = 5432
 	if err != nil {
 		panic(err)
 	}
-	host, ok := doc.Key("database").Key("host").String()
-	fmt.Println(host, ok)
+	host, err := doc.Key("database").Key("host").String()
+	if err != nil {
+		panic(err)
+	}
+	fmt.Println(host)
 
-	port, ok := doc.Key("database").Key("port").Int()
-	fmt.Println(port, ok)
+	port, err := doc.Key("database").Key("port").Int()
+	if err != nil {
+		panic(err)
+	}
+	fmt.Println(port)
 	// Output:
-	// localhost true
-	// 5432 true
+	// localhost
+	// 5432
 }
 
 func ExampleUnmarshal() {
@@ -189,10 +214,18 @@ port = 8080
 		panic(err)
 	}
 	// host was already set, so it keeps "localhost".
-	fmt.Println(base.GetString("server.host"))
+	host, err := base.GetString("server.host")
+	if err != nil {
+		panic(err)
+	}
 	// port was missing, so it was added from defaults.
-	fmt.Println(base.GetInt("server.port"))
+	port, err := base.GetInt("server.port")
+	if err != nil {
+		panic(err)
+	}
+	fmt.Println(host)
+	fmt.Println(port)
 	// Output:
-	// localhost true
-	// 8080 true
+	// localhost
+	// 8080
 }

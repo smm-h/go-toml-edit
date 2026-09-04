@@ -13,8 +13,8 @@ func TestCompoundTablePath_DeepGet(t *testing.T) {
 	if err != nil {
 		t.Fatalf("Parse failed: %v", err)
 	}
-	val, ok := doc.GetString("a.b.c.d.key")
-	if !ok {
+	val, err := doc.GetString("a.b.c.d.key")
+	if err != nil {
 		t.Fatalf("GetString(\"a.b.c.d.key\") returned not-ok; expected \"deep\"")
 	}
 	if val != "deep" {
@@ -41,8 +41,8 @@ func TestCompoundTablePath_TwoLevels(t *testing.T) {
 	if err != nil {
 		t.Fatalf("Parse failed: %v", err)
 	}
-	v, ok := doc.GetInt("x.y.val")
-	if !ok {
+	v, err := doc.GetInt("x.y.val")
+	if err != nil {
 		t.Fatalf("GetInt(\"x.y.val\") returned not-ok; expected 1")
 	}
 	if v != 1 {
@@ -62,16 +62,16 @@ func TestDottedKeys_MultipleWithSharedPrefix_TopLevel(t *testing.T) {
 		t.Fatalf("Parse failed: %v", err)
 	}
 
-	host, ok := doc.GetString("database.host")
-	if !ok {
+	host, err := doc.GetString("database.host")
+	if err != nil {
 		t.Fatalf("GetString(\"database.host\") returned not-ok; expected \"localhost\"")
 	}
 	if host != "localhost" {
 		t.Fatalf("GetString(\"database.host\") = %q; want \"localhost\"", host)
 	}
 
-	port, ok := doc.GetInt("database.port")
-	if !ok {
+	port, err := doc.GetInt("database.port")
+	if err != nil {
 		t.Fatalf("GetInt(\"database.port\") returned not-ok; expected 5432")
 	}
 	if port != 5432 {
@@ -86,16 +86,16 @@ func TestDottedKeys_MultipleWithSharedPrefix_InsideTable(t *testing.T) {
 		t.Fatalf("Parse failed: %v", err)
 	}
 
-	host, ok := doc.GetString("server.database.host")
-	if !ok {
+	host, err := doc.GetString("server.database.host")
+	if err != nil {
 		t.Fatalf("GetString(\"server.database.host\") returned not-ok; expected \"localhost\"")
 	}
 	if host != "localhost" {
 		t.Fatalf("GetString(\"server.database.host\") = %q; want \"localhost\"", host)
 	}
 
-	port, ok := doc.GetInt("server.database.port")
-	if !ok {
+	port, err := doc.GetInt("server.database.port")
+	if err != nil {
 		t.Fatalf("GetInt(\"server.database.port\") returned not-ok; expected 5432")
 	}
 	if port != 5432 {
@@ -110,24 +110,24 @@ func TestDottedKeys_ThreeKeysSharedPrefix(t *testing.T) {
 		t.Fatalf("Parse failed: %v", err)
 	}
 
-	host, ok := doc.GetString("db.host")
-	if !ok {
+	host, err := doc.GetString("db.host")
+	if err != nil {
 		t.Fatalf("GetString(\"db.host\") returned not-ok")
 	}
 	if host != "localhost" {
 		t.Fatalf("got %q, want \"localhost\"", host)
 	}
 
-	port, ok := doc.GetInt("db.port")
-	if !ok {
+	port, err := doc.GetInt("db.port")
+	if err != nil {
 		t.Fatalf("GetInt(\"db.port\") returned not-ok")
 	}
 	if port != 5432 {
 		t.Fatalf("got %d, want 5432", port)
 	}
 
-	name, ok := doc.GetString("db.name")
-	if !ok {
+	name, err := doc.GetString("db.name")
+	if err != nil {
 		t.Fatalf("GetString(\"db.name\") returned not-ok")
 	}
 	if name != "mydb" {
@@ -142,16 +142,16 @@ func TestDottedKeys_DeeperSharedPrefix(t *testing.T) {
 		t.Fatalf("Parse failed: %v", err)
 	}
 
-	x, ok := doc.GetInt("a.b.x")
-	if !ok {
+	x, err := doc.GetInt("a.b.x")
+	if err != nil {
 		t.Fatalf("GetInt(\"a.b.x\") returned not-ok")
 	}
 	if x != 1 {
 		t.Fatalf("got %d, want 1", x)
 	}
 
-	y, ok := doc.GetInt("a.b.y")
-	if !ok {
+	y, err := doc.GetInt("a.b.y")
+	if err != nil {
 		t.Fatalf("GetInt(\"a.b.y\") returned not-ok")
 	}
 	if y != 2 {
@@ -167,16 +167,16 @@ func TestCompoundTableWithDottedKeys(t *testing.T) {
 		t.Fatalf("Parse failed: %v", err)
 	}
 
-	x, ok := doc.GetInt("a.b.c.x")
-	if !ok {
+	x, err := doc.GetInt("a.b.c.x")
+	if err != nil {
 		t.Fatalf("GetInt(\"a.b.c.x\") returned not-ok; expected 10")
 	}
 	if x != 10 {
 		t.Fatalf("got %d, want 10", x)
 	}
 
-	y, ok := doc.GetInt("a.b.c.y")
-	if !ok {
+	y, err := doc.GetInt("a.b.c.y")
+	if err != nil {
 		t.Fatalf("GetInt(\"a.b.c.y\") returned not-ok; expected 20")
 	}
 	if y != 20 {

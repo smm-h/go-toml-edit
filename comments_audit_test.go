@@ -124,9 +124,9 @@ func TestAudit_SetComment_ReparsePreservesComment(t *testing.T) {
 	}
 
 	// Value should survive.
-	val, ok := doc2.GetString("name")
-	if !ok || val != "test" {
-		t.Errorf("expected name='test' after re-parse, got %q (ok=%v)", val, ok)
+	val, err := doc2.GetString("name")
+	if err != nil || val != "test" {
+		t.Errorf("expected name='test' after re-parse, got %q (ok=%v)", val, err)
 	}
 
 	// Comment should survive in serialized output.

@@ -17,16 +17,16 @@ func TestAccessorWidening_ExactIntegerReadsAsFloat(t *testing.T) {
 		t.Fatalf("parse error: %v", err)
 	}
 
-	got, ok := doc.GetFloat("val")
-	if !ok {
+	got, err := doc.GetFloat("val")
+	if err != nil {
 		t.Errorf("GetFloat on an exactly representable integer refused it")
 	}
 	if got != 42 {
 		t.Errorf("GetFloat read %v, want 42", got)
 	}
 
-	cur, ok := doc.Key("val").Float()
-	if !ok {
+	cur, err := doc.Key("val").Float()
+	if err != nil {
 		t.Errorf("Cursor.Float on an exactly representable integer refused it")
 	}
 	if cur != 42 {
@@ -43,16 +43,16 @@ func TestAccessorWidening_LocalFlavorsReadAsTime(t *testing.T) {
 		t.Fatalf("parse error: %v", err)
 	}
 
-	got, ok := doc.GetTime("dt")
-	if !ok {
+	got, err := doc.GetTime("dt")
+	if err != nil {
 		t.Errorf("GetTime on a local date-time refused it")
 	}
 	if want := time.Date(1979, 5, 27, 7, 32, 0, 0, time.UTC); !got.Equal(want) {
 		t.Errorf("GetTime read %v, want %v", got, want)
 	}
 
-	got, ok = doc.GetTime("d")
-	if !ok {
+	got, err = doc.GetTime("d")
+	if err != nil {
 		t.Errorf("GetTime on a local date refused it")
 	}
 	if want := time.Date(1979, 5, 27, 0, 0, 0, 0, time.UTC); !got.Equal(want) {

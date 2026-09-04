@@ -32,33 +32,33 @@ z = 3
 	}
 
 	// Level 1: existing key preserved, new key added
-	x, ok := doc.GetInt("a.x")
-	if !ok || x != 1 {
-		t.Errorf("a.x: got %d (ok=%v), want 1", x, ok)
+	x, err := doc.GetInt("a.x")
+	if err != nil || x != 1 {
+		t.Errorf("a.x: got %d (ok=%v), want 1", x, err)
 	}
-	w, ok := doc.GetInt("a.w")
-	if !ok || w != 10 {
-		t.Errorf("a.w: got %d (ok=%v), want 10", w, ok)
+	w, err := doc.GetInt("a.w")
+	if err != nil || w != 10 {
+		t.Errorf("a.w: got %d (ok=%v), want 10", w, err)
 	}
 
 	// Level 2: existing key preserved, new key added
-	y, ok := doc.GetInt("a.b.y")
-	if !ok || y != 2 {
-		t.Errorf("a.b.y: got %d (ok=%v), want 2", y, ok)
+	y, err := doc.GetInt("a.b.y")
+	if err != nil || y != 2 {
+		t.Errorf("a.b.y: got %d (ok=%v), want 2", y, err)
 	}
-	v, ok := doc.GetInt("a.b.v")
-	if !ok || v != 20 {
-		t.Errorf("a.b.v: got %d (ok=%v), want 20", v, ok)
+	v, err := doc.GetInt("a.b.v")
+	if err != nil || v != 20 {
+		t.Errorf("a.b.v: got %d (ok=%v), want 20", v, err)
 	}
 
 	// Level 3: existing key preserved, new key added
-	z, ok := doc.GetInt("a.b.c.z")
-	if !ok || z != 3 {
-		t.Errorf("a.b.c.z: got %d (ok=%v), want 3", z, ok)
+	z, err := doc.GetInt("a.b.c.z")
+	if err != nil || z != 3 {
+		t.Errorf("a.b.c.z: got %d (ok=%v), want 3", z, err)
 	}
-	u, ok := doc.GetInt("a.b.c.u")
-	if !ok || u != 30 {
-		t.Errorf("a.b.c.u: got %d (ok=%v), want 30", u, ok)
+	u, err := doc.GetInt("a.b.c.u")
+	if err != nil || u != 30 {
+		t.Errorf("a.b.c.u: got %d (ok=%v), want 30", u, err)
 	}
 
 	// Round-trip
@@ -115,21 +115,21 @@ host = "db.example.com"
 	}
 
 	// New keys added
-	workers, ok := doc.GetInt("server.workers")
-	if !ok || workers != 4 {
-		t.Errorf("server.workers: got %d (ok=%v), want 4", workers, ok)
+	workers, err := doc.GetInt("server.workers")
+	if err != nil || workers != 4 {
+		t.Errorf("server.workers: got %d (ok=%v), want 4", workers, err)
 	}
-	dbPort, ok := doc.GetInt("server.database.port")
-	if !ok || dbPort != 5432 {
-		t.Errorf("server.database.port: got %d (ok=%v), want 5432", dbPort, ok)
+	dbPort, err := doc.GetInt("server.database.port")
+	if err != nil || dbPort != 5432 {
+		t.Errorf("server.database.port: got %d (ok=%v), want 5432", dbPort, err)
 	}
-	poolSize, ok := doc.GetInt("server.database.pool_size")
-	if !ok || poolSize != 10 {
-		t.Errorf("server.database.pool_size: got %d (ok=%v), want 10", poolSize, ok)
+	poolSize, err := doc.GetInt("server.database.pool_size")
+	if err != nil || poolSize != 10 {
+		t.Errorf("server.database.pool_size: got %d (ok=%v), want 10", poolSize, err)
 	}
-	ssl, ok := doc.GetBool("server.database.ssl")
-	if !ok || ssl != false {
-		t.Errorf("server.database.ssl: got %v (ok=%v), want false", ssl, ok)
+	ssl, err := doc.GetBool("server.database.ssl")
+	if err != nil || ssl != false {
+		t.Errorf("server.database.ssl: got %v (ok=%v), want false", ssl, err)
 	}
 
 	// Round-trip
@@ -210,13 +210,13 @@ func TestAudit_Merge_NewInlineTable(t *testing.T) {
 	}
 
 	// The inline table should exist and be queryable
-	x, ok := target.GetInt("config.x")
-	if !ok || x != 1 {
-		t.Errorf("config.x: got %d (ok=%v), want 1", x, ok)
+	x, err := target.GetInt("config.x")
+	if err != nil || x != 1 {
+		t.Errorf("config.x: got %d (ok=%v), want 1", x, err)
 	}
-	y, ok := target.GetString("config.y")
-	if !ok || y != "hello" {
-		t.Errorf("config.y: got %q (ok=%v), want %q", y, ok, "hello")
+	y, err := target.GetString("config.y")
+	if err != nil || y != "hello" {
+		t.Errorf("config.y: got %q (ok=%v), want %q", y, err, "hello")
 	}
 
 	// Round-trip
@@ -282,13 +282,13 @@ level = "debug"
 	if host != "myhost" {
 		t.Errorf("server.host: got %q, want %q", host, "myhost")
 	}
-	workers, ok := target2.GetInt("server.workers")
-	if !ok || workers != 4 {
-		t.Errorf("server.workers: got %d (ok=%v), want 4", workers, ok)
+	workers, err := target2.GetInt("server.workers")
+	if err != nil || workers != 4 {
+		t.Errorf("server.workers: got %d (ok=%v), want 4", workers, err)
 	}
-	level, ok := target2.GetString("logging.level")
-	if !ok || level != "debug" {
-		t.Errorf("logging.level: got %q (ok=%v), want %q", level, ok, "debug")
+	level, err := target2.GetString("logging.level")
+	if err != nil || level != "debug" {
+		t.Errorf("logging.level: got %q (ok=%v), want %q", level, err, "debug")
 	}
 }
 
@@ -317,18 +317,18 @@ price = 0.05
 	}
 
 	// The array-of-tables entries should be queryable
-	name0, ok := target.GetString("products[0].name")
-	if !ok || name0 != "Hammer" {
-		t.Errorf("products[0].name: got %q (ok=%v), want %q", name0, ok, "Hammer")
+	name0, err := target.GetString("products[0].name")
+	if err != nil || name0 != "Hammer" {
+		t.Errorf("products[0].name: got %q (ok=%v), want %q", name0, err, "Hammer")
 	}
-	price0, ok := target.GetFloat("products[0].price")
-	if !ok || price0 != 9.99 {
-		t.Errorf("products[0].price: got %v (ok=%v), want 9.99", price0, ok)
+	price0, err := target.GetFloat("products[0].price")
+	if err != nil || price0 != 9.99 {
+		t.Errorf("products[0].price: got %v (ok=%v), want 9.99", price0, err)
 	}
 
-	name1, ok := target.GetString("products[1].name")
-	if !ok || name1 != "Nail" {
-		t.Errorf("products[1].name: got %q (ok=%v), want %q", name1, ok, "Nail")
+	name1, err := target.GetString("products[1].name")
+	if err != nil || name1 != "Nail" {
+		t.Errorf("products[1].name: got %q (ok=%v), want %q", name1, err, "Nail")
 	}
 
 	// Round-trip
@@ -360,9 +360,9 @@ price = 1.00
 	}
 
 	// Target's existing entry should be preserved
-	name0, ok := target.GetString("products[0].name")
-	if !ok || name0 != "Existing" {
-		t.Errorf("products[0].name: got %q (ok=%v), want %q", name0, ok, "Existing")
+	name0, err := target.GetString("products[0].name")
+	if err != nil || name0 != "Existing" {
+		t.Errorf("products[0].name: got %q (ok=%v), want %q", name0, err, "Existing")
 	}
 
 	// Round-trip

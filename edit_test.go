@@ -53,8 +53,8 @@ func TestSet_ExistingValue(t *testing.T) {
 	if err != nil {
 		t.Fatalf("Set returned error: %v", err)
 	}
-	val, ok := doc.GetString("server.host")
-	if !ok {
+	val, err := doc.GetString("server.host")
+	if err != nil {
 		t.Fatal("GetString returned false after Set")
 	}
 	if val != "newhost" {
@@ -69,9 +69,9 @@ func TestSet_ExistingValue(t *testing.T) {
 
 	// Round-trip.
 	doc2 := roundTrip(t, doc)
-	val2, ok := doc2.GetString("server.host")
-	if !ok || val2 != "newhost" {
-		t.Errorf("round-trip: expected \"newhost\", got %q (ok=%v)", val2, ok)
+	val2, err := doc2.GetString("server.host")
+	if err != nil || val2 != "newhost" {
+		t.Errorf("round-trip: expected \"newhost\", got %q (ok=%v)", val2, err)
 	}
 }
 
@@ -81,8 +81,8 @@ func TestSet_DifferentType(t *testing.T) {
 	if err != nil {
 		t.Fatalf("Set returned error: %v", err)
 	}
-	val, ok := doc.GetString("server.port")
-	if !ok {
+	val, err := doc.GetString("server.port")
+	if err != nil {
 		t.Fatal("GetString returned false after type change")
 	}
 	if val != "not-a-number" {
@@ -97,8 +97,8 @@ func TestSet_AddNewKeyToExistingTable(t *testing.T) {
 	if err != nil {
 		t.Fatalf("Set returned error: %v", err)
 	}
-	val, ok := doc.GetInt("server.workers")
-	if !ok {
+	val, err := doc.GetInt("server.workers")
+	if err != nil {
 		t.Fatal("GetInt returned false for new key")
 	}
 	if val != 4 {
@@ -126,8 +126,8 @@ func TestSetCreate_AutoCreates(t *testing.T) {
 	if err != nil {
 		t.Fatalf("SetCreate returned error: %v", err)
 	}
-	val, ok := doc.GetString("new.section.key")
-	if !ok {
+	val, err := doc.GetString("new.section.key")
+	if err != nil {
 		t.Fatal("GetString returned false after SetCreate")
 	}
 	if val != "val" {
@@ -152,44 +152,44 @@ func TestSet_AllPrimitiveTypes(t *testing.T) {
 		{
 			key: "server.str", value: "hello",
 			check: func(t *testing.T, doc *Document) {
-				v, ok := doc.GetString("server.str")
-				if !ok || v != "hello" {
-					t.Errorf("string: expected \"hello\", got %q (ok=%v)", v, ok)
+				v, err := doc.GetString("server.str")
+				if err != nil || v != "hello" {
+					t.Errorf("string: expected \"hello\", got %q (ok=%v)", v, err)
 				}
 			},
 		},
 		{
 			key: "server.num", value: 42,
 			check: func(t *testing.T, doc *Document) {
-				v, ok := doc.GetInt("server.num")
-				if !ok || v != 42 {
-					t.Errorf("int: expected 42, got %d (ok=%v)", v, ok)
+				v, err := doc.GetInt("server.num")
+				if err != nil || v != 42 {
+					t.Errorf("int: expected 42, got %d (ok=%v)", v, err)
 				}
 			},
 		},
 		{
 			key: "server.pi", value: 3.14,
 			check: func(t *testing.T, doc *Document) {
-				v, ok := doc.GetFloat("server.pi")
-				if !ok || v != 3.14 {
-					t.Errorf("float: expected 3.14, got %f (ok=%v)", v, ok)
+				v, err := doc.GetFloat("server.pi")
+				if err != nil || v != 3.14 {
+					t.Errorf("float: expected 3.14, got %f (ok=%v)", v, err)
 				}
 			},
 		},
 		{
 			key: "server.flag", value: true,
 			check: func(t *testing.T, doc *Document) {
-				v, ok := doc.GetBool("server.flag")
-				if !ok || v != true {
-					t.Errorf("bool: expected true, got %v (ok=%v)", v, ok)
+				v, err := doc.GetBool("server.flag")
+				if err != nil || v != true {
+					t.Errorf("bool: expected true, got %v (ok=%v)", v, err)
 				}
 			},
 		},
 		{
 			key: "server.created", value: time.Date(2024, 1, 15, 10, 30, 0, 0, time.UTC),
 			check: func(t *testing.T, doc *Document) {
-				v, ok := doc.GetTime("server.created")
-				if !ok {
+				v, err := doc.GetTime("server.created")
+				if err != nil {
 					t.Error("time: GetTime returned false")
 					return
 				}
@@ -278,16 +278,16 @@ func TestSet_RefusesANodeAsAValue(t *testing.T) {
 	}
 
 	// The supported spelling: read the value, write the value.
-	val, ok := doc.GetString("server.host")
-	if !ok {
-		t.Fatal("GetString returned false for the source key")
+	val, err := doc.GetString("server.host")
+	if err != nil {
+		t.Fatalf("GetString on the source key: %v", err)
 	}
 	if err := doc.Set("server.backup_host", val); err != nil {
 		t.Fatalf("Set returned error: %v", err)
 	}
-	copied, ok := doc.GetString("server.backup_host")
-	if !ok || copied != "localhost" {
-		t.Errorf("expected \"localhost\", got %q (ok=%v)", copied, ok)
+	copied, err := doc.GetString("server.backup_host")
+	if err != nil || copied != "localhost" {
+		t.Errorf("expected \"localhost\", got %q (err=%v)", copied, err)
 	}
 	roundTrip(t, doc)
 }
@@ -298,8 +298,8 @@ func TestSet_InArrayElement(t *testing.T) {
 	if err != nil {
 		t.Fatalf("Set returned error: %v", err)
 	}
-	val, ok := doc.GetString("products[0].name")
-	if !ok {
+	val, err := doc.GetString("products[0].name")
+	if err != nil {
 		t.Fatal("GetString returned false")
 	}
 	if val != "SuperWidget" {
@@ -314,8 +314,8 @@ func TestSet_NegativeIndex(t *testing.T) {
 	if err != nil {
 		t.Fatalf("Set returned error: %v", err)
 	}
-	val, ok := doc.GetString("products[-1].name")
-	if !ok {
+	val, err := doc.GetString("products[-1].name")
+	if err != nil {
 		t.Fatal("GetString returned false")
 	}
 	if val != "MegaGadget" {
@@ -336,8 +336,8 @@ inline = {x = 1, y = 2}
 	if err != nil {
 		t.Fatalf("Set returned error: %v", err)
 	}
-	val, ok := doc.GetInt("nested.inline.z")
-	if !ok {
+	val, err := doc.GetInt("nested.inline.z")
+	if err != nil {
 		t.Fatal("GetInt returned false for new key in inline table")
 	}
 	if val != 3 {
@@ -356,14 +356,14 @@ func TestDelete_ExistingKey(t *testing.T) {
 	}
 
 	// Port should be gone.
-	_, ok := doc.GetInt("server.port")
-	if ok {
+	_, err = doc.GetInt("server.port")
+	if err == nil {
 		t.Error("server.port should be deleted")
 	}
 
 	// Host should still be there.
-	val, ok := doc.GetString("server.host")
-	if !ok || val != "localhost" {
+	val, err := doc.GetString("server.host")
+	if err != nil || val != "localhost" {
 		t.Error("server.host should be preserved")
 	}
 
@@ -377,8 +377,8 @@ func TestDelete_NonExistent(t *testing.T) {
 		t.Fatalf("Delete of non-existent key should not error, got: %v", err)
 	}
 	// Document should be unchanged.
-	val, ok := doc.GetString("server.host")
-	if !ok || val != "localhost" {
+	val, err := doc.GetString("server.host")
+	if err != nil || val != "localhost" {
 		t.Error("document should be unchanged")
 	}
 }
@@ -391,8 +391,8 @@ func TestDelete_ArrayElement(t *testing.T) {
 	}
 
 	// The first product should now be Gadget (formerly at index 1).
-	val, ok := doc.GetString("products[0].name")
-	if !ok {
+	val, err := doc.GetString("products[0].name")
+	if err != nil {
 		t.Fatal("GetString returned false after delete")
 	}
 	if val != "Gadget" {
@@ -410,8 +410,8 @@ func TestDelete_NegativeIndex(t *testing.T) {
 	}
 
 	// Only Widget should remain.
-	val, ok := doc.GetString("products[0].name")
-	if !ok {
+	val, err := doc.GetString("products[0].name")
+	if err != nil {
 		t.Fatal("GetString returned false")
 	}
 	if val != "Widget" {
@@ -431,13 +431,13 @@ func TestDelete_RoundTrip(t *testing.T) {
 	_ = doc.Delete("server.port")
 	doc2 := roundTrip(t, doc)
 
-	_, ok := doc2.GetInt("server.port")
-	if ok {
+	_, err := doc2.GetInt("server.port")
+	if err == nil {
 		t.Error("port should be absent after round-trip")
 	}
 
-	val, ok := doc2.GetString("server.host")
-	if !ok || val != "localhost" {
+	val, err := doc2.GetString("server.host")
+	if err != nil || val != "localhost" {
 		t.Error("host should be preserved after round-trip")
 	}
 }
@@ -452,14 +452,14 @@ func TestRename_ExistingKey(t *testing.T) {
 	}
 
 	// Old key should be gone.
-	_, ok := doc.GetString("server.host")
-	if ok {
+	_, err = doc.GetString("server.host")
+	if err == nil {
 		t.Error("server.host should no longer exist")
 	}
 
 	// New key should have the value.
-	val, ok := doc.GetString("server.address")
-	if !ok {
+	val, err := doc.GetString("server.address")
+	if err != nil {
 		t.Fatal("GetString returned false for renamed key")
 	}
 	if val != "localhost" {
@@ -493,13 +493,13 @@ func TestRename_RoundTrip(t *testing.T) {
 	}
 	doc2 := roundTrip(t, doc)
 
-	val, ok := doc2.GetString("server.address")
-	if !ok || val != "localhost" {
-		t.Errorf("round-trip: expected \"localhost\", got %q (ok=%v)", val, ok)
+	val, err := doc2.GetString("server.address")
+	if err != nil || val != "localhost" {
+		t.Errorf("round-trip: expected \"localhost\", got %q (ok=%v)", val, err)
 	}
 
-	_, ok = doc2.GetString("server.host")
-	if ok {
+	_, err = doc2.GetString("server.host")
+	if err == nil {
 		t.Error("round-trip: server.host should not exist")
 	}
 }
@@ -539,9 +539,9 @@ func TestNewTable_ThenSet(t *testing.T) {
 		t.Fatalf("Set returned error: %v", err)
 	}
 
-	val, ok := doc.GetString("logging.level")
-	if !ok || val != "debug" {
-		t.Errorf("expected \"debug\", got %q (ok=%v)", val, ok)
+	val, err := doc.GetString("logging.level")
+	if err != nil || val != "debug" {
+		t.Errorf("expected \"debug\", got %q (ok=%v)", val, err)
 	}
 
 	out := string(doc.Bytes())
@@ -583,8 +583,8 @@ func TestNewArrayTable_ThenSet(t *testing.T) {
 		t.Fatalf("Set returned error: %v", err)
 	}
 
-	val, ok := doc.GetString("products[-1].name")
-	if !ok {
+	val, err := doc.GetString("products[-1].name")
+	if err != nil {
 		t.Fatal("GetString returned false")
 	}
 	if val != "NewProduct" {
@@ -730,14 +730,14 @@ func TestSetCreate_DeepPath(t *testing.T) {
 	if err != nil {
 		t.Fatalf("SetCreate returned error: %v", err)
 	}
-	val, ok := doc.GetString("a.b.c.d")
-	if !ok || val != "deep" {
-		t.Errorf("expected \"deep\", got %q (ok=%v)", val, ok)
+	val, err := doc.GetString("a.b.c.d")
+	if err != nil || val != "deep" {
+		t.Errorf("expected \"deep\", got %q (ok=%v)", val, err)
 	}
 
 	doc2 := roundTrip(t, doc)
-	val2, ok := doc2.GetString("a.b.c.d")
-	if !ok || val2 != "deep" {
-		t.Errorf("round-trip: expected \"deep\", got %q (ok=%v)", val2, ok)
+	val2, err := doc2.GetString("a.b.c.d")
+	if err != nil || val2 != "deep" {
+		t.Errorf("round-trip: expected \"deep\", got %q (ok=%v)", val2, err)
 	}
 }

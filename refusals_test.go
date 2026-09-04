@@ -336,7 +336,7 @@ func TestNewTable_AllowsASubTableUnderADottedImpliedTable(t *testing.T) {
 	if err != nil {
 		t.Fatalf("the result is not valid TOML: %v\n%s", err, doc.Bytes())
 	}
-	if got, ok := again.GetBool("fruit.apple.texture.smooth"); !ok || !got {
+	if got, err := again.GetBool("fruit.apple.texture.smooth"); err != nil || !got {
 		t.Errorf("after the round-trip the document reads\n%s", doc.Bytes())
 	}
 }
@@ -356,7 +356,7 @@ func TestNewArrayTable_AllowsAnEntryUnderADottedImpliedTable(t *testing.T) {
 	if err != nil {
 		t.Fatalf("the result is not valid TOML: %v\n%s", err, doc.Bytes())
 	}
-	if got, ok := again.GetInt("fruit.apple.seeds[0].size"); !ok || got != 2 {
+	if got, err := again.GetInt("fruit.apple.seeds[0].size"); err != nil || got != 2 {
 		t.Errorf("after the round-trip the document reads\n%s", doc.Bytes())
 	}
 }
@@ -551,7 +551,7 @@ func TestSet_AllowsValuesAndNewKeys(t *testing.T) {
 		t.Fatalf(`Set("a.y", 3) was refused: %v`, err)
 	}
 	mustFold(t, doc)
-	if v, ok := doc.GetInt("a.y"); !ok || v != 3 {
+	if v, err := doc.GetInt("a.y"); err != nil || v != 3 {
 		t.Errorf("after the writes the document reads %q", doc.Bytes())
 	}
 }

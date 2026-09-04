@@ -7,8 +7,8 @@ import (
 
 func TestCursor_ServerHost(t *testing.T) {
 	doc := parseTestDoc(t)
-	val, ok := doc.Key("server").Key("host").String()
-	if !ok {
+	val, err := doc.Key("server").Key("host").String()
+	if err != nil {
 		t.Fatal("cursor server.host String() returned false")
 	}
 	if val != "localhost" {
@@ -18,8 +18,8 @@ func TestCursor_ServerHost(t *testing.T) {
 
 func TestCursor_ServerPort(t *testing.T) {
 	doc := parseTestDoc(t)
-	val, ok := doc.Key("server").Key("port").Int()
-	if !ok {
+	val, err := doc.Key("server").Key("port").Int()
+	if err != nil {
 		t.Fatal("cursor server.port Int() returned false")
 	}
 	if val != 8080 {
@@ -29,8 +29,8 @@ func TestCursor_ServerPort(t *testing.T) {
 
 func TestCursor_Products0Name(t *testing.T) {
 	doc := parseTestDoc(t)
-	val, ok := doc.Key("products").At(0).Key("name").String()
-	if !ok {
+	val, err := doc.Key("products").At(0).Key("name").String()
+	if err != nil {
 		t.Fatal("cursor products[0].name String() returned false")
 	}
 	if val != "Widget" {
@@ -40,8 +40,8 @@ func TestCursor_Products0Name(t *testing.T) {
 
 func TestCursor_ProductsNeg1Name(t *testing.T) {
 	doc := parseTestDoc(t)
-	val, ok := doc.Key("products").At(-1).Key("name").String()
-	if !ok {
+	val, err := doc.Key("products").At(-1).Key("name").String()
+	if err != nil {
 		t.Fatal("cursor products[-1].name String() returned false")
 	}
 	if val != "Gadget" {
@@ -51,8 +51,8 @@ func TestCursor_ProductsNeg1Name(t *testing.T) {
 
 func TestCursor_NestedInlineX(t *testing.T) {
 	doc := parseTestDoc(t)
-	val, ok := doc.Key("nested").Key("inline").Key("x").Int()
-	if !ok {
+	val, err := doc.Key("nested").Key("inline").Key("x").Int()
+	if err != nil {
 		t.Fatal("cursor nested.inline.x Int() returned false")
 	}
 	if val != 1 {
@@ -62,8 +62,8 @@ func TestCursor_NestedInlineX(t *testing.T) {
 
 func TestCursor_NestedArray2(t *testing.T) {
 	doc := parseTestDoc(t)
-	val, ok := doc.Key("nested").Key("array").At(2).Int()
-	if !ok {
+	val, err := doc.Key("nested").Key("array").At(2).Int()
+	if err != nil {
 		t.Fatal("cursor nested.array[2] Int() returned false")
 	}
 	if val != 3 {
@@ -74,8 +74,8 @@ func TestCursor_NestedArray2(t *testing.T) {
 func TestCursor_MissingKey(t *testing.T) {
 	doc := parseTestDoc(t)
 	cursor := doc.Key("nonexistent")
-	val, ok := cursor.Key("x").String()
-	if ok {
+	val, err := cursor.Key("x").String()
+	if err == nil {
 		t.Errorf("expected false for missing key, got (%q, true)", val)
 	}
 	if cursor.Err() == nil {
@@ -85,8 +85,8 @@ func TestCursor_MissingKey(t *testing.T) {
 
 func TestCursor_ChainAfterError(t *testing.T) {
 	doc := parseTestDoc(t)
-	val, ok := doc.Key("nonexistent").Key("x").Key("y").String()
-	if ok {
+	val, err := doc.Key("nonexistent").Key("x").Key("y").String()
+	if err == nil {
 		t.Errorf("expected false after chained error, got (%q, true)", val)
 	}
 	// Should not panic
@@ -94,8 +94,8 @@ func TestCursor_ChainAfterError(t *testing.T) {
 
 func TestCursor_CrossTableResolution(t *testing.T) {
 	doc := parseTestDoc(t)
-	val, ok := doc.Key("server").Key("database").Key("name").String()
-	if !ok {
+	val, err := doc.Key("server").Key("database").Key("name").String()
+	if err != nil {
 		t.Fatal("cursor server.database.name String() returned false")
 	}
 	if val != "mydb" {
@@ -143,17 +143,17 @@ func TestCursor_NavigatesEverySpelling(t *testing.T) {
 	if err != nil {
 		t.Fatalf("parse error: %v", err)
 	}
-	if got, ok := doc.Key("compound").Key("leaf").Key("m").Int(); !ok || got != 4 {
-		t.Errorf("compound.leaf.m = (%d, %v), want 4", got, ok)
+	if got, err := doc.Key("compound").Key("leaf").Key("m").Int(); err != nil || got != 4 {
+		t.Errorf("compound.leaf.m = (%d, %v), want 4", got, err)
 	}
-	if got, ok := doc.Key("dotted").Key("deep").Int(); !ok || got != 2 {
-		t.Errorf("dotted.deep = (%d, %v), want 2", got, ok)
+	if got, err := doc.Key("dotted").Key("deep").Int(); err != nil || got != 2 {
+		t.Errorf("dotted.deep = (%d, %v), want 2", got, err)
 	}
-	if got, ok := doc.Key("coll").At(1).Key("name").String(); !ok || got != "second" {
-		t.Errorf("coll[1].name = (%q, %v), want %q", got, ok, "second")
+	if got, err := doc.Key("coll").At(1).Key("name").String(); err != nil || got != "second" {
+		t.Errorf("coll[1].name = (%q, %v), want %q", got, err, "second")
 	}
-	if got, ok := doc.Key("inline").Key("x").Int(); !ok || got != 3 {
-		t.Errorf("inline.x = (%d, %v), want 3", got, ok)
+	if got, err := doc.Key("inline").Key("x").Int(); err != nil || got != 3 {
+		t.Errorf("inline.x = (%d, %v), want 3", got, err)
 	}
 }
 

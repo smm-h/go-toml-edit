@@ -38,9 +38,9 @@ host = "localhost"  # server address
 	if err != nil {
 		t.Fatalf("round-trip parse error: %v\nOutput:\n%s", err, out)
 	}
-	val, ok := doc2.GetString("host")
-	if !ok || val != "newhost" {
-		t.Errorf("round-trip: expected 'newhost', got %q (ok=%v)", val, ok)
+	val, err := doc2.GetString("host")
+	if err != nil || val != "newhost" {
+		t.Errorf("round-trip: expected 'newhost', got %q (ok=%v)", val, err)
 	}
 }
 
@@ -188,9 +188,9 @@ key = "val"
 	}
 
 	doc2 := roundTripAudit(t, doc)
-	val, ok := doc2.GetString("new.section.key")
-	if !ok || val != "hello" {
-		t.Errorf("round-trip: expected 'hello', got %q (ok=%v)", val, ok)
+	val, err := doc2.GetString("new.section.key")
+	if err != nil || val != "hello" {
+		t.Errorf("round-trip: expected 'hello', got %q (ok=%v)", val, err)
 	}
 }
 
@@ -245,13 +245,13 @@ name = "C"
 	}
 
 	// Index should have shifted: products[0]="A", products[1]="C"
-	val0, ok := doc.GetString("products[0].name")
-	if !ok || val0 != "A" {
-		t.Errorf("expected products[0].name='A', got %q (ok=%v)", val0, ok)
+	val0, err := doc.GetString("products[0].name")
+	if err != nil || val0 != "A" {
+		t.Errorf("expected products[0].name='A', got %q (ok=%v)", val0, err)
 	}
-	val1, ok := doc.GetString("products[1].name")
-	if !ok || val1 != "C" {
-		t.Errorf("expected products[1].name='C', got %q (ok=%v)", val1, ok)
+	val1, err := doc.GetString("products[1].name")
+	if err != nil || val1 != "C" {
+		t.Errorf("expected products[1].name='C', got %q (ok=%v)", val1, err)
 	}
 
 	out := string(doc.Bytes())
@@ -282,12 +282,12 @@ func TestAudit_DeleteFromInlineTable(t *testing.T) {
 	if doc2.Has("config.b") {
 		t.Errorf("config.b should be deleted. Output:\n%s", out)
 	}
-	va, ok := doc2.GetInt("config.a")
-	if !ok || va != 1 {
+	va, err := doc2.GetInt("config.a")
+	if err != nil || va != 1 {
 		t.Errorf("config.a lost after delete. Output:\n%s", out)
 	}
-	vc, ok := doc2.GetInt("config.c")
-	if !ok || vc != 3 {
+	vc, err := doc2.GetInt("config.c")
+	if err != nil || vc != 3 {
 		t.Errorf("config.c lost after delete. Output:\n%s", out)
 	}
 }
@@ -321,9 +321,9 @@ name = "mydb"
 	if doc2.Has("server") {
 		t.Error("server should not resolve after deletion")
 	}
-	val, ok := doc2.GetString("database.name")
-	if !ok || val != "mydb" {
-		t.Errorf("database.name should be preserved, got %q (ok=%v)", val, ok)
+	val, err := doc2.GetString("database.name")
+	if err != nil || val != "mydb" {
+		t.Errorf("database.name should be preserved, got %q (ok=%v)", val, err)
 	}
 }
 
@@ -345,9 +345,9 @@ port = 8080
 		t.Fatalf("RenameKey error: %v", err)
 	}
 
-	val, ok := doc.GetString("server.hostname")
-	if !ok || val != "localhost" {
-		t.Errorf("expected 'localhost', got %q (ok=%v)", val, ok)
+	val, err := doc.GetString("server.hostname")
+	if err != nil || val != "localhost" {
+		t.Errorf("expected 'localhost', got %q (ok=%v)", val, err)
 	}
 
 	roundTripAudit(t, doc)
@@ -376,9 +376,9 @@ host = "localhost"
 
 	// Round-trip: parse the output and verify the key resolves
 	doc2 := roundTripAudit(t, doc)
-	val, ok := doc2.GetString(`server."host.name"`)
-	if !ok || val != "localhost" {
-		t.Errorf("round-trip: expected 'localhost', got %q (ok=%v). Output:\n%s", val, ok, out)
+	val, err := doc2.GetString(`server."host.name"`)
+	if err != nil || val != "localhost" {
+		t.Errorf("round-trip: expected 'localhost', got %q (ok=%v). Output:\n%s", val, err, out)
 	}
 }
 
@@ -427,8 +427,8 @@ key = "original"
 	if err != nil {
 		t.Fatalf("first Set error: %v", err)
 	}
-	v, ok := doc.GetString("config.key")
-	if !ok || v != "first" {
+	v, err := doc.GetString("config.key")
+	if err != nil || v != "first" {
 		t.Fatalf("after first Set: expected 'first', got %q", v)
 	}
 
@@ -446,8 +446,8 @@ key = "original"
 	if err != nil {
 		t.Fatalf("second Set error: %v", err)
 	}
-	v, ok = doc.GetString("config.key")
-	if !ok || v != "second" {
+	v, err = doc.GetString("config.key")
+	if err != nil || v != "second" {
 		t.Fatalf("after second Set: expected 'second', got %q", v)
 	}
 
@@ -478,9 +478,9 @@ a = 1
 		t.Fatalf("RenameKey error: %v", err)
 	}
 
-	val, ok := doc.GetString("newtable.renamed_key")
-	if !ok || val != "value1" {
-		t.Errorf("expected 'value1', got %q (ok=%v)", val, ok)
+	val, err := doc.GetString("newtable.renamed_key")
+	if err != nil || val != "value1" {
+		t.Errorf("expected 'value1', got %q (ok=%v)", val, err)
 	}
 
 	out := string(doc.Bytes())
@@ -513,8 +513,8 @@ host = "localhost"
 	}
 
 	// doc2 should be unaffected
-	val, ok := doc2.GetString("server.host")
-	if !ok || val != "localhost" {
+	val, err := doc2.GetString("server.host")
+	if err != nil || val != "localhost" {
 		t.Errorf("doc2 was affected by doc1 mutation: got %q", val)
 	}
 }
@@ -540,15 +540,15 @@ price = 19.99
 		t.Fatalf("Set error: %v", err)
 	}
 
-	val, ok := doc.GetString("products[0].name")
-	if !ok || val != "NewName" {
-		t.Errorf("expected 'NewName', got %q (ok=%v)", val, ok)
+	val, err := doc.GetString("products[0].name")
+	if err != nil || val != "NewName" {
+		t.Errorf("expected 'NewName', got %q (ok=%v)", val, err)
 	}
 
 	// Verify the other entry is unchanged
-	val2, ok := doc.GetString("products[1].name")
-	if !ok || val2 != "Gadget" {
-		t.Errorf("products[1] should be unchanged, got %q (ok=%v)", val2, ok)
+	val2, err := doc.GetString("products[1].name")
+	if err != nil || val2 != "Gadget" {
+		t.Errorf("products[1] should be unchanged, got %q (ok=%v)", val2, err)
 	}
 
 	roundTripAudit(t, doc)
@@ -571,9 +571,9 @@ name = "Gadget"
 		t.Fatalf("Set error: %v", err)
 	}
 
-	val, ok := doc.GetString("products[1].color")
-	if !ok || val != "blue" {
-		t.Errorf("expected 'blue', got %q (ok=%v)", val, ok)
+	val, err := doc.GetString("products[1].color")
+	if err != nil || val != "blue" {
+		t.Errorf("expected 'blue', got %q (ok=%v)", val, err)
 	}
 
 	// Verify first entry is unchanged
@@ -784,13 +784,13 @@ debug = true
 	}
 
 	// Other keys should be unchanged
-	port, ok := doc.GetInt("server.port")
-	if !ok || port != 8080 {
-		t.Errorf("port should be unchanged, got %d (ok=%v)", port, ok)
+	port, err := doc.GetInt("server.port")
+	if err != nil || port != 8080 {
+		t.Errorf("port should be unchanged, got %d (ok=%v)", port, err)
 	}
-	debug, ok := doc.GetBool("server.debug")
-	if !ok || !debug {
-		t.Errorf("debug should be unchanged, got %v (ok=%v)", debug, ok)
+	debug, err := doc.GetBool("server.debug")
+	if err != nil || !debug {
+		t.Errorf("debug should be unchanged, got %v (ok=%v)", debug, err)
 	}
 
 	roundTripAudit(t, doc)
@@ -880,9 +880,9 @@ host = "localhost"
 		t.Fatalf("SetCreate error: %v", err)
 	}
 
-	val, ok := doc.GetString("server.logging.file")
-	if !ok || val != "/var/log/app.log" {
-		t.Errorf("expected '/var/log/app.log', got %q (ok=%v)", val, ok)
+	val, err := doc.GetString("server.logging.file")
+	if err != nil || val != "/var/log/app.log" {
+		t.Errorf("expected '/var/log/app.log', got %q (ok=%v)", val, err)
 	}
 
 	roundTripAudit(t, doc)
@@ -963,9 +963,9 @@ func TestAudit_SetExistingKeyInInlineTableRoundTrip(t *testing.T) {
 	}
 
 	doc2 := roundTripAudit(t, doc)
-	val, ok := doc2.GetInt("config.x")
-	if !ok || val != 99 {
-		t.Errorf("expected config.x=99 after round-trip, got %d (ok=%v)", val, ok)
+	val, err := doc2.GetInt("config.x")
+	if err != nil || val != 99 {
+		t.Errorf("expected config.x=99 after round-trip, got %d (ok=%v)", val, err)
 	}
 }
 
@@ -985,9 +985,9 @@ inline = {x = 1, y = 2}
 	}
 
 	doc2 := roundTripAudit(t, doc)
-	val, ok := doc2.GetInt("nested.inline.z")
-	if !ok || val != 3 {
-		t.Errorf("expected nested.inline.z=3 after round-trip, got %d (ok=%v)", val, ok)
+	val, err := doc2.GetInt("nested.inline.z")
+	if err != nil || val != 3 {
+		t.Errorf("expected nested.inline.z=3 after round-trip, got %d (ok=%v)", val, err)
 	}
 }
 

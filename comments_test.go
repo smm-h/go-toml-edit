@@ -109,9 +109,9 @@ func TestSetComment_RoundTrip(t *testing.T) {
 		t.Fatalf("round-trip parse failed: %v\noutput was:\n%s", err, string(out))
 	}
 	// The re-parsed document should still have the host value
-	val, ok := doc2.GetString("server.host")
-	if !ok || val != "localhost" {
-		t.Errorf("round-trip: expected host=\"localhost\", got %q (ok=%v)", val, ok)
+	val, err := doc2.GetString("server.host")
+	if err != nil || val != "localhost" {
+		t.Errorf("round-trip: expected host=\"localhost\", got %q (ok=%v)", val, err)
 	}
 	// And the comment should be in the serialized output
 	out2 := string(doc2.Bytes())
@@ -127,18 +127,18 @@ func TestSetComment_GetStillWorks(t *testing.T) {
 	if err != nil {
 		t.Fatalf("SetComment returned error: %v", err)
 	}
-	val, ok := doc.GetInt("server.port")
-	if !ok || val != 8080 {
-		t.Errorf("expected port=8080 after SetComment, got %d (ok=%v)", val, ok)
+	val, err := doc.GetInt("server.port")
+	if err != nil || val != 8080 {
+		t.Errorf("expected port=8080 after SetComment, got %d (ok=%v)", val, err)
 	}
 
 	err = doc.SetLeadingComments("database.name", []string{"Database name"})
 	if err != nil {
 		t.Fatalf("SetLeadingComments returned error: %v", err)
 	}
-	name, ok := doc.GetString("database.name")
-	if !ok || name != "mydb" {
-		t.Errorf("expected name=\"mydb\" after SetLeadingComments, got %q (ok=%v)", name, ok)
+	name, err := doc.GetString("database.name")
+	if err != nil || name != "mydb" {
+		t.Errorf("expected name=\"mydb\" after SetLeadingComments, got %q (ok=%v)", name, err)
 	}
 }
 

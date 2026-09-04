@@ -200,8 +200,8 @@ func TestQuoteString(t *testing.T) {
 			t.Errorf("QuoteString(%q) produced %s, which does not parse: %v", tc.in, got, err)
 			continue
 		}
-		if v, ok := doc.GetString("x"); !ok || v != tc.in {
-			t.Errorf("QuoteString(%q) read back as (%q, %v)", tc.in, v, ok)
+		if v, err := doc.GetString("x"); err != nil || v != tc.in {
+			t.Errorf("QuoteString(%q) read back as (%q, %v)", tc.in, v, err)
 		}
 	}
 }
@@ -266,8 +266,8 @@ func TestFormatFloatIsTotal(t *testing.T) {
 			t.Errorf("FormatFloat(%v) produced %q, which does not parse: %v", f, s, err)
 			continue
 		}
-		back, ok := doc.GetFloat("x")
-		if !ok {
+		back, err := doc.GetFloat("x")
+		if err != nil {
 			t.Errorf("FormatFloat(%v) produced %q, which does not read back as a float", f, s)
 			continue
 		}

@@ -304,7 +304,7 @@ func TestPair_KeyIsASingleKeyNotAPath(t *testing.T) {
 	if got := string(doc.Bytes()); got != want {
 		t.Errorf("the document reads %q, want %q", got, want)
 	}
-	if v, ok := doc.GetInt(`x."a.b"`); !ok || v != 1 {
+	if v, err := doc.GetInt(`x."a.b"`); err != nil || v != 1 {
 		t.Errorf("the key is not readable as one key: %q", doc.Bytes())
 	}
 }

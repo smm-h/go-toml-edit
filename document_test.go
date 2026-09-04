@@ -60,8 +60,8 @@ func TestGet_ServerHost(t *testing.T) {
 
 func TestGetString_ServerHost(t *testing.T) {
 	doc := parseTestDoc(t)
-	val, ok := doc.GetString("server.host")
-	if !ok {
+	val, err := doc.GetString("server.host")
+	if err != nil {
 		t.Fatal("GetString(\"server.host\") returned false")
 	}
 	if val != "localhost" {
@@ -71,8 +71,8 @@ func TestGetString_ServerHost(t *testing.T) {
 
 func TestGetInt_ServerPort(t *testing.T) {
 	doc := parseTestDoc(t)
-	val, ok := doc.GetInt("server.port")
-	if !ok {
+	val, err := doc.GetInt("server.port")
+	if err != nil {
 		t.Fatal("GetInt(\"server.port\") returned false")
 	}
 	if val != 8080 {
@@ -82,8 +82,8 @@ func TestGetInt_ServerPort(t *testing.T) {
 
 func TestGetBool_ServerDebug(t *testing.T) {
 	doc := parseTestDoc(t)
-	val, ok := doc.GetBool("server.debug")
-	if !ok {
+	val, err := doc.GetBool("server.debug")
+	if err != nil {
 		t.Fatal("GetBool(\"server.debug\") returned false")
 	}
 	if val != true {
@@ -93,8 +93,8 @@ func TestGetBool_ServerDebug(t *testing.T) {
 
 func TestGetFloat_ServerRate(t *testing.T) {
 	doc := parseTestDoc(t)
-	val, ok := doc.GetFloat("server.rate")
-	if !ok {
+	val, err := doc.GetFloat("server.rate")
+	if err != nil {
 		t.Fatal("GetFloat(\"server.rate\") returned false")
 	}
 	if val != 3.14 {
@@ -104,8 +104,8 @@ func TestGetFloat_ServerRate(t *testing.T) {
 
 func TestGetString_ServerDatabaseName(t *testing.T) {
 	doc := parseTestDoc(t)
-	val, ok := doc.GetString("server.database.name")
-	if !ok {
+	val, err := doc.GetString("server.database.name")
+	if err != nil {
 		t.Fatal("GetString(\"server.database.name\") returned false")
 	}
 	if val != "mydb" {
@@ -115,8 +115,8 @@ func TestGetString_ServerDatabaseName(t *testing.T) {
 
 func TestGetString_Products0Name(t *testing.T) {
 	doc := parseTestDoc(t)
-	val, ok := doc.GetString("products[0].name")
-	if !ok {
+	val, err := doc.GetString("products[0].name")
+	if err != nil {
 		t.Fatal("GetString(\"products[0].name\") returned false")
 	}
 	if val != "Widget" {
@@ -126,8 +126,8 @@ func TestGetString_Products0Name(t *testing.T) {
 
 func TestGetString_Products1Name(t *testing.T) {
 	doc := parseTestDoc(t)
-	val, ok := doc.GetString("products[1].name")
-	if !ok {
+	val, err := doc.GetString("products[1].name")
+	if err != nil {
 		t.Fatal("GetString(\"products[1].name\") returned false")
 	}
 	if val != "Gadget" {
@@ -137,8 +137,8 @@ func TestGetString_Products1Name(t *testing.T) {
 
 func TestGetString_ProductsNeg1Name(t *testing.T) {
 	doc := parseTestDoc(t)
-	val, ok := doc.GetString("products[-1].name")
-	if !ok {
+	val, err := doc.GetString("products[-1].name")
+	if err != nil {
 		t.Fatal("GetString(\"products[-1].name\") returned false")
 	}
 	if val != "Gadget" {
@@ -148,8 +148,8 @@ func TestGetString_ProductsNeg1Name(t *testing.T) {
 
 func TestGetFloat_Products0Price(t *testing.T) {
 	doc := parseTestDoc(t)
-	val, ok := doc.GetFloat("products[0].price")
-	if !ok {
+	val, err := doc.GetFloat("products[0].price")
+	if err != nil {
 		t.Fatal("GetFloat(\"products[0].price\") returned false")
 	}
 	if val != 9.99 {
@@ -159,8 +159,8 @@ func TestGetFloat_Products0Price(t *testing.T) {
 
 func TestGetTime_DatesCreated(t *testing.T) {
 	doc := parseTestDoc(t)
-	val, ok := doc.GetTime("dates.created")
-	if !ok {
+	val, err := doc.GetTime("dates.created")
+	if err != nil {
 		t.Fatal("GetTime(\"dates.created\") returned false")
 	}
 	if val.Year() != 1979 || val.Month() != 5 || val.Day() != 27 {
@@ -203,8 +203,8 @@ func TestGet_DatesAlarm(t *testing.T) {
 
 func TestGetInt_NestedInlineX(t *testing.T) {
 	doc := parseTestDoc(t)
-	val, ok := doc.GetInt("nested.inline.x")
-	if !ok {
+	val, err := doc.GetInt("nested.inline.x")
+	if err != nil {
 		t.Fatal("GetInt(\"nested.inline.x\") returned false")
 	}
 	if val != 1 {
@@ -214,8 +214,8 @@ func TestGetInt_NestedInlineX(t *testing.T) {
 
 func TestGetInt_NestedArray0(t *testing.T) {
 	doc := parseTestDoc(t)
-	val, ok := doc.GetInt("nested.array[0]")
-	if !ok {
+	val, err := doc.GetInt("nested.array[0]")
+	if err != nil {
 		t.Fatal("GetInt(\"nested.array[0]\") returned false")
 	}
 	if val != 1 {
@@ -225,8 +225,8 @@ func TestGetInt_NestedArray0(t *testing.T) {
 
 func TestGetInt_NestedArrayNeg1(t *testing.T) {
 	doc := parseTestDoc(t)
-	val, ok := doc.GetInt("nested.array[-1]")
-	if !ok {
+	val, err := doc.GetInt("nested.array[-1]")
+	if err != nil {
 		t.Fatal("GetInt(\"nested.array[-1]\") returned false")
 	}
 	if val != 3 {
@@ -244,8 +244,8 @@ func TestGet_MissingPath(t *testing.T) {
 
 func TestGetString_WrongType(t *testing.T) {
 	doc := parseTestDoc(t)
-	val, ok := doc.GetString("server.port")
-	if ok {
+	val, err := doc.GetString("server.port")
+	if err == nil {
 		t.Errorf("expected false for wrong type, got (%q, true)", val)
 	}
 	if val != "" {
