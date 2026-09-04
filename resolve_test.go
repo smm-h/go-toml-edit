@@ -246,15 +246,10 @@ func TestResolve_CommentsRefuseLogicalOnlyPaths(t *testing.T) {
 }
 
 // Fails if a document no fold can make sense of starts resolving by guessing.
-// Only an editing sequence can build one; every read of it must say so.
+// The editing surface refuses to build one, so the test assembles it by hand;
+// every read of it must still say so.
 func TestResolve_UnfoldableDocumentIsRefused(t *testing.T) {
-	doc, err := Parse([]byte("[a]\nx = 1\n"))
-	if err != nil {
-		t.Fatalf("parse error: %v", err)
-	}
-	if err := doc.NewArrayTable("a"); err != nil {
-		t.Fatalf("NewArrayTable: %v", err)
-	}
+	doc := unfoldableDoc(t)
 	if _, err := doc.Resolve("a"); !errors.Is(err, ErrConflict) {
 		t.Errorf("Resolve on an unfoldable document = %v, want a conflict diagnostic", err)
 	}

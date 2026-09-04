@@ -85,6 +85,12 @@ type Record struct {
 	// (or its own inline table), rather than from the construct that implied
 	// it. The first header wins: a later one cannot re-anchor a record.
 	anchored bool
+
+	// dottedImplied records that nothing but a dotted key spells this record
+	// out: "a.b = 1" implies "a". TOML forbids giving such a table a header of
+	// its own, so the structural creators refuse to bind its name, where a
+	// record merely implied by a longer header may still be anchored.
+	dottedImplied bool
 }
 
 // Entry is one key of a record: the key, where it was written, and what it
@@ -367,7 +373,7 @@ func foldKeyValue(rec *Record, kv *KeyValueNode) error {
 	}
 	cur := rec
 	for i := 0; i < len(parts)-1; i++ {
-		next, err := cur.implied(parts[i], kv.Key.partSpan(i), kv)
+		next, err := cur.implied(parts[i], kv.Key.partSpan(i), kv, true)
 		if err != nil {
 			return err
 		}
@@ -425,7 +431,7 @@ func descend(rec *Record, parts []string, creator Node, spans []Span) (*Record, 
 	for i, part := range parts {
 		e, ok := cur.Get(part)
 		if !ok {
-			next, err := cur.implied(part, spanAt(spans, i), creator)
+			next, err := cur.implied(part, spanAt(spans, i), creator, false)
 			if err != nil {
 				return nil, err
 			}
@@ -445,8 +451,9 @@ func descend(rec *Record, parts []string, creator Node, spans []Span) (*Record, 
 }
 
 // implied returns the record at key, creating an implicit one anchored at the
-// construct that implies it when the key is not there yet.
-func (r *Record) implied(key string, keySpan Span, creator Node) (*Record, error) {
+// construct that implies it when the key is not there yet. dotted says whether
+// the implying construct is a dotted key rather than a longer header.
+func (r *Record) implied(key string, keySpan Span, creator Node, dotted bool) (*Record, error) {
 	if e, ok := r.Get(key); ok {
 		switch e.kind {
 		case EntryRecord:
@@ -458,6 +465,7 @@ func (r *Record) implied(key string, keySpan Span, creator Node) (*Record, error
 		}
 	}
 	rec := newRecord(nil, creator.Span(), false)
+	rec.dottedImplied = dotted
 	r.add(Entry{key: key, keySpan: keySpan, kind: EntryRecord, record: rec})
 	return rec, nil
 }

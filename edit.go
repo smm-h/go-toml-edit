@@ -443,36 +443,47 @@ func renameKeyInParent(parent layerPos, oldKey, newKey string) error {
 
 // NewTable creates a new [table] header at the given path and appends it to
 // the document. The path must consist of key segments only (no array indices).
-// Returns an error if a table with that exact path already exists.
+//
+// The header must be able to bind its name. It is refused with KindConflict
+// when anything else in the document already does: a value, an inline table, a
+// table with its own header, an array-of-tables, or a table a dotted key
+// implied (TOML does not allow extending one of those with a header). A table
+// implied only by a LONGER header -- the "a" of an earlier [a.b] -- has no
+// header of its own yet, and this is how it gets one. A prefix of the path
+// that holds a value is refused on the same terms.
 func (d *Document) NewTable(path string) error {
 	return d.diag(d.newTableAt(path), path)
 }
 
 func (d *Document) newTableAt(path string) error {
-	segments, err := ParsePath(path)
+	keyPath, err := headerKeyPath(path, "NewTable")
 	if err != nil {
 		return err
 	}
-	if len(segments) == 0 {
-		return newError(KindBadPath, "empty path")
-	}
 
-	// Build the key path from segments.
-	keyPath := make([]string, 0, len(segments))
-	for _, seg := range segments {
-		if seg.Kind != SegmentKey {
-			return newError(KindBadPath, "NewTable path must contain only key segments, not indices")
-		}
-		keyPath = append(keyPath, seg.Key)
+	existing, bound, err := d.headerTarget(keyPath)
+	if err != nil {
+		return err
 	}
-
-	// Check if a table with this path already exists.
-	for _, child := range d.Children {
-		if tbl, ok := child.(*TableNode); ok {
-			if pathsEqual(tbl.KeyPath, keyPath) {
-				return newError(KindConflict, "table [%s] already exists", pathFromKeys(keyPath))
+	if bound {
+		name := pathFromKeys(keyPath)
+		switch {
+		case existing.kind == EntryRecords:
+			return newError(KindConflict,
+				"%q is an array of tables: a [%s] header cannot bind the same name", name, name)
+		case existing.kind != EntryRecord:
+			return newError(KindConflict, "%q already holds a value", name)
+		case existing.record.dottedImplied:
+			return newError(KindConflict,
+				"%q is a table a dotted key spelled out, and TOML does not allow giving one a header", name)
+		case existing.record.anchored:
+			if _, inline := existing.node.(*InlineTableNode); inline {
+				return newError(KindConflict,
+					"%q is an inline table: a [%s] header cannot bind the same name", name, name)
 			}
+			return newError(KindConflict, "table [%s] already exists", name)
 		}
+		// A table implied by a longer header: this header anchors it.
 	}
 
 	tbl := &TableNode{
@@ -489,25 +500,32 @@ func (d *Document) newTableAt(path string) error {
 // Multiple entries with the same path are valid in TOML and represent
 // successive elements of the array. The path must consist of key segments
 // only (no array indices).
+//
+// A name already bound to an array-of-tables is exactly what a new entry
+// extends. Any other binding of the name -- a value, an inline table, a table
+// with a header of its own or one another construct implied -- is refused with
+// KindConflict, as is a prefix of the path that holds a value.
 func (d *Document) NewArrayTable(path string) error {
 	return d.diag(d.newArrayTableAt(path), path)
 }
 
 func (d *Document) newArrayTableAt(path string) error {
-	segments, err := ParsePath(path)
+	keyPath, err := headerKeyPath(path, "NewArrayTable")
 	if err != nil {
 		return err
 	}
-	if len(segments) == 0 {
-		return newError(KindBadPath, "empty path")
-	}
 
-	keyPath := make([]string, 0, len(segments))
-	for _, seg := range segments {
-		if seg.Kind != SegmentKey {
-			return newError(KindBadPath, "NewArrayTable path must contain only key segments, not indices")
+	existing, bound, err := d.headerTarget(keyPath)
+	if err != nil {
+		return err
+	}
+	if bound && existing.kind != EntryRecords {
+		name := pathFromKeys(keyPath)
+		if existing.kind == EntryRecord {
+			return newError(KindConflict,
+				"%q is a table: a [[%s]] header cannot bind the same name", name, name)
 		}
-		keyPath = append(keyPath, seg.Key)
+		return newError(KindConflict, "%q already holds a value", name)
 	}
 
 	atbl := &ArrayTableNode{
@@ -518,6 +536,61 @@ func (d *Document) newArrayTableAt(path string) error {
 
 	d.Children = append(d.Children, atbl)
 	return nil
+}
+
+// headerKeyPath parses a header path into its key parts, refusing an empty
+// path and any index segment. op names the operation in the diagnostic.
+func headerKeyPath(path string, op string) ([]string, error) {
+	segments, err := ParsePath(path)
+	if err != nil {
+		return nil, err
+	}
+	if len(segments) == 0 {
+		return nil, newError(KindBadPath, "empty path")
+	}
+	keyPath := make([]string, 0, len(segments))
+	for _, seg := range segments {
+		if seg.Kind != SegmentKey {
+			return nil, newError(KindBadPath, "%s path must contain only key segments, not indices", op)
+		}
+		keyPath = append(keyPath, seg.Key)
+	}
+	return keyPath, nil
+}
+
+// headerTarget reports what a header's key path names in the document as it
+// stands: the entry its final key already binds, and whether one does. A
+// prefix that cannot hold a table -- one holding a value, or one a dotted key
+// spelled out -- is a conflict, and so is a document that no longer folds.
+func (d *Document) headerTarget(keyPath []string) (Entry, bool, error) {
+	root, err := foldDocument(d)
+	if err != nil {
+		return Entry{}, false, err
+	}
+	cur := root
+	for i, part := range keyPath[:len(keyPath)-1] {
+		e, ok := cur.Get(part)
+		if !ok {
+			// Nothing binds this prefix, so nothing binds the final key
+			// either: the header creates the whole chain.
+			return Entry{}, false, nil
+		}
+		switch {
+		case e.kind == EntryRecords:
+			cur = e.records[len(e.records)-1]
+		case e.kind != EntryRecord:
+			return Entry{}, false, newError(KindConflict,
+				"%q holds a value and cannot hold a table", pathFromKeys(keyPath[:i+1]))
+		case e.record.dottedImplied:
+			return Entry{}, false, newError(KindConflict,
+				"%q is a table a dotted key spelled out, and TOML does not allow extending one with a header",
+				pathFromKeys(keyPath[:i+1]))
+		default:
+			cur = e.record
+		}
+	}
+	e, ok := cur.Get(keyPath[len(keyPath)-1])
+	return e, ok, nil
 }
 
 // valueToNode converts a Go value to the appropriate AST node.

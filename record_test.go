@@ -19,6 +19,26 @@ func foldTestDoc(t *testing.T, src string) *Record {
 	return doc.Root()
 }
 
+// unfoldableDoc builds a document TOML cannot express -- a [header] table and
+// an array-of-tables claiming one key -- by appending the second header
+// straight to the AST.
+//
+// No public editing sequence can build one: every operation that could bind a
+// name another construct already holds refuses instead (refusals_test.go), so
+// a test that needs an unfoldable document has to assemble it by hand.
+func unfoldableDoc(t *testing.T) *Document {
+	t.Helper()
+	doc, err := Parse([]byte("[a]\nx = 1\n"))
+	if err != nil {
+		t.Fatalf("parse error: %v", err)
+	}
+	atbl := &ArrayTableNode{KeyPath: []string{"a"}}
+	atbl.markDirty()
+	atbl.nodeTrivia.TrailingNewline = []byte("\n")
+	doc.Children = append(doc.Children, atbl)
+	return doc
+}
+
 // recordKeys returns a record's keys in iteration order.
 func recordKeys(r *Record) []string {
 	var keys []string
@@ -497,17 +517,11 @@ func TestFold_RebuiltOnEveryAccess(t *testing.T) {
 	}
 }
 
-// Rule 7. Fails if the fold starts guessing at a document TOML cannot express.
-// The parser refuses every such conflict, so the only way to build one is an
-// editing sequence -- here a table and an array-of-tables claiming one key.
+// Rule 7. Fails if the fold starts guessing at a document TOML cannot express
+// -- here a table and an array-of-tables claiming one key, assembled by hand
+// because the editing surface refuses to build one.
 func TestFold_ImpossibleDocumentIsAHardError(t *testing.T) {
-	doc, err := Parse([]byte("[a]\nx = 1\n"))
-	if err != nil {
-		t.Fatalf("parse error: %v", err)
-	}
-	if err := doc.NewArrayTable("a"); err != nil {
-		t.Fatalf("NewArrayTable: %v", err)
-	}
+	doc := unfoldableDoc(t)
 
 	_, foldErr := foldDocument(doc)
 	if foldErr == nil {
@@ -526,14 +540,16 @@ func TestFold_ImpossibleDocumentIsAHardError(t *testing.T) {
 }
 
 // Rule 7. Fails if a key bound to a value stops refusing to also hold a table.
+// The header is appended by hand: NewTable refuses this path.
 func TestFold_ValueCannotHoldATable(t *testing.T) {
 	doc, err := Parse([]byte("a = 1\n"))
 	if err != nil {
 		t.Fatalf("parse error: %v", err)
 	}
-	if err := doc.NewTable("a.b"); err != nil {
-		t.Fatalf("NewTable: %v", err)
-	}
+	tbl := &TableNode{KeyPath: []string{"a", "b"}}
+	tbl.markDirty()
+	tbl.nodeTrivia.TrailingNewline = []byte("\n")
+	doc.Children = append(doc.Children, tbl)
 	if _, err := foldDocument(doc); err == nil {
 		t.Fatal("folding a table under a scalar key succeeded")
 	}
