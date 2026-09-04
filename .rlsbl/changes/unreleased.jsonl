@@ -79,3 +79,4 @@
 {"format_version":1,"id":"18d227885c7d0096f38d8de843c44e169f72fe53e61e5d28","commits":["042813f74f7e7179d03d2d5ef92aaac6847b6b8e"],"user_facing":false}
 {"format_version":1,"id":"18d22788737bcdd559948594da1340a5b56e22d7a701ab16","commits":["8e0d558ffa3188e11f842deb5b84b286de88f1e6"],"user_facing":true,"description":"**Fix.** A new root-level key is written before the document's first table header instead of being appended to the end of the file. Appending it put the key after the last `[header]`, so the written bytes read as a key of that table -- and, where that table already carried the name, as a duplicate key that no longer parsed.","type":"fix"}
 {"format_version":1,"id":"18d2279977ad34e1b1833e2a9fd844e58d4cfb0db2bd75b4","commits":["4bf61bd8629f593e06e17312f50c762c638ae414"],"user_facing":false}
+{"format_version":1,"id":"18d227a601d8b26ef6ff9cc049a544c4b76fc439f12955f7","commits":["69c0b952300c71aa70a583048b3f06eb8c30e7c2"],"user_facing":false}
