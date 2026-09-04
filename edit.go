@@ -45,6 +45,15 @@ func (d *Document) setInternal(path string, value any, create bool) error {
 		return err
 	}
 
+	// What the key already binds decides whether a value may be written at
+	// all, and is asked before any node is built, so a refused write converts
+	// nothing.
+	if lastSeg.Kind == SegmentKey {
+		if err := checkValueWriteTarget(parent, lastSeg.Key); err != nil {
+			return err
+		}
+	}
+
 	// Convert value to a node.
 	valNode, err := valueToNode(value)
 	if err != nil {
@@ -130,6 +139,29 @@ func (d *Document) createIntermediateTable(parent layerPos, key string) error {
 	return nil
 }
 
+// checkValueWriteTarget reports whether a value may be written at key inside
+// parent. A value write touches value fragments and nothing else: a name bound
+// by a structural construct -- a [header] table, an array-of-tables, or a table
+// another construct only implied -- changes through a structural operation or
+// an explicit Delete, never as a side effect of Set. A key holding an inline
+// table is a value fragment, so it is replaced wholesale like any other value,
+// and a key nothing binds yet is written fresh.
+func checkValueWriteTarget(parent layerPos, key string) error {
+	existing, bound, err := parent.binding(key)
+	if err != nil {
+		return err
+	}
+	if !bound || existing.kind == EntryValue {
+		return nil
+	}
+	if _, inline := existing.node.(*InlineTableNode); inline {
+		return nil
+	}
+	return newError(KindWrongContainer,
+		"key %q is %s: change it with a structural operation, or Delete it before writing a value there",
+		key, describeBinding(existing))
+}
+
 // setKeyInParent sets or replaces a key-value in a parent container.
 func setKeyInParent(parent layerPos, key string, valNode Node) error {
 	switch p := parent.node.(type) {
@@ -142,6 +174,11 @@ func setKeyInParent(parent layerPos, key string, valNode Node) error {
 	case *InlineTableNode:
 		return setKeyInChildren(&p.Children, key, valNode, true)
 	default:
+		if parent.records != nil || parent.rec != nil {
+			// A position no single node stands for: an array-of-tables, or a
+			// table another construct only implied.
+			return parent.noNodeError()
+		}
 		return newError(KindWrongContainer, "cannot set key %q in %s", key, parent.describe())
 	}
 }
