@@ -262,10 +262,16 @@ func (d *Document) deleteAt(path string) error {
 	parentSegs := segments[:len(segments)-1]
 	lastSeg := segments[len(segments)-1]
 
-	// Resolve the parent container.
-	parent, err := d.resolveParentForEdit(parentSegs, false)
+	// Resolve the parent container. A parent the document does not carry is a
+	// silent no-op -- removal is idempotent by contract -- but a document that
+	// cannot be folded at all is a failure of its own and is reported: reading
+	// it as "the parent is not there" would hide the real defect.
+	root, err := foldDocument(d)
 	if err != nil {
-		// Parent doesn't exist -- silent no-op.
+		return err
+	}
+	parent, err := walkFrom(posFromRecord(root), parentSegs)
+	if err != nil {
 		return nil
 	}
 
