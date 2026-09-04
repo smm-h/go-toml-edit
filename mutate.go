@@ -240,6 +240,12 @@ func rendersAsValue(n Node) bool {
 // the container's own bytes when the container renders as one fragment, says so
 // upward, and drops the read-layer built from the shape it just changed.
 func setContents(container Node, items []Node) error {
+	previous, _ := contents(container)
+	if len(previous) != len(items) {
+		// The gap fragments carry one entry per element boundary, so a
+		// container that gained or lost one is no longer described by them.
+		dropGapsOf(container)
+	}
 	if err := storeContents(container, items); err != nil {
 		return err
 	}
@@ -334,9 +340,7 @@ func (k *KeyNode) renamePart(i int, name string) {
 		return
 	}
 	k.parts[i] = name
-	if i < len(k.rawParts) {
-		k.rawParts[i] = []byte(name)
-	}
+	k.frag.rename(i, name)
 	if i < len(k.styles) {
 		k.styles[i] = StringBasic
 	}
@@ -369,11 +373,42 @@ func buildAppend(container Node, child Node) {
 	adopt(container, child)
 }
 
-// buildPart adds one part to a key being built.
-func (k *KeyNode) buildPart(part string, raw []byte, style StringStyle) {
+// buildPart adds one part to a key being built, together with the bytes it was
+// written as and the bytes that stood before it.
+func (k *KeyNode) buildPart(part string, raw, gap []byte, style StringStyle) {
 	k.parts = append(k.parts, part)
-	k.rawParts = append(k.rawParts, raw)
 	k.styles = append(k.styles, style)
+	k.frag.buildPart(raw, gap)
+}
+
+// buildKeyEnd records the bytes standing after a key's last part, closing its
+// fragments.
+func (k *KeyNode) buildKeyEnd(gap []byte) { k.frag.buildKeyEnd(gap) }
+
+// buildSep records a pair's separator fragment: the bytes between its key and
+// its value.
+func (kv *KeyValueNode) buildSep(b []byte) { kv.sep = b }
+
+// buildGaps records the bytes standing before, between and after a container's
+// elements. A container built rather than parsed records none, and renders its
+// elements with canonical separators instead.
+func buildGaps(container Node, gaps [][]byte) {
+	switch c := container.(type) {
+	case *ArrayNode:
+		c.gaps = gaps
+	case *InlineTableNode:
+		c.gaps = gaps
+	}
+}
+
+// buildHeaderKey records the byte fragments a header's key was written as.
+func buildHeaderKey(n Node, frag keyFragments) {
+	switch h := n.(type) {
+	case *TableNode:
+		h.header = frag
+	case *ArrayTableNode:
+		h.header = frag
+	}
 }
 
 // buildTrailingComments records the comments written after an array's last

@@ -55,7 +55,7 @@ func TestNodeTypes(t *testing.T) {
 		},
 		{
 			name:     "KeyNode",
-			node:     &KeyNode{parts: []string{"server", "host"}, rawParts: [][]byte{[]byte("server"), []byte("host")}},
+			node:     &KeyNode{parts: []string{"server", "host"}, frag: keyFragments{rawParts: [][]byte{[]byte("server"), []byte("host")}}},
 			wantType: NodeKey,
 			checkVal: func(t *testing.T, n Node) {
 				parts := n.(*KeyNode).parts

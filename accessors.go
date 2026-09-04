@@ -36,7 +36,7 @@ func (n *KeyNode) Parts() []string { return copyStrings(n.parts) }
 // RawParts returns the source bytes of each part, as written, as a copy: the
 // outer slice and every part in it. It is empty for a key created
 // programmatically.
-func (n *KeyNode) RawParts() [][]byte { return copyByteSlices(n.rawParts) }
+func (n *KeyNode) RawParts() [][]byte { return copyByteSlices(n.frag.rawParts) }
 
 // Styles returns the quoting style of each part, as a copy.
 func (n *KeyNode) Styles() []StringStyle {

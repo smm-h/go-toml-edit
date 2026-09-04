@@ -398,11 +398,12 @@ func (p *parser) parseTable(lt leadingTrivia, tracker *definitionTracker) (*Tabl
 	p.skipWhitespace()
 
 	// parse key path
-	keyPath, _, keySpans, keyPos, err := p.parseKeyPath()
+	keyPath, headerKey, keySpans, keyPos, err := p.parseKeyPath(startPos)
 	if err != nil {
 		return nil, err
 	}
 
+	afterKey := p.pos
 	p.skipWhitespace()
 
 	// consume ]
@@ -410,9 +411,12 @@ func (p *parser) parseTable(lt leadingTrivia, tracker *definitionTracker) (*Tabl
 	if err != nil {
 		return nil, err
 	}
+	// The closing bracket belongs to the gap after the last key part, so a
+	// header that re-renders writes its brackets back as they were.
+	headerKey.extendEnd(p.rawFromTokenRange(afterKey, p.pos))
 
 	// inline comment
-	_, inlineComment := p.consumeInlineTrivia()
+	inlineGap, inlineComment := p.consumeInlineTrivia()
 
 	// After the table header, only a newline or EOF is allowed
 	if tt := p.peekType(); tt != TokenNewline && tt != TokenEOF {
@@ -430,10 +434,12 @@ func (p *parser) parseTable(lt leadingTrivia, tracker *definitionTracker) (*Tabl
 		keyPath:  keyPath,
 		keySpans: keySpans,
 	}
+	buildHeaderKey(tbl, headerKey)
 	tbl.setRaw(headerRaw)
 	// The table span covers only the [header], not the children.
 	tbl.setSpan(Span{Start: tokenStart(openTok), End: spanFromToken(closeTok).End})
 	lt.applyTo(&tbl.nodeTrivia)
+	tbl.nodeTrivia.inlineGap = inlineGap
 	tbl.nodeTrivia.InlineComment = inlineComment
 	tbl.nodeTrivia.TrailingNewline = trailingNL
 
@@ -463,11 +469,12 @@ func (p *parser) parseArrayTable(lt leadingTrivia, tracker *definitionTracker) (
 	p.skipWhitespace()
 
 	// parse key path
-	keyPath, _, keySpans, keyPos, err := p.parseKeyPath()
+	keyPath, headerKey, keySpans, keyPos, err := p.parseKeyPath(startPos)
 	if err != nil {
 		return nil, err
 	}
 
+	afterKey := p.pos
 	p.skipWhitespace()
 
 	// consume ]]
@@ -475,9 +482,10 @@ func (p *parser) parseArrayTable(lt leadingTrivia, tracker *definitionTracker) (
 	if err != nil {
 		return nil, err
 	}
+	headerKey.extendEnd(p.rawFromTokenRange(afterKey, p.pos))
 
 	// inline comment
-	_, inlineComment := p.consumeInlineTrivia()
+	inlineGap, inlineComment := p.consumeInlineTrivia()
 
 	// After the array table header, only a newline or EOF is allowed
 	if tt := p.peekType(); tt != TokenNewline && tt != TokenEOF {
@@ -495,10 +503,12 @@ func (p *parser) parseArrayTable(lt leadingTrivia, tracker *definitionTracker) (
 		keyPath:  keyPath,
 		keySpans: keySpans,
 	}
+	buildHeaderKey(atbl, headerKey)
 	atbl.setRaw(headerRaw)
 	// The array-table span covers only the [[header]], not the children.
 	atbl.setSpan(Span{Start: tokenStart(openTok), End: spanFromToken(closeTok).End})
 	lt.applyTo(&atbl.nodeTrivia)
+	atbl.nodeTrivia.inlineGap = inlineGap
 	atbl.nodeTrivia.InlineComment = inlineComment
 	atbl.nodeTrivia.TrailingNewline = trailingNL
 
@@ -552,11 +562,14 @@ func (p *parser) parseKeyValue(lt leadingTrivia, tracker *definitionTracker, par
 	startPos := p.pos
 
 	// Parse key (possibly dotted)
-	keyNode, keyPos, err := p.parseKey()
+	keyNode, keyPos, sepStart, err := p.parseKey()
 	if err != nil {
 		return nil, err
 	}
 
+	// Everything from the key's last part to the value is the separator
+	// fragment: the "=" and the whitespace around it, spliced back whenever the
+	// pair re-renders.
 	p.skipWhitespace()
 
 	// Expect =
@@ -566,6 +579,7 @@ func (p *parser) parseKeyValue(lt leadingTrivia, tracker *definitionTracker, par
 	}
 
 	p.skipWhitespace()
+	sep := p.rawFromTokenRange(sepStart, p.pos)
 
 	// Parse value
 	val, err := p.parseValue()
@@ -574,7 +588,7 @@ func (p *parser) parseKeyValue(lt leadingTrivia, tracker *definitionTracker, par
 	}
 
 	// Inline trivia
-	_, inlineComment := p.consumeInlineTrivia()
+	inlineGap, inlineComment := p.consumeInlineTrivia()
 
 	// Trailing newline
 	trailingNL := p.consumeTrailingNewline()
@@ -584,11 +598,13 @@ func (p *parser) parseKeyValue(lt leadingTrivia, tracker *definitionTracker, par
 	kvRaw = append(lt.raw, kvRaw...)
 
 	kv := newPair(keyNode, val)
+	kv.buildSep(sep)
 	kv.setRaw(kvRaw)
 	// The key-value span runs from the key's first byte to the value's last
 	// byte, excluding leading trivia, inline comment, and trailing newline.
 	kv.setSpan(Span{Start: keyNode.Span().Start, End: val.Span().End})
 	lt.applyTo(&kv.nodeTrivia)
+	kv.nodeTrivia.inlineGap = inlineGap
 	kv.nodeTrivia.InlineComment = inlineComment
 	kv.nodeTrivia.TrailingNewline = trailingNL
 
@@ -603,25 +619,34 @@ func (p *parser) parseKeyValue(lt leadingTrivia, tracker *definitionTracker, par
 
 // --- key parsing ---
 
-// parseKey parses a (possibly dotted) key, returning the KeyNode and the
-// source position of the first key token.
-func (p *parser) parseKey() (*KeyNode, Position, error) {
+// parseKey parses a (possibly dotted) key, returning the KeyNode, the source
+// position of the first key token, and the index of the first token after the
+// key's last part -- where the separator fragment begins. The key's own
+// fragments end at that part: the whitespace before the "=" is the separator's,
+// not the key's.
+func (p *parser) parseKey() (*KeyNode, Position, int, error) {
 	key := &KeyNode{}
 	startPos := p.pos
 
 	// Capture position of the first key token
 	firstTok := p.peek()
 
+	// mark tracks the first token not yet accounted for by a fragment, so the
+	// bytes standing between the parts -- dots and whitespace -- are captured
+	// as the gaps that render between them.
+	mark := p.pos
+
 	// First part
 	part, rawPart, style, err := p.parseSimpleKey()
 	if err != nil {
-		return nil, Position{}, err
+		return nil, Position{}, 0, err
 	}
-	key.buildPart(part, rawPart, style)
+	key.buildPart(part, rawPart, p.rawFromTokenRange(mark, p.pos-1), style)
 	// parseSimpleKey consumes exactly one token; track the last key token so
 	// the span ends at the final key part (excluding trailing whitespace).
 	lastTok := p.tokens[p.pos-1]
 	key.partSpans = append(key.partSpans, spanFromToken(lastTok))
+	mark = p.pos
 
 	// Additional dotted parts
 	for {
@@ -635,16 +660,18 @@ func (p *parser) parseKey() (*KeyNode, Position, error) {
 
 		part, rawPart, style, err = p.parseSimpleKey()
 		if err != nil {
-			return nil, Position{}, err
+			return nil, Position{}, 0, err
 		}
-		key.buildPart(part, rawPart, style)
+		key.buildPart(part, rawPart, p.rawFromTokenRange(mark, p.pos-1), style)
 		lastTok = p.tokens[p.pos-1]
 		key.partSpans = append(key.partSpans, spanFromToken(lastTok))
+		mark = p.pos
 	}
 
+	key.buildKeyEnd(nil)
 	key.setRaw(p.rawFromTokenRange(startPos, p.pos))
 	key.setSpan(Span{Start: tokenStart(firstTok), End: spanFromToken(lastTok).End})
-	return key, tokenStart(firstTok), nil
+	return key, tokenStart(firstTok), mark, nil
 }
 
 func (p *parser) parseSimpleKey() (decoded string, raw []byte, style StringStyle, err error) {
@@ -672,19 +699,20 @@ func (p *parser) parseSimpleKey() (decoded string, raw []byte, style StringStyle
 // parseKeyPath parses a dotted key for table headers (without consuming =).
 // Returns the decoded parts, raw parts, the source range of each part, the
 // source position of the first key token, and any error.
-func (p *parser) parseKeyPath() ([]string, [][]byte, []Span, Position, error) {
+func (p *parser) parseKeyPath(mark int) ([]string, keyFragments, []Span, Position, error) {
 	var parts []string
-	var rawParts [][]byte
+	var frag keyFragments
 	var partSpans []Span
 
 	firstTok := p.peek()
 	part, rawPart, _, err := p.parseSimpleKey()
 	if err != nil {
-		return nil, nil, nil, Position{}, err
+		return nil, keyFragments{}, nil, Position{}, err
 	}
 	parts = append(parts, part)
-	rawParts = append(rawParts, rawPart)
+	frag.buildPart(rawPart, p.rawFromTokenRange(mark, p.pos-1))
 	partSpans = append(partSpans, spanFromToken(p.tokens[p.pos-1]))
+	mark = p.pos
 
 	for {
 		p.skipWhitespace()
@@ -696,14 +724,16 @@ func (p *parser) parseKeyPath() ([]string, [][]byte, []Span, Position, error) {
 
 		part, rawPart, _, err = p.parseSimpleKey()
 		if err != nil {
-			return nil, nil, nil, Position{}, err
+			return nil, keyFragments{}, nil, Position{}, err
 		}
 		parts = append(parts, part)
-		rawParts = append(rawParts, rawPart)
+		frag.buildPart(rawPart, p.rawFromTokenRange(mark, p.pos-1))
 		partSpans = append(partSpans, spanFromToken(p.tokens[p.pos-1]))
+		mark = p.pos
 	}
 
-	return parts, rawParts, partSpans, tokenStart(firstTok), nil
+	frag.buildKeyEnd(p.rawFromTokenRange(mark, p.pos))
+	return parts, frag, partSpans, tokenStart(firstTok), nil
 }
 
 // --- value parsing ---
@@ -860,6 +890,12 @@ func (p *parser) parseArrayValue() (Node, error) {
 
 	arr := &ArrayNode{}
 
+	// gaps collects the bytes standing before, between and after the elements:
+	// the brackets, the commas, the whitespace, the newlines and the interior
+	// comments. mark is the first token they have not accounted for yet.
+	var gaps [][]byte
+	mark := startPos
+
 	for {
 		// Collect leading trivia (whitespace, newlines, comments) before the
 		// next element or closing bracket.
@@ -870,15 +906,20 @@ func (p *parser) parseArrayValue() (Node, error) {
 			// only content in an empty array). Store them as trailing comments.
 			arr.buildTrailingComments(leadingComments)
 			closeTok := p.advance() // consume ]
+			gaps = append(gaps, p.rawFromTokenRange(mark, p.pos))
+			buildGaps(arr, gaps)
 			arr.setRaw(p.rawFromTokenRange(startPos, p.pos))
 			arr.setSpan(Span{Start: tokenStart(openTok), End: spanFromToken(closeTok).End})
 			return arr, nil
 		}
 
+		gaps = append(gaps, p.rawFromTokenRange(mark, p.pos))
+
 		elem, err := p.parseValue()
 		if err != nil {
 			return nil, err
 		}
+		mark = p.pos
 
 		// Attach leading trivia to this element.
 		t := elem.trivia()
@@ -940,10 +981,17 @@ func (p *parser) parseInlineTableValue() (Node, error) {
 	tbl := &InlineTableNode{}
 	tracker := newDefinitionTracker(p.src)
 
+	// gaps collects the braces, commas and whitespace standing around the
+	// pairs; mark is the first token they have not accounted for yet. A pair
+	// itself decomposes further, into its key, its separator and its value.
+	var gaps [][]byte
+	mark := startPos
+
 	p.skipWhitespace()
 
 	if p.peekType() == TokenRightBrace {
 		closeTok := p.advance() // consume }
+		buildGaps(tbl, [][]byte{p.rawFromTokenRange(mark, p.pos)})
 		tbl.setRaw(p.rawFromTokenRange(startPos, p.pos))
 		tbl.setSpan(Span{Start: tokenStart(openTok), End: spanFromToken(closeTok).End})
 		return tbl, nil
@@ -951,8 +999,9 @@ func (p *parser) parseInlineTableValue() (Node, error) {
 
 	for {
 		p.skipWhitespace()
+		gaps = append(gaps, p.rawFromTokenRange(mark, p.pos))
 
-		keyNode, keyPos, err := p.parseKey()
+		keyNode, keyPos, sepStart, err := p.parseKey()
 		if err != nil {
 			return nil, err
 		}
@@ -965,16 +1014,16 @@ func (p *parser) parseInlineTableValue() (Node, error) {
 		}
 
 		p.skipWhitespace()
+		sep := p.rawFromTokenRange(sepStart, p.pos)
 
 		val, err := p.parseValue()
 		if err != nil {
 			return nil, err
 		}
+		mark = p.pos
 
-		kv := &KeyValueNode{
-			key: keyNode,
-			val: val,
-		}
+		kv := newPair(keyNode, val)
+		kv.buildSep(sep)
 		kv.setSpan(Span{Start: keyNode.Span().Start, End: val.Span().End})
 
 		// Check for duplicate keys within the inline table
@@ -1001,6 +1050,8 @@ func (p *parser) parseInlineTableValue() (Node, error) {
 	if err != nil {
 		return nil, err
 	}
+	gaps = append(gaps, p.rawFromTokenRange(mark, p.pos))
+	buildGaps(tbl, gaps)
 
 	tbl.setRaw(p.rawFromTokenRange(startPos, p.pos))
 	tbl.setSpan(Span{Start: tokenStart(openTok), End: spanFromToken(closeTok).End})

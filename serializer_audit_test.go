@@ -465,7 +465,7 @@ func TestAuditBareKeyAllowedChars(t *testing.T) {
 func TestAuditKeyWithSpecialCharsQuoted(t *testing.T) {
 	k := &KeyNode{parts: []string{"key.with.dots"}}
 	k.markDirty()
-	got := string(renderKeyParts(k))
+	got := string(renderKey(k))
 	if !strings.HasPrefix(got, "\"") {
 		t.Errorf("key with dots should be quoted, got %q", got)
 	}
@@ -474,7 +474,7 @@ func TestAuditKeyWithSpecialCharsQuoted(t *testing.T) {
 func TestAuditKeyWithNewlineQuoted(t *testing.T) {
 	k := &KeyNode{parts: []string{"key\nwith\nnewlines"}}
 	k.markDirty()
-	got := string(renderKeyParts(k))
+	got := string(renderKey(k))
 	if !strings.HasPrefix(got, "\"") {
 		t.Errorf("key with newlines should be quoted, got %q", got)
 	}
@@ -992,16 +992,16 @@ func TestAuditMultiLineBasicStringWithThreeQuotes(t *testing.T) {
 // Audit Area 16: renderKeyParts clean key
 // =============================================================================
 
-func TestAuditRenderKeyPartsClean(t *testing.T) {
+func TestAuditRenderKeyClean(t *testing.T) {
 	input := "my_key = 1\n"
 	doc, err := Parse([]byte(input))
 	if err != nil {
 		t.Fatal(err)
 	}
 	kv := doc.children[0].(*KeyValueNode)
-	got := string(renderKeyParts(kv.key))
+	got := string(renderKey(kv.key))
 	if got != "my_key" {
-		t.Errorf("clean key renderKeyParts: got %q, want %q", got, "my_key")
+		t.Errorf("clean key renderKey: got %q, want %q", got, "my_key")
 	}
 }
 

@@ -62,13 +62,26 @@ func serializeNode(n Node) []byte {
 		}
 		return renderComment(node)
 
-	default:
-		// Leaf value nodes (string, int, float, bool, datetime, array, inline
-		// table). A container asks the same question as a scalar: the answer
-		// is one field read, because a node that went dirty said so upward at
-		// the moment it happened.
+	case *ArrayNode, *InlineTableNode:
+		// A container that nothing under it changed splices its whole range;
+		// one that did re-renders per fragment, splicing the brackets, the
+		// separators and every clean element inside it.
 		if !n.subtreeDirty() {
 			return n.rawBytes()
+		}
+		return renderValue(n)
+
+	default:
+		// Scalars. A clean one splices, like everything else; a marked one
+		// splices too when it still has a lexeme, because the lexeme IS the
+		// value fragment's clean bytes and the one thing that drops it is a
+		// write to the payload. That is what keeps a comment written beside
+		// 0x2A from rewriting it as 42.
+		if !n.subtreeDirty() {
+			return n.rawBytes()
+		}
+		if lexeme := n.rawBytes(); lexeme != nil {
+			return lexeme
 		}
 		return renderValue(n)
 	}
@@ -268,8 +281,14 @@ func formatFractional(ns int) string {
 	return s
 }
 
-// renderArray renders an ArrayNode.
+// renderArray renders an ArrayNode. When the gap fragments still describe it --
+// nothing was added, removed, or given a comment of its own -- every byte but
+// the elements themselves is spliced, and each element answers for itself.
+// Otherwise the array is rebuilt from its elements and their trivia.
 func renderArray(n *ArrayNode) []byte {
+	if gaps, ok := containerGaps(n); ok {
+		return spliceContainer(gaps, n.elements, serializeNode)
+	}
 	if len(n.elements) == 0 {
 		if len(n.trailingComments) > 0 {
 			// Empty array with trailing comments -- render multiline.
@@ -355,8 +374,12 @@ func renderArray(n *ArrayNode) []byte {
 	return buf
 }
 
-// renderInlineTable renders an InlineTableNode.
+// renderInlineTable renders an InlineTableNode, splicing its gap fragments on
+// the same terms as an array's.
 func renderInlineTable(n *InlineTableNode) []byte {
+	if gaps, ok := containerGaps(n); ok {
+		return spliceContainer(gaps, n.children, renderInlinePair)
+	}
 	if len(n.children) == 0 {
 		return []byte("{}")
 	}
@@ -366,68 +389,94 @@ func renderInlineTable(n *InlineTableNode) []byte {
 		if i > 0 {
 			buf = append(buf, ", "...)
 		}
-		kv, ok := child.(*KeyValueNode)
-		if !ok {
-			continue
-		}
-		buf = append(buf, renderKeyFromParts(kv.key)...)
-		buf = append(buf, " = "...)
-		buf = append(buf, serializeNode(kv.val)...)
+		buf = append(buf, renderInlinePair(child)...)
 	}
 	buf = append(buf, '}')
 	return buf
 }
 
-// renderKeyValue renders a dirty KeyValueNode.
+// renderInlinePair renders one pair of an inline table: key, separator, value.
+// A pair inside an inline table carries no trivia -- TOML gives it nowhere to
+// put a comment, and it ends at its value rather than at a newline.
+func renderInlinePair(child Node) []byte {
+	kv, ok := child.(*KeyValueNode)
+	if !ok {
+		return nil
+	}
+	var buf []byte
+	buf = append(buf, renderKey(kv.key)...)
+	buf = append(buf, renderSeparator(kv)...)
+	return append(buf, serializeNode(kv.val)...)
+}
+
+// spliceContainer writes a container from its gap fragments and its elements:
+// gap, element, gap, element, ... , gap.
+func spliceContainer(gaps [][]byte, items []Node, render func(Node) []byte) []byte {
+	var buf []byte
+	for i, item := range items {
+		buf = append(buf, gaps[i]...)
+		buf = append(buf, render(item)...)
+	}
+	return append(buf, gaps[len(items)]...)
+}
+
+// renderKeyValue renders a KeyValueNode fragment by fragment: leading trivia,
+// key, separator, value, inline comment, trailing newline. Each one splices the
+// bytes it was written as unless the write invalidated it.
 func renderKeyValue(n *KeyValueNode) []byte {
 	var buf []byte
-
-	// Leading trivia
 	buf = append(buf, renderTrivia(n)...)
-
-	// Key: if the key itself is clean, use renderKeyParts to preserve the
-	// original key formatting (e.g., literal-quoted 'host' stays literal).
-	// Only re-render from parts when the key is dirty.
-	if n.key.isDirty() {
-		buf = append(buf, renderKeyFromParts(n.key)...)
-	} else {
-		buf = append(buf, renderKeyParts(n.key)...)
-	}
-	buf = append(buf, " = "...)
-
-	// Value
+	buf = append(buf, renderKey(n.key)...)
+	buf = append(buf, renderSeparator(n)...)
 	buf = append(buf, serializeNode(n.val)...)
+	return append(buf, renderLineTail(n)...)
+}
 
-	// Inline comment
+// renderSeparator writes the bytes between a pair's key and its value: the ones
+// it was written with, or the canonical " = " for a pair written from scratch.
+func renderSeparator(n *KeyValueNode) []byte {
+	if n.sep != nil {
+		return n.sep
+	}
+	return []byte(" = ")
+}
+
+// renderLineTail writes what follows a construct on its line: the whitespace it
+// was written with before its inline comment, the comment, and the trailing
+// newline. A comment written where there was none gets one space; a construct
+// that ended the file without a newline keeps ending without one.
+func renderLineTail(n Node) []byte {
 	t := n.trivia()
-	if len(t.InlineComment) > 0 {
+	var buf []byte
+	switch {
+	case len(t.InlineComment) == 0:
+		// No comment: the gap is whatever trailing whitespace the line carried.
+		buf = append(buf, t.inlineGap...)
+	case len(t.inlineGap) > 0:
+		buf = append(buf, t.inlineGap...)
+		buf = append(buf, t.InlineComment...)
+	default:
 		buf = append(buf, ' ')
 		buf = append(buf, t.InlineComment...)
 	}
-
-	// Trailing newline
 	if len(t.TrailingNewline) > 0 {
-		buf = append(buf, t.TrailingNewline...)
-	} else {
-		buf = append(buf, '\n')
+		return append(buf, t.TrailingNewline...)
+	}
+	if n.rawBytes() == nil {
+		// A construct built rather than parsed ends its own line; one parsed at
+		// end of file without a newline keeps ending without one.
+		return append(buf, '\n')
 	}
 	return buf
 }
 
-// renderKeyParts renders a KeyNode, preferring its raw bytes if clean.
-func renderKeyParts(k *KeyNode) []byte {
-	if !k.isDirty() && len(k.rawBytes()) > 0 {
-		raw := k.rawBytes()
-		// Trim trailing whitespace that may have been captured during parsing.
-		for len(raw) > 0 {
-			last := raw[len(raw)-1]
-			if last == ' ' || last == '\t' {
-				raw = raw[:len(raw)-1]
-			} else {
-				break
-			}
-		}
-		return raw
+// renderKey renders a KeyNode from its fragments: every part splices the bytes
+// it was written as (or, for a renamed part, its canonical spelling) and the
+// dots and whitespace between them splice too. A key whose fragments were never
+// captured renders from its parts.
+func renderKey(k *KeyNode) []byte {
+	if k.frag.describes(len(k.parts)) {
+		return k.frag.splice()
 	}
 	return renderKeyFromParts(k)
 }
@@ -458,48 +507,34 @@ func isBareKey(s string) bool {
 	return true
 }
 
-// renderTableHeader renders a dirty TableNode header.
+// renderTableHeader renders a TableNode header fragment by fragment.
 func renderTableHeader(n *TableNode) []byte {
 	var buf []byte
 	buf = append(buf, renderTrivia(n)...)
-	buf = append(buf, '[')
-	buf = append(buf, renderKeyPath(n.keyPath)...)
-	buf = append(buf, ']')
-
-	t := n.trivia()
-	if len(t.InlineComment) > 0 {
-		buf = append(buf, ' ')
-		buf = append(buf, t.InlineComment...)
-	}
-
-	if len(t.TrailingNewline) > 0 {
-		buf = append(buf, t.TrailingNewline...)
-	} else {
-		buf = append(buf, '\n')
-	}
-	return buf
+	buf = append(buf, renderHeaderKey(n.header, n.keyPath, "[", "]")...)
+	return append(buf, renderLineTail(n)...)
 }
 
-// renderArrayTableHeader renders a dirty ArrayTableNode header.
+// renderArrayTableHeader renders an ArrayTableNode header fragment by fragment.
 func renderArrayTableHeader(n *ArrayTableNode) []byte {
 	var buf []byte
 	buf = append(buf, renderTrivia(n)...)
-	buf = append(buf, '[', '[')
-	buf = append(buf, renderKeyPath(n.keyPath)...)
-	buf = append(buf, ']', ']')
+	buf = append(buf, renderHeaderKey(n.header, n.keyPath, "[[", "]]")...)
+	return append(buf, renderLineTail(n)...)
+}
 
-	t := n.trivia()
-	if len(t.InlineComment) > 0 {
-		buf = append(buf, ' ')
-		buf = append(buf, t.InlineComment...)
+// renderHeaderKey writes a header's brackets and key. The captured fragments
+// carry the brackets themselves, so a header written "[ 'a' . b ]" comes back
+// spelled exactly that way; a header created programmatically has none, and is
+// written canonically between the brackets it is given.
+func renderHeaderKey(frag keyFragments, keyPath []string, open, close string) []byte {
+	if frag.describes(len(keyPath)) {
+		return frag.splice()
 	}
-
-	if len(t.TrailingNewline) > 0 {
-		buf = append(buf, t.TrailingNewline...)
-	} else {
-		buf = append(buf, '\n')
-	}
-	return buf
+	var buf []byte
+	buf = append(buf, open...)
+	buf = append(buf, renderKeyPath(keyPath)...)
+	return append(buf, close...)
 }
 
 // renderKeyPath renders a dotted key path (for table headers).

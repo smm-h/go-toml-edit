@@ -23,8 +23,14 @@ import (
 	"testing"
 )
 
-// mutatorFile is the one file allowed to write the guarded fields.
-const mutatorFile = "mutate.go"
+// mutatorFiles are the files allowed to write the guarded fields: the write
+// funnels themselves. mutate.go holds the payload and structure funnels;
+// fragments.go holds the byte-fragment state they keep in step, which is
+// written through the same kind of narrow, self-invalidating operations.
+var mutatorFiles = map[string]bool{
+	"mutate.go":    true,
+	"fragments.go": true,
+}
 
 // scalarPayloadFields are the fields of the struct that pairs a scalar's
 // payload with its lexeme. Writing either without the other is the drift the
@@ -43,6 +49,10 @@ var structureFields = map[string]string{
 	"keyPath":          "build a header's key path in its composite literal",
 	"parts":            "rename a key part with renamePart, or build a key with buildPart",
 	"rawParts":         "rename a key part with renamePart, or build a key with buildPart",
+	"frag":             "rename a key part with renamePart, or build a key with buildPart",
+	"header":           "record a header's key fragments with buildHeaderKey",
+	"sep":              "record a pair's separator fragment with buildSep",
+	"gaps":             "record a container's gap fragments with buildGaps, and drop them with dropGapsOf",
 	"styles":           "rename a key part with renamePart, or build a key with buildPart",
 	"key":              "build a pair with newPair",
 	"val":              "replace a pair's value with setVal, and a scalar's payload with its kind's setValue",
@@ -77,7 +87,7 @@ func assertNoFieldWrites(t *testing.T, fields map[string]string) {
 	sort.Strings(names)
 
 	for _, name := range names {
-		if name == mutatorFile {
+		if mutatorFiles[name] {
 			continue
 		}
 		ast.Inspect(files[name], func(n ast.Node) bool {
@@ -96,8 +106,8 @@ func assertNoFieldWrites(t *testing.T, fields map[string]string) {
 					continue
 				}
 				if remedy, guarded := fields[field]; guarded {
-					t.Errorf("%s: writes %s outside %s -- %s",
-						fset.Position(target.Pos()), field, mutatorFile, remedy)
+					t.Errorf("%s: writes %s outside the write funnels -- %s",
+						fset.Position(target.Pos()), field, remedy)
 				}
 			}
 			return true

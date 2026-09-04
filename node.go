@@ -58,6 +58,14 @@ type Trivia struct {
 	InlineComment     []byte   // "# ..." after value on same line
 	TrailingNewline   []byte
 
+	// inlineGap holds the bytes standing between the construct and its inline
+	// comment -- the whitespace a writer put there. It is a fragment of its
+	// own: a node that re-renders because something else about it changed
+	// writes the gap back exactly, and only a comment written where there was
+	// none falls back to a single space. Removing a comment clears it, so the
+	// line does not keep whitespace pointing at nothing.
+	inlineGap []byte
+
 	// blankRuns holds the blank lines around the leading comments: entry i the
 	// run written before LeadingComments[i], and the entry after the last
 	// comment the run between that comment and the node itself. A blank line is
@@ -232,7 +240,13 @@ func (n *nodeBase) Comment() string {
 
 func (n *nodeBase) setComment(comment string) {
 	n.nodeTrivia.InlineComment = []byte(comment)
+	if comment == "" {
+		// The gap led to a comment that is no longer there; keeping it would
+		// leave trailing whitespace behind the value.
+		n.nodeTrivia.inlineGap = nil
+	}
 	n.markDirty()
+	dropGapsOf(n.parent)
 }
 
 // LeadingComments returns the text of each comment line written above the node,
@@ -300,6 +314,7 @@ func (n *nodeBase) setLeadingComments(comments []string) {
 		t.blankRuns[len(comments)] = tail
 	}
 	n.markDirty()
+	dropGapsOf(n.parent)
 }
 
 // LocalDateTime represents a TOML local date-time (no timezone).

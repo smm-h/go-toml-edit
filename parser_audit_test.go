@@ -643,17 +643,17 @@ func TestAuditKeyRawParts(t *testing.T) {
 		t.Fatal(err)
 	}
 	kv := doc.children[0].(*KeyValueNode)
-	if len(kv.key.rawParts) != 3 {
-		t.Fatalf("expected 3 raw parts, got %d", len(kv.key.rawParts))
+	if len(kv.key.frag.rawParts) != 3 {
+		t.Fatalf("expected 3 raw parts, got %d", len(kv.key.frag.rawParts))
 	}
-	if string(kv.key.rawParts[0]) != "server" {
-		t.Errorf("raw part 0 = %q", kv.key.rawParts[0])
+	if string(kv.key.frag.rawParts[0]) != "server" {
+		t.Errorf("raw part 0 = %q", kv.key.frag.rawParts[0])
 	}
-	if string(kv.key.rawParts[1]) != "\"host name\"" {
-		t.Errorf("raw part 1 = %q", kv.key.rawParts[1])
+	if string(kv.key.frag.rawParts[1]) != "\"host name\"" {
+		t.Errorf("raw part 1 = %q", kv.key.frag.rawParts[1])
 	}
-	if string(kv.key.rawParts[2]) != "port" {
-		t.Errorf("raw part 2 = %q", kv.key.rawParts[2])
+	if string(kv.key.frag.rawParts[2]) != "port" {
+		t.Errorf("raw part 2 = %q", kv.key.frag.rawParts[2])
 	}
 }
 
@@ -959,7 +959,7 @@ func TestAuditBareKeyVsQuotedKeyStyle(t *testing.T) {
 		t.Logf("bare key style %d vs quoted key style %d -- different (unexpected)", kv1.key.styles[0], kv2.key.styles[0])
 	} else {
 		// They're the same -- check RawParts distinguish them
-		if string(kv1.key.rawParts[0]) == "bare" && string(kv2.key.rawParts[0]) == "\"quoted\"" {
+		if string(kv1.key.frag.rawParts[0]) == "bare" && string(kv2.key.frag.rawParts[0]) == "\"quoted\"" {
 			t.Logf("bare vs quoted keys are both StringBasic but distinguishable via RawParts -- this is a known limitation")
 		}
 	}

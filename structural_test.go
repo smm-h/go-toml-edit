@@ -82,7 +82,10 @@ func TestPermuteChildren_ReordersInlineTablePairs(t *testing.T) {
 	if err := doc.PermuteChildren("t", []int{1, 0}); err != nil {
 		t.Fatalf("PermuteChildren: %v", err)
 	}
-	const want = "t = {a = 1, b = 2}\n"
+	// The pairs move; the braces, the comma and the spacing around them stay
+	// where they were written, because a reorder invalidates no fragment of
+	// theirs.
+	const want = "t = { a = 1, b = 2 }\n"
 	if got := string(doc.Bytes()); got != want {
 		t.Errorf("the document reads %q, want %q", got, want)
 	}

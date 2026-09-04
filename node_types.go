@@ -151,6 +151,14 @@ type TableNode struct {
 	// keySpans is the source range of each part of keyPath, in order. It is
 	// empty for a table created programmatically.
 	keySpans []Span
+
+	// header carries the byte fragments the header line's key decomposes into:
+	// the bytes each part was written as, and the brackets, dots and whitespace
+	// standing around them. A header that re-renders splices them, so a comment
+	// written above [ 'a' . b ] leaves the header spelled exactly that way. It
+	// is empty for a table created programmatically, which renders its key path
+	// canonically instead.
+	header keyFragments
 }
 
 // Type returns NodeTable.
@@ -165,6 +173,9 @@ type ArrayTableNode struct {
 	// keySpans is the source range of each part of keyPath, in order. It is
 	// empty for an array table created programmatically.
 	keySpans []Span
+
+	// header carries the key's byte fragments, exactly as on TableNode.
+	header keyFragments
 }
 
 // Type returns NodeArrayTable.
@@ -175,6 +186,13 @@ type KeyValueNode struct {
 	nodeBase
 	key *KeyNode
 	val Node
+
+	// sep is the separator fragment: every byte between the end of the key and
+	// the start of the value, the "=" and the whitespace around it included. A
+	// pair that re-renders splices it, so "x   =    1" keeps its spacing when
+	// its value is replaced. It is nil for a pair created programmatically,
+	// which writes " = ".
+	sep []byte
 }
 
 // Type returns NodeKeyValue.
@@ -183,9 +201,14 @@ func (n *KeyValueNode) Type() NodeType { return NodeKeyValue }
 // KeyNode represents a (possibly dotted) key.
 type KeyNode struct {
 	nodeBase
-	parts    []string      // semantic parts (e.g. ["server", "host"])
-	rawParts [][]byte      // original bytes for each part
-	styles   []StringStyle // quoting style per part
+	parts  []string      // semantic parts (e.g. ["server", "host"])
+	styles []StringStyle // quoting style per part
+
+	// frag holds the key's byte fragments: the bytes of each part, as written
+	// or as renamed, and the dots and whitespace standing around them. A key
+	// that re-renders splices them, so renaming one part of "a . b" leaves the
+	// spacing and the other part exactly as they were.
+	frag keyFragments
 
 	// partSpans is the source range of each part, in order. It is empty for a
 	// key created programmatically.
@@ -308,6 +331,15 @@ type ArrayNode struct {
 	nodeBase
 	elements         []Node
 	trailingComments [][]byte // comments after the last element, before ']'
+
+	// gaps holds the bytes standing before, between and after the elements --
+	// the brackets, the commas, the whitespace, the newlines and the interior
+	// comments -- with one more entry than there are elements. An array that
+	// re-renders because one element changed splices them, so every other
+	// element's bytes and every separator survive verbatim. They are dropped
+	// when the element count changes or an element's own trivia is written,
+	// neither of which they can describe.
+	gaps [][]byte
 }
 
 // Type returns NodeArray.
@@ -317,6 +349,10 @@ func (n *ArrayNode) Type() NodeType { return NodeArray }
 type InlineTableNode struct {
 	nodeBase
 	children []Node // KeyValueNode entries
+
+	// gaps holds the bytes standing before, between and after the pairs -- the
+	// braces, the commas and the whitespace -- exactly as ArrayNode's do.
+	gaps [][]byte
 }
 
 // Type returns NodeInlineTable.

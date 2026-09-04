@@ -651,7 +651,7 @@ func TestBytesNewDocumentWithArrayTable(t *testing.T) {
 func TestRenderBareKey(t *testing.T) {
 	k := &KeyNode{parts: []string{"simple"}}
 	k.markDirty()
-	got := string(renderKeyParts(k))
+	got := string(renderKey(k))
 	if got != "simple" {
 		t.Errorf("got %q, want %q", got, "simple")
 	}
@@ -660,7 +660,7 @@ func TestRenderBareKey(t *testing.T) {
 func TestRenderQuotedKey(t *testing.T) {
 	k := &KeyNode{parts: []string{"key with spaces"}}
 	k.markDirty()
-	got := string(renderKeyParts(k))
+	got := string(renderKey(k))
 	if got != `"key with spaces"` {
 		t.Errorf("got %q, want %q", got, `"key with spaces"`)
 	}
@@ -669,7 +669,7 @@ func TestRenderQuotedKey(t *testing.T) {
 func TestRenderDottedKey(t *testing.T) {
 	k := &KeyNode{parts: []string{"a", "b", "c"}}
 	k.markDirty()
-	got := string(renderKeyParts(k))
+	got := string(renderKey(k))
 	if got != "a.b.c" {
 		t.Errorf("got %q, want %q", got, "a.b.c")
 	}
@@ -678,7 +678,7 @@ func TestRenderDottedKey(t *testing.T) {
 func TestRenderMixedDottedKey(t *testing.T) {
 	k := &KeyNode{parts: []string{"server", "host name", "port"}}
 	k.markDirty()
-	got := string(renderKeyParts(k))
+	got := string(renderKey(k))
 	if got != `server."host name".port` {
 		t.Errorf("got %q, want %q", got, `server."host name".port`)
 	}
@@ -688,7 +688,7 @@ func TestRenderEmptyKey(t *testing.T) {
 	// Empty key must be quoted
 	k := &KeyNode{parts: []string{""}}
 	k.markDirty()
-	got := string(renderKeyParts(k))
+	got := string(renderKey(k))
 	if got != `""` {
 		t.Errorf("got %q, want %q", got, `""`)
 	}

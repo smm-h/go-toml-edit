@@ -390,16 +390,14 @@ func newKeyValueNode(key string, val Node) *KeyValueNode {
 // newDottedKeyValueNode creates a dirty KeyValueNode whose key is the given
 // path, written as one dotted key.
 func newDottedKeyValueNode(parts []string, val Node) *KeyValueNode {
-	rawParts := make([][]byte, len(parts))
 	styles := make([]StringStyle, len(parts))
-	for i, part := range parts {
-		rawParts[i] = []byte(part)
+	for i := range parts {
 		styles[i] = StringBasic
 	}
 	keyNode := &KeyNode{
-		parts:    parts,
-		rawParts: rawParts,
-		styles:   styles,
+		parts:  parts,
+		styles: styles,
+		frag:   canonicalKeyFragments(parts),
 	}
 	keyNode.markDirty()
 

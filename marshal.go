@@ -116,14 +116,13 @@ func makeKeyValue(key string, val any) (*KeyValueNode, error) {
 	}
 
 	keyNode := &KeyNode{
-		parts: []string{key},
+		parts:  []string{key},
+		styles: []StringStyle{StringBasic},
+		frag:   canonicalKeyFragments([]string{key}),
 	}
 	keyNode.markDirty()
 
-	kv := &KeyValueNode{
-		key: keyNode,
-		val: valNode,
-	}
+	kv := newPair(keyNode, valNode)
 	kv.markDirty()
 	kv.nodeTrivia.TrailingNewline = []byte("\n")
 
