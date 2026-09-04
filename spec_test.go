@@ -2,8 +2,10 @@ package tomledit
 
 import (
 	"errors"
+	"reflect"
 	"strings"
 	"testing"
+	"time"
 )
 
 // The descriptor surface: a document shape described as data, checked by the
@@ -260,5 +262,227 @@ func TestValidate_DateTimeKindsAreFour(t *testing.T) {
 		if !errors.Is(d, ErrTypeMismatch) {
 			t.Errorf("diagnostic at %q is %s, want a type mismatch", d.Path, d.Kind)
 		}
+	}
+}
+
+// --- the descriptor path's decode ---
+
+// decodeSpecDoc carries every shape DecodeSpec has to build: scalars of each
+// flavor, a header table, a table implied by a longer header, an inline table,
+// an array, and an array-of-tables.
+const decodeSpecDoc = `title = "app"
+count = 7
+ratio = 1.5
+on = true
+when = 1979-05-27T07:32:00Z
+ports = [1, 2]
+
+[server]
+host = "localhost"
+opts = { debug = true }
+
+[deep.nested]
+x = 1
+
+[[items]]
+name = "a"
+
+[[items]]
+name = "b"
+`
+
+// decodeSpecSpec describes decodeSpecDoc exactly.
+func decodeSpecSpec() *Spec {
+	return &Spec{Fields: map[string]Field{
+		"title": {Kind: FieldKindString},
+		"count": {Kind: FieldKindInteger},
+		"ratio": {Kind: FieldKindFloat},
+		"on":    {Kind: FieldKindBoolean},
+		"when":  {Kind: FieldKindOffsetDateTime},
+		"ports": {Kind: FieldKindArray, Elem: &Field{Kind: FieldKindInteger}},
+		"server": {Kind: FieldKindTable, Table: &Spec{Fields: map[string]Field{
+			"host": {Kind: FieldKindString},
+			"opts": {Kind: FieldKindTable, Table: &Spec{Fields: map[string]Field{
+				"debug": {Kind: FieldKindBoolean},
+			}}},
+		}}},
+		"deep": {Kind: FieldKindTable, Table: &Spec{Fields: map[string]Field{
+			"nested": {Kind: FieldKindTable, Table: &Spec{Fields: map[string]Field{
+				"x": {Kind: FieldKindInteger},
+			}}},
+		}}},
+		"items": {Kind: FieldKindArray, Elem: &Field{Kind: FieldKindTable, Table: &Spec{Fields: map[string]Field{
+			"name": {Kind: FieldKindString},
+		}}}},
+	}}
+}
+
+// Fails if DecodeSpec stops answering with the document's own values, in the
+// native forms the conversion table's last row names. Every table spelling
+// arrives as a map, both array spellings as a slice, and a scalar as the Go
+// type of its TOML type.
+func TestDecodeSpec_BuildsTheDocumentsValues(t *testing.T) {
+	doc, err := Parse([]byte(decodeSpecDoc))
+	if err != nil {
+		t.Fatalf("parse error: %v", err)
+	}
+	got, err := doc.DecodeSpec(decodeSpecSpec())
+	if err != nil {
+		t.Fatalf("DecodeSpec: %v", err)
+	}
+
+	if got["title"] != "app" || got["count"] != int64(7) || got["ratio"] != 1.5 || got["on"] != true {
+		t.Errorf("scalars decoded as %#v", got)
+	}
+	if when, ok := got["when"].(time.Time); !ok || !when.Equal(time.Date(1979, 5, 27, 7, 32, 0, 0, time.UTC)) {
+		t.Errorf("when = %#v, want the instant the document carries", got["when"])
+	}
+	if !reflect.DeepEqual(got["ports"], []any{int64(1), int64(2)}) {
+		t.Errorf("ports = %#v, want []any{1, 2}", got["ports"])
+	}
+
+	server, ok := got["server"].(map[string]any)
+	if !ok {
+		t.Fatalf("server is %T, want map[string]any", got["server"])
+	}
+	if server["host"] != "localhost" {
+		t.Errorf("server.host = %v, want localhost", server["host"])
+	}
+	if opts, ok := server["opts"].(map[string]any); !ok || opts["debug"] != true {
+		t.Errorf("server.opts = %#v, want the inline table as a map", server["opts"])
+	}
+	// A table implied by a longer header is a table like any other.
+	deep, ok := got["deep"].(map[string]any)
+	if !ok {
+		t.Fatalf("deep is %T, want map[string]any", got["deep"])
+	}
+	if nested, ok := deep["nested"].(map[string]any); !ok || nested["x"] != int64(1) {
+		t.Errorf("deep.nested = %#v, want the implied table", deep["nested"])
+	}
+
+	items, ok := got["items"].([]any)
+	if !ok {
+		t.Fatalf("items is %T, want []any", got["items"])
+	}
+	if len(items) != 2 {
+		t.Fatalf("items has %d entries, want 2", len(items))
+	}
+	for i, want := range []string{"a", "b"} {
+		entry, ok := items[i].(map[string]any)
+		if !ok || entry["name"] != want {
+			t.Errorf("items[%d] = %#v, want a map naming %q", i, items[i], want)
+		}
+	}
+}
+
+// Fails if DecodeSpec ever returns a partial map. Its atomicity has no
+// exception clause: the document below violates the descriptor in the middle,
+// with clean keys before and after, and none of them may come back.
+func TestDecodeSpec_IsAtomic(t *testing.T) {
+	doc, err := Parse([]byte(`first = "clean"
+bad = "not an integer"
+last = "clean too"
+
+[unknown_table]
+x = 1
+`))
+	if err != nil {
+		t.Fatalf("parse error: %v", err)
+	}
+	spec := &Spec{Fields: map[string]Field{
+		"first": {Kind: FieldKindString},
+		"bad":   {Kind: FieldKindInteger},
+		"last":  {Kind: FieldKindString},
+	}}
+
+	got, err := doc.DecodeSpec(spec)
+	if err == nil {
+		t.Fatalf("DecodeSpec accepted a document that violates the descriptor: %#v", got)
+	}
+	if got != nil {
+		t.Errorf("a failed DecodeSpec returned %#v, want no map at all", got)
+	}
+	// The violations are the whole answer, and they are all of them.
+	diags := diagnosticsOf(t, err)
+	if len(diags) != 2 {
+		t.Fatalf("got %d diagnostics, want the type mismatch and the unknown table: %v", len(diags), err)
+	}
+	if diags[0].Kind != KindInexact && diags[0].Kind != KindTypeMismatch {
+		t.Errorf("first diagnostic is %s at %q, want the refused value", diags[0].Kind, diags[0].Path)
+	}
+	if diags[1].Kind != KindUnknownTable {
+		t.Errorf("second diagnostic is %s at %q, want the unknown table", diags[1].Kind, diags[1].Path)
+	}
+}
+
+// Fails if a descriptor that describes nothing reaches the document: the
+// construction error is the same one Validate reports, and it comes back with
+// no map.
+func TestDecodeSpec_RefusesADescriptorThatDescribesNothing(t *testing.T) {
+	doc, err := Parse([]byte("vals = [1]\n"))
+	if err != nil {
+		t.Fatalf("parse error: %v", err)
+	}
+	got, err := doc.DecodeSpec(&Spec{Fields: map[string]Field{
+		"vals": {Kind: FieldKindArray}, // no Elem
+	}})
+	if err == nil {
+		t.Fatal("DecodeSpec accepted an array field with no element descriptor")
+	}
+	if got != nil {
+		t.Errorf("a refused DecodeSpec returned %#v, want no map at all", got)
+	}
+	if !strings.Contains(err.Error(), "Elem") {
+		t.Errorf("err = %v, want the missing sub-descriptor named", err)
+	}
+}
+
+// Fails if DecodeSpec and Validate stop agreeing about what a document is: they
+// run one engine, so the descriptor path reports the same diagnostics whether
+// or not the caller wants the values.
+func TestDecodeSpec_ReportsWhatValidateReports(t *testing.T) {
+	doc, err := Parse([]byte("port = \"eighty\"\nextra = 1\n"))
+	if err != nil {
+		t.Fatalf("parse error: %v", err)
+	}
+	spec := &Spec{Fields: map[string]Field{"port": {Kind: FieldKindInteger}}}
+
+	_, decodeErr := doc.DecodeSpec(spec)
+	validateErr := doc.Validate(spec)
+	from := diagnosticsOf(t, decodeErr)
+	against := diagnosticsOf(t, validateErr)
+	if len(from) != len(against) {
+		t.Fatalf("DecodeSpec reported %d diagnostics, Validate %d", len(from), len(against))
+	}
+	for i := range from {
+		if from[i].Kind != against[i].Kind || from[i].Path != against[i].Path || from[i].Pos != against[i].Pos {
+			t.Errorf("diagnostic %d: DecodeSpec says %s at %q %v, Validate says %s at %q %v",
+				i, from[i].Kind, from[i].Path, from[i].Pos, against[i].Kind, against[i].Path, against[i].Pos)
+		}
+	}
+}
+
+// Fails if DecodeSpec starts writing into the document it reads: it builds a
+// value of its own out of the read-layer, and the document is untouched.
+func TestDecodeSpec_LeavesTheDocumentAlone(t *testing.T) {
+	const src = "port = 9000\n"
+	doc, err := Parse([]byte(src))
+	if err != nil {
+		t.Fatalf("parse error: %v", err)
+	}
+	got, err := doc.DecodeSpec(&Spec{Fields: map[string]Field{"port": {Kind: FieldKindInteger}}})
+	if err != nil {
+		t.Fatalf("DecodeSpec: %v", err)
+	}
+	got["port"] = "mutated"
+	if string(doc.Bytes()) != src {
+		t.Errorf("document renders %q after DecodeSpec, want %q", doc.Bytes(), src)
+	}
+	again, err := doc.DecodeSpec(&Spec{Fields: map[string]Field{"port": {Kind: FieldKindInteger}}})
+	if err != nil {
+		t.Fatalf("DecodeSpec: %v", err)
+	}
+	if again["port"] != int64(9000) {
+		t.Errorf("port = %#v on a second read, want the returned map to be the caller's own", again["port"])
 	}
 }

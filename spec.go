@@ -151,17 +151,58 @@ func FieldAny() Field { return Field{Kind: FieldKindAny} }
 //
 // Validate reports nil when the document satisfies the descriptor.
 func (d *Document) Validate(spec *Spec) error {
+	_, err := d.checkSpec(spec)
+	return err
+}
+
+// DecodeSpec checks the document against the descriptor and, when it satisfies
+// it, returns the document's values as native Go data: map[string]any for every
+// table spelling, []any for arrays and arrays of tables, and string, int64,
+// float64, bool, time.Time, LocalDateTime, LocalDate or LocalTime for scalars.
+//
+// It is the descriptor path's decode: the same engine Validate runs, followed
+// by a value built out of the read-layer. No reflection is involved and no
+// consumer code runs, so the result is exactly what the document says.
+//
+// DecodeSpec is ATOMIC, without exception: it returns a map only when the
+// document has no violations at all, and (nil, err) otherwise. There is no
+// partial map, no half-populated table, and nothing to inspect after an error --
+// the diagnostics are the whole answer. This is a stronger promise than the
+// typed entry points make, and it holds because nothing outside this package
+// participates in building the map.
+//
+// The errors are Validate's: an *Errors aggregate of every independent
+// violation in document order, or a plain error for a descriptor that describes
+// nothing.
+func (d *Document) DecodeSpec(spec *Spec) (map[string]any, error) {
+	root, err := d.checkSpec(spec)
+	if err != nil {
+		return nil, err
+	}
+	out, derr := nativeRecord(root)
+	if derr != nil {
+		return nil, d.diag(derr, "")
+	}
+	return out.(map[string]any), nil
+}
+
+// checkSpec walks the document against the descriptor and returns the read-layer
+// it walked, so a caller that also wants the values does not fold twice.
+func (d *Document) checkSpec(spec *Spec) (*Record, error) {
 	table, err := compileSpec(spec)
 	if err != nil {
-		return err
+		return nil, err
 	}
 	root, err := d.readLayer()
 	if err != nil {
-		return d.diag(err, "")
+		return nil, d.diag(err, "")
 	}
 	en := newEngine()
 	en.walkRecord(root, table, noValue, "")
-	return d.diag(en.result(), "")
+	if err := d.diag(en.result(), ""); err != nil {
+		return nil, err
+	}
+	return root, nil
 }
 
 // --- compilation ---

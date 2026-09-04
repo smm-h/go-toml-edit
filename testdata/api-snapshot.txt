@@ -208,6 +208,7 @@ type Document struct
 	method (*Document) Bytes() []byte
 	method (*Document) Children() []Node
 	method (*Document) Comment() string
+	method (*Document) DecodeSpec(spec *Spec) (map[string]any, error)
 	method (*Document) Delete(path string) error
 	method (*Document) EnsureDefaults(defaults []Default) (added []string, err error)
 	method (*Document) Format(opts ...FormatOption) []byte
