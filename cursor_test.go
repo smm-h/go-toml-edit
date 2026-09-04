@@ -9,7 +9,7 @@ func TestCursor_ServerHost(t *testing.T) {
 	doc := parseTestDoc(t)
 	val, err := doc.Key("server").Key("host").String()
 	if err != nil {
-		t.Fatal("cursor server.host String() returned false")
+		t.Fatalf("cursor server.host String(): %v", err)
 	}
 	if val != "localhost" {
 		t.Errorf("expected \"localhost\", got %q", val)
@@ -20,7 +20,7 @@ func TestCursor_ServerPort(t *testing.T) {
 	doc := parseTestDoc(t)
 	val, err := doc.Key("server").Key("port").Int()
 	if err != nil {
-		t.Fatal("cursor server.port Int() returned false")
+		t.Fatalf("cursor server.port Int(): %v", err)
 	}
 	if val != 8080 {
 		t.Errorf("expected 8080, got %d", val)
@@ -31,7 +31,7 @@ func TestCursor_Products0Name(t *testing.T) {
 	doc := parseTestDoc(t)
 	val, err := doc.Key("products").At(0).Key("name").String()
 	if err != nil {
-		t.Fatal("cursor products[0].name String() returned false")
+		t.Fatalf("cursor products[0].name String(): %v", err)
 	}
 	if val != "Widget" {
 		t.Errorf("expected \"Widget\", got %q", val)
@@ -42,7 +42,7 @@ func TestCursor_ProductsNeg1Name(t *testing.T) {
 	doc := parseTestDoc(t)
 	val, err := doc.Key("products").At(-1).Key("name").String()
 	if err != nil {
-		t.Fatal("cursor products[-1].name String() returned false")
+		t.Fatalf("cursor products[-1].name String(): %v", err)
 	}
 	if val != "Gadget" {
 		t.Errorf("expected \"Gadget\", got %q", val)
@@ -53,7 +53,7 @@ func TestCursor_NestedInlineX(t *testing.T) {
 	doc := parseTestDoc(t)
 	val, err := doc.Key("nested").Key("inline").Key("x").Int()
 	if err != nil {
-		t.Fatal("cursor nested.inline.x Int() returned false")
+		t.Fatalf("cursor nested.inline.x Int(): %v", err)
 	}
 	if val != 1 {
 		t.Errorf("expected 1, got %d", val)
@@ -64,7 +64,7 @@ func TestCursor_NestedArray2(t *testing.T) {
 	doc := parseTestDoc(t)
 	val, err := doc.Key("nested").Key("array").At(2).Int()
 	if err != nil {
-		t.Fatal("cursor nested.array[2] Int() returned false")
+		t.Fatalf("cursor nested.array[2] Int(): %v", err)
 	}
 	if val != 3 {
 		t.Errorf("expected 3, got %d", val)
@@ -76,7 +76,7 @@ func TestCursor_MissingKey(t *testing.T) {
 	cursor := doc.Key("nonexistent")
 	val, err := cursor.Key("x").String()
 	if err == nil {
-		t.Errorf("expected false for missing key, got (%q, true)", val)
+		t.Errorf("String() at a missing key reported no error, and read %q", val)
 	}
 	if cursor.Err() == nil {
 		t.Error("expected non-nil error for missing key")
@@ -87,7 +87,7 @@ func TestCursor_ChainAfterError(t *testing.T) {
 	doc := parseTestDoc(t)
 	val, err := doc.Key("nonexistent").Key("x").Key("y").String()
 	if err == nil {
-		t.Errorf("expected false after chained error, got (%q, true)", val)
+		t.Errorf("String() after a failed chain reported no error, and read %q", val)
 	}
 	// Should not panic
 }
@@ -96,7 +96,7 @@ func TestCursor_CrossTableResolution(t *testing.T) {
 	doc := parseTestDoc(t)
 	val, err := doc.Key("server").Key("database").Key("name").String()
 	if err != nil {
-		t.Fatal("cursor server.database.name String() returned false")
+		t.Fatalf("cursor server.database.name String(): %v", err)
 	}
 	if val != "mydb" {
 		t.Errorf("expected \"mydb\", got %q", val)

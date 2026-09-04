@@ -55,7 +55,7 @@ func TestSet_ExistingValue(t *testing.T) {
 	}
 	val, err := doc.GetString("server.host")
 	if err != nil {
-		t.Fatal("GetString returned false after Set")
+		t.Fatalf("GetString after Set: %v", err)
 	}
 	if val != "newhost" {
 		t.Errorf("expected \"newhost\", got %q", val)
@@ -83,7 +83,7 @@ func TestSet_DifferentType(t *testing.T) {
 	}
 	val, err := doc.GetString("server.port")
 	if err != nil {
-		t.Fatal("GetString returned false after type change")
+		t.Fatalf("GetString after type change: %v", err)
 	}
 	if val != "not-a-number" {
 		t.Errorf("expected \"not-a-number\", got %q", val)
@@ -99,7 +99,7 @@ func TestSet_AddNewKeyToExistingTable(t *testing.T) {
 	}
 	val, err := doc.GetInt("server.workers")
 	if err != nil {
-		t.Fatal("GetInt returned false for new key")
+		t.Fatalf("GetInt for new key: %v", err)
 	}
 	if val != 4 {
 		t.Errorf("expected 4, got %d", val)
@@ -128,7 +128,7 @@ func TestSetCreate_AutoCreates(t *testing.T) {
 	}
 	val, err := doc.GetString("new.section.key")
 	if err != nil {
-		t.Fatal("GetString returned false after SetCreate")
+		t.Fatalf("GetString after SetCreate: %v", err)
 	}
 	if val != "val" {
 		t.Errorf("expected \"val\", got %q", val)
@@ -190,7 +190,7 @@ func TestSet_AllPrimitiveTypes(t *testing.T) {
 			check: func(t *testing.T, doc *Document) {
 				v, err := doc.GetTime("server.created")
 				if err != nil {
-					t.Error("time: GetTime returned false")
+					t.Errorf("time: GetTime: %v", err)
 					return
 				}
 				if v.Year() != 2024 || v.Month() != 1 || v.Day() != 15 {
@@ -300,7 +300,7 @@ func TestSet_InArrayElement(t *testing.T) {
 	}
 	val, err := doc.GetString("products[0].name")
 	if err != nil {
-		t.Fatal("GetString returned false")
+		t.Fatalf("GetString: %v", err)
 	}
 	if val != "SuperWidget" {
 		t.Errorf("expected \"SuperWidget\", got %q", val)
@@ -316,7 +316,7 @@ func TestSet_NegativeIndex(t *testing.T) {
 	}
 	val, err := doc.GetString("products[-1].name")
 	if err != nil {
-		t.Fatal("GetString returned false")
+		t.Fatalf("GetString: %v", err)
 	}
 	if val != "MegaGadget" {
 		t.Errorf("expected \"MegaGadget\", got %q", val)
@@ -338,7 +338,7 @@ inline = {x = 1, y = 2}
 	}
 	val, err := doc.GetInt("nested.inline.z")
 	if err != nil {
-		t.Fatal("GetInt returned false for new key in inline table")
+		t.Fatalf("GetInt for new key in inline table: %v", err)
 	}
 	if val != 3 {
 		t.Errorf("expected 3, got %d", val)
@@ -393,7 +393,7 @@ func TestDelete_ArrayElement(t *testing.T) {
 	// The first product should now be Gadget (formerly at index 1).
 	val, err := doc.GetString("products[0].name")
 	if err != nil {
-		t.Fatal("GetString returned false after delete")
+		t.Fatalf("GetString after delete: %v", err)
 	}
 	if val != "Gadget" {
 		t.Errorf("expected \"Gadget\" at index 0, got %q", val)
@@ -412,7 +412,7 @@ func TestDelete_NegativeIndex(t *testing.T) {
 	// Only Widget should remain.
 	val, err := doc.GetString("products[0].name")
 	if err != nil {
-		t.Fatal("GetString returned false")
+		t.Fatalf("GetString: %v", err)
 	}
 	if val != "Widget" {
 		t.Errorf("expected \"Widget\", got %q", val)
@@ -460,7 +460,7 @@ func TestRename_ExistingKey(t *testing.T) {
 	// New key should have the value.
 	val, err := doc.GetString("server.address")
 	if err != nil {
-		t.Fatal("GetString returned false for renamed key")
+		t.Fatalf("GetString for renamed key: %v", err)
 	}
 	if val != "localhost" {
 		t.Errorf("expected \"localhost\", got %q", val)
@@ -585,7 +585,7 @@ func TestNewArrayTable_ThenSet(t *testing.T) {
 
 	val, err := doc.GetString("products[-1].name")
 	if err != nil {
-		t.Fatal("GetString returned false")
+		t.Fatalf("GetString: %v", err)
 	}
 	if val != "NewProduct" {
 		t.Errorf("expected \"NewProduct\", got %q", val)

@@ -37,7 +37,7 @@ x = 1
 		t.Errorf("Float() after error: (%f, %v)", f, err)
 	}
 	if _, err := c.Time(); err == nil {
-		t.Error("Time() after error should return false")
+		t.Error("Time() after a failed navigation reported no error")
 	}
 }
 
@@ -147,7 +147,7 @@ z = 3
 
 	val, err := doc.Key("a").Key("b").Key("c").Key("z").Int()
 	if err != nil {
-		t.Fatal("cursor a.b.c.z Int() returned false")
+		t.Fatalf("cursor a.b.c.z Int(): %v", err)
 	}
 	if val != 3 {
 		t.Errorf("expected 3, got %d", val)
@@ -175,7 +175,7 @@ name = "Doohickey"
 	// Positive index
 	val, err := doc.Key("products").At(2).Key("name").String()
 	if err != nil {
-		t.Fatal("products[2].name returned false")
+		t.Fatalf("products[2].name: %v", err)
 	}
 	if val != "Doohickey" {
 		t.Errorf("expected \"Doohickey\", got %q", val)
@@ -184,7 +184,7 @@ name = "Doohickey"
 	// Negative index
 	val, err = doc.Key("products").At(-1).Key("name").String()
 	if err != nil {
-		t.Fatal("products[-1].name returned false")
+		t.Fatalf("products[-1].name: %v", err)
 	}
 	if val != "Doohickey" {
 		t.Errorf("expected \"Doohickey\", got %q", val)
@@ -210,7 +210,7 @@ tbl = {a = 1, b = "hello", c = true}
 
 	val, err := doc.Key("tbl").Key("a").Int()
 	if err != nil {
-		t.Fatal("tbl.a returned false")
+		t.Fatalf("tbl.a: %v", err)
 	}
 	if val != 1 {
 		t.Errorf("expected 1, got %d", val)
@@ -218,7 +218,7 @@ tbl = {a = 1, b = "hello", c = true}
 
 	sval, err := doc.Key("tbl").Key("b").String()
 	if err != nil {
-		t.Fatal("tbl.b returned false")
+		t.Fatalf("tbl.b: %v", err)
 	}
 	if sval != "hello" {
 		t.Errorf("expected \"hello\", got %q", sval)
@@ -226,7 +226,7 @@ tbl = {a = 1, b = "hello", c = true}
 
 	bval, err := doc.Key("tbl").Key("c").Bool()
 	if err != nil {
-		t.Fatal("tbl.c returned false")
+		t.Fatalf("tbl.c: %v", err)
 	}
 	if bval != true {
 		t.Errorf("expected true, got %v", bval)
@@ -316,7 +316,7 @@ a.b.c = "dotted"
 
 	val, err := doc.Key("section").Key("a").Key("b").Key("c").String()
 	if err != nil {
-		t.Fatal("section.a.b.c String() returned false")
+		t.Fatalf("section.a.b.c String(): %v", err)
 	}
 	if val != "dotted" {
 		t.Errorf("expected \"dotted\", got %q", val)
@@ -334,7 +334,7 @@ func TestAuditCursor_ArrayValueIndexing(t *testing.T) {
 
 	val, err := doc.Key("arr").At(1).Int()
 	if err != nil {
-		t.Fatal("arr[1] Int() returned false")
+		t.Fatalf("arr[1] Int(): %v", err)
 	}
 	if val != 20 {
 		t.Errorf("expected 20, got %d", val)
@@ -343,7 +343,7 @@ func TestAuditCursor_ArrayValueIndexing(t *testing.T) {
 	// Negative index
 	val, err = doc.Key("arr").At(-1).Int()
 	if err != nil {
-		t.Fatal("arr[-1] Int() returned false")
+		t.Fatalf("arr[-1] Int(): %v", err)
 	}
 	if val != 30 {
 		t.Errorf("expected 30, got %d", val)

@@ -135,7 +135,7 @@ func TestRenameKeyRebindsTheName(t *testing.T) {
 		t.Fatalf("RenameKey: %v", err)
 	}
 	if v, err := doc.GetInt("z.b.x"); err != nil || v != 1 {
-		t.Errorf("z.b.x reads as (%d, %v), want (1, true)", v, err)
+		t.Errorf("z.b.x reads as (%d, %v), want 1 and no error", v, err)
 	}
 	if doc.Has("a") {
 		t.Errorf("the old name still resolves")

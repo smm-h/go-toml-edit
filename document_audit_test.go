@@ -28,7 +28,7 @@ z = 3
 	// a.b.c.z should resolve
 	val, err := doc.GetInt("a.b.c.z")
 	if err != nil {
-		t.Fatal("GetInt(\"a.b.c.z\") returned false")
+		t.Fatalf("GetInt(\"a.b.c.z\"): %v", err)
 	}
 	if val != 3 {
 		t.Errorf("expected 3, got %d", val)
@@ -37,7 +37,7 @@ z = 3
 	// a.b.y should resolve
 	val, err = doc.GetInt("a.b.y")
 	if err != nil {
-		t.Fatal("GetInt(\"a.b.y\") returned false")
+		t.Fatalf("GetInt(\"a.b.y\"): %v", err)
 	}
 	if val != 2 {
 		t.Errorf("expected 2, got %d", val)
@@ -46,7 +46,7 @@ z = 3
 	// a.x should resolve
 	val, err = doc.GetInt("a.x")
 	if err != nil {
-		t.Fatal("GetInt(\"a.x\") returned false")
+		t.Fatalf("GetInt(\"a.x\"): %v", err)
 	}
 	if val != 1 {
 		t.Errorf("expected 1, got %d", val)
@@ -66,7 +66,7 @@ b.c = "hello"
 
 	val, err := doc.GetString("a.b.c")
 	if err != nil {
-		t.Fatal("GetString(\"a.b.c\") returned false")
+		t.Fatalf("GetString(\"a.b.c\"): %v", err)
 	}
 	if val != "hello" {
 		t.Errorf("expected \"hello\", got %q", val)
@@ -96,7 +96,7 @@ color = "blue"
 	// products[0].name
 	val, err := doc.GetString("products[0].name")
 	if err != nil {
-		t.Fatal("GetString(\"products[0].name\") returned false")
+		t.Fatalf("GetString(\"products[0].name\"): %v", err)
 	}
 	if val != "Widget" {
 		t.Errorf("expected \"Widget\", got %q", val)
@@ -105,7 +105,7 @@ color = "blue"
 	// products[0].details.color
 	val, err = doc.GetString("products[0].details.color")
 	if err != nil {
-		t.Fatal("GetString(\"products[0].details.color\") returned false")
+		t.Fatalf("GetString(\"products[0].details.color\"): %v", err)
 	}
 	if val != "red" {
 		t.Errorf("expected \"red\", got %q", val)
@@ -114,7 +114,7 @@ color = "blue"
 	// products[1].details.color
 	val, err = doc.GetString("products[1].details.color")
 	if err != nil {
-		t.Fatal("GetString(\"products[1].details.color\") returned false")
+		t.Fatalf("GetString(\"products[1].details.color\"): %v", err)
 	}
 	if val != "blue" {
 		t.Errorf("expected \"blue\", got %q", val)
@@ -271,7 +271,7 @@ val = 42
 
 	val, err := doc.GetInt("a.b.c.d.e.f.val")
 	if err != nil {
-		t.Fatal("GetInt(\"a.b.c.d.e.f.val\") returned false")
+		t.Fatalf("GetInt(\"a.b.c.d.e.f.val\"): %v", err)
 	}
 	if val != 42 {
 		t.Errorf("expected 42, got %d", val)
@@ -287,7 +287,7 @@ func TestAudit_GetStringOnInt(t *testing.T) {
 	}
 	val, err := doc.GetString("val")
 	if err == nil {
-		t.Errorf("GetString on integer should return false, got (%q, true)", val)
+		t.Errorf("GetString on an integer reported no error, and read %q", val)
 	}
 	if val != "" {
 		t.Errorf("expected empty string, got %q", val)
@@ -301,7 +301,7 @@ func TestAudit_GetIntOnString(t *testing.T) {
 	}
 	val, err := doc.GetInt("val")
 	if err == nil {
-		t.Errorf("GetInt on string should return false, got (%d, true)", val)
+		t.Errorf("GetInt on a string reported no error, and read %d", val)
 	}
 	if val != 0 {
 		t.Errorf("expected 0, got %d", val)
@@ -315,7 +315,7 @@ func TestAudit_GetBoolOnString(t *testing.T) {
 	}
 	val, err := doc.GetBool("val")
 	if err == nil {
-		t.Errorf("GetBool on string should return false")
+		t.Errorf("GetBool on a string reported no error")
 	}
 	if val != false {
 		t.Errorf("expected false, got %v", val)
@@ -329,7 +329,7 @@ func TestAudit_GetFloatOnBool(t *testing.T) {
 	}
 	val, err := doc.GetFloat("val")
 	if err == nil {
-		t.Errorf("GetFloat on bool should return false")
+		t.Errorf("GetFloat on a boolean reported no error")
 	}
 	if val != 0 {
 		t.Errorf("expected 0, got %f", val)
@@ -354,7 +354,7 @@ func TestAudit_GetIntOnFloat(t *testing.T) {
 	}
 	val, err := doc.GetInt("val")
 	if err == nil {
-		t.Errorf("GetInt on float should return false, got (%d, true)", val)
+		t.Errorf("GetInt on a float reported no error, and read %d", val)
 	}
 }
 
@@ -472,7 +472,7 @@ func TestAudit_DottedKeyIntermediateAccess(t *testing.T) {
 	// Full path should work
 	val, err := doc.GetString("a.b.c")
 	if err != nil {
-		t.Fatal("GetString(\"a.b.c\") returned false")
+		t.Fatalf("GetString(\"a.b.c\"): %v", err)
 	}
 	if val != "deep" {
 		t.Errorf("expected \"deep\", got %q", val)
@@ -517,7 +517,7 @@ nested = {a = {b = {c = 42}}}
 
 	val, err := doc.GetInt("section.nested.a.b.c")
 	if err != nil {
-		t.Fatal("GetInt(\"section.nested.a.b.c\") returned false")
+		t.Fatalf("GetInt(\"section.nested.a.b.c\"): %v", err)
 	}
 	if val != 42 {
 		t.Errorf("expected 42, got %d", val)
@@ -538,7 +538,7 @@ arr = ["a", "b", "c"]
 	// arr[0]
 	val, err := doc.GetString("arr[0]")
 	if err != nil {
-		t.Fatal("GetString(\"arr[0]\") returned false")
+		t.Fatalf("GetString(\"arr[0]\"): %v", err)
 	}
 	if val != "a" {
 		t.Errorf("expected \"a\", got %q", val)
@@ -547,7 +547,7 @@ arr = ["a", "b", "c"]
 	// arr[-1]
 	val, err = doc.GetString("arr[-1]")
 	if err != nil {
-		t.Fatal("GetString(\"arr[-1]\") returned false")
+		t.Fatalf("GetString(\"arr[-1]\"): %v", err)
 	}
 	if val != "c" {
 		t.Errorf("expected \"c\", got %q", val)
@@ -595,15 +595,15 @@ name = "b"
 	// If we get here without race detector complaints, it passes
 }
 
-// --- Test that getters are truly silent on errors ---
+// --- Test that a getter refuses a path that does not parse ---
 
-func TestAudit_GettersSilentOnErrors(t *testing.T) {
+func TestAudit_GettersRefuseUnparseablePath(t *testing.T) {
 	doc, err := Parse([]byte(`key = "val"`))
 	if err != nil {
 		t.Fatalf("parse error: %v", err)
 	}
 
-	// All should return zero values silently
+	// Each getter reports the bad path and reads the zero value.
 	if s, err := doc.GetString("bad["); err == nil || s != "" {
 		t.Errorf("GetString on bad path: (%q, %v)", s, err)
 	}
@@ -617,7 +617,7 @@ func TestAudit_GettersSilentOnErrors(t *testing.T) {
 		t.Errorf("GetFloat on bad path: (%f, %v)", f, err)
 	}
 	if _, err := doc.GetTime("bad["); err == nil {
-		t.Error("GetTime on bad path should return false")
+		t.Error("GetTime on a path that does not parse reported no error")
 	}
 	if node, ok := doc.Lookup("bad["); ok {
 		t.Errorf("Lookup on bad path should report false, got %T", node)
@@ -635,7 +635,7 @@ func TestAudit_TopLevelKey(t *testing.T) {
 
 	val, err := doc.GetString("title")
 	if err != nil {
-		t.Fatal("GetString(\"title\") returned false")
+		t.Fatalf("GetString(\"title\"): %v", err)
 	}
 	if val != "My TOML" {
 		t.Errorf("expected \"My TOML\", got %q", val)

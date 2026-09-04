@@ -62,7 +62,7 @@ func TestGetString_ServerHost(t *testing.T) {
 	doc := parseTestDoc(t)
 	val, err := doc.GetString("server.host")
 	if err != nil {
-		t.Fatal("GetString(\"server.host\") returned false")
+		t.Fatalf("GetString(\"server.host\"): %v", err)
 	}
 	if val != "localhost" {
 		t.Errorf("expected \"localhost\", got %q", val)
@@ -73,7 +73,7 @@ func TestGetInt_ServerPort(t *testing.T) {
 	doc := parseTestDoc(t)
 	val, err := doc.GetInt("server.port")
 	if err != nil {
-		t.Fatal("GetInt(\"server.port\") returned false")
+		t.Fatalf("GetInt(\"server.port\"): %v", err)
 	}
 	if val != 8080 {
 		t.Errorf("expected 8080, got %d", val)
@@ -84,7 +84,7 @@ func TestGetBool_ServerDebug(t *testing.T) {
 	doc := parseTestDoc(t)
 	val, err := doc.GetBool("server.debug")
 	if err != nil {
-		t.Fatal("GetBool(\"server.debug\") returned false")
+		t.Fatalf("GetBool(\"server.debug\"): %v", err)
 	}
 	if val != true {
 		t.Errorf("expected true, got %v", val)
@@ -95,7 +95,7 @@ func TestGetFloat_ServerRate(t *testing.T) {
 	doc := parseTestDoc(t)
 	val, err := doc.GetFloat("server.rate")
 	if err != nil {
-		t.Fatal("GetFloat(\"server.rate\") returned false")
+		t.Fatalf("GetFloat(\"server.rate\"): %v", err)
 	}
 	if val != 3.14 {
 		t.Errorf("expected 3.14, got %f", val)
@@ -106,7 +106,7 @@ func TestGetString_ServerDatabaseName(t *testing.T) {
 	doc := parseTestDoc(t)
 	val, err := doc.GetString("server.database.name")
 	if err != nil {
-		t.Fatal("GetString(\"server.database.name\") returned false")
+		t.Fatalf("GetString(\"server.database.name\"): %v", err)
 	}
 	if val != "mydb" {
 		t.Errorf("expected \"mydb\", got %q", val)
@@ -117,7 +117,7 @@ func TestGetString_Products0Name(t *testing.T) {
 	doc := parseTestDoc(t)
 	val, err := doc.GetString("products[0].name")
 	if err != nil {
-		t.Fatal("GetString(\"products[0].name\") returned false")
+		t.Fatalf("GetString(\"products[0].name\"): %v", err)
 	}
 	if val != "Widget" {
 		t.Errorf("expected \"Widget\", got %q", val)
@@ -128,7 +128,7 @@ func TestGetString_Products1Name(t *testing.T) {
 	doc := parseTestDoc(t)
 	val, err := doc.GetString("products[1].name")
 	if err != nil {
-		t.Fatal("GetString(\"products[1].name\") returned false")
+		t.Fatalf("GetString(\"products[1].name\"): %v", err)
 	}
 	if val != "Gadget" {
 		t.Errorf("expected \"Gadget\", got %q", val)
@@ -139,7 +139,7 @@ func TestGetString_ProductsNeg1Name(t *testing.T) {
 	doc := parseTestDoc(t)
 	val, err := doc.GetString("products[-1].name")
 	if err != nil {
-		t.Fatal("GetString(\"products[-1].name\") returned false")
+		t.Fatalf("GetString(\"products[-1].name\"): %v", err)
 	}
 	if val != "Gadget" {
 		t.Errorf("expected \"Gadget\", got %q", val)
@@ -150,7 +150,7 @@ func TestGetFloat_Products0Price(t *testing.T) {
 	doc := parseTestDoc(t)
 	val, err := doc.GetFloat("products[0].price")
 	if err != nil {
-		t.Fatal("GetFloat(\"products[0].price\") returned false")
+		t.Fatalf("GetFloat(\"products[0].price\"): %v", err)
 	}
 	if val != 9.99 {
 		t.Errorf("expected 9.99, got %f", val)
@@ -161,7 +161,7 @@ func TestGetTime_DatesCreated(t *testing.T) {
 	doc := parseTestDoc(t)
 	val, err := doc.GetTime("dates.created")
 	if err != nil {
-		t.Fatal("GetTime(\"dates.created\") returned false")
+		t.Fatalf("GetTime(\"dates.created\"): %v", err)
 	}
 	if val.Year() != 1979 || val.Month() != 5 || val.Day() != 27 {
 		t.Errorf("unexpected time: %v", val)
@@ -205,7 +205,7 @@ func TestGetInt_NestedInlineX(t *testing.T) {
 	doc := parseTestDoc(t)
 	val, err := doc.GetInt("nested.inline.x")
 	if err != nil {
-		t.Fatal("GetInt(\"nested.inline.x\") returned false")
+		t.Fatalf("GetInt(\"nested.inline.x\"): %v", err)
 	}
 	if val != 1 {
 		t.Errorf("expected 1, got %d", val)
@@ -216,7 +216,7 @@ func TestGetInt_NestedArray0(t *testing.T) {
 	doc := parseTestDoc(t)
 	val, err := doc.GetInt("nested.array[0]")
 	if err != nil {
-		t.Fatal("GetInt(\"nested.array[0]\") returned false")
+		t.Fatalf("GetInt(\"nested.array[0]\"): %v", err)
 	}
 	if val != 1 {
 		t.Errorf("expected 1, got %d", val)
@@ -227,7 +227,7 @@ func TestGetInt_NestedArrayNeg1(t *testing.T) {
 	doc := parseTestDoc(t)
 	val, err := doc.GetInt("nested.array[-1]")
 	if err != nil {
-		t.Fatal("GetInt(\"nested.array[-1]\") returned false")
+		t.Fatalf("GetInt(\"nested.array[-1]\"): %v", err)
 	}
 	if val != 3 {
 		t.Errorf("expected 3, got %d", val)
@@ -246,7 +246,7 @@ func TestGetString_WrongType(t *testing.T) {
 	doc := parseTestDoc(t)
 	val, err := doc.GetString("server.port")
 	if err == nil {
-		t.Errorf("expected false for wrong type, got (%q, true)", val)
+		t.Errorf("GetString on an integer reported no error, and read %q", val)
 	}
 	if val != "" {
 		t.Errorf("expected empty string for wrong type, got %q", val)
