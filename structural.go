@@ -13,8 +13,10 @@ package tomledit
 // The order is a GATHER: order[i] is the index of the child that moves to
 // position i, so children [A, B] with order [1, 0] end up [B, A]. It must be
 // total -- a permutation of every index the container has, each exactly once.
-// A wrong length, an out-of-range index or a repeated one is refused with
-// KindBadInput naming the offending index, and nothing is reordered.
+// A wrong length, an out-of-range index and a repeated one are each refused
+// with KindBadInput, and nothing is reordered. The two index violations name
+// the offending index; a length mismatch is about the order as a whole and
+// names both counts instead.
 //
 // The indices address the container's children as they stand right now. Read
 // them, compute the order and permute in one editing sequence: an edit in
@@ -154,7 +156,7 @@ func containerChildren(n Node) (*[]Node, bool, error) {
 		return &c.Children, true, nil
 	default:
 		return nil, false, newError(KindWrongContainer,
-			"a %s node holds no children to reorder", n.Type())
+			"%s nodes hold no children to reorder", n.Type())
 	}
 }
 
