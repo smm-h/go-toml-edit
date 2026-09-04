@@ -303,6 +303,29 @@ name = "a"
 			wantSent: ErrBadInput,
 			wantPath: "fresh",
 		},
+		{
+			// The decode engine reports an aggregate; errors.Is matches the
+			// kind of any diagnostic in it and errors.As yields the first, so
+			// the contract holds through the aggregate as it does for a lone
+			// diagnostic. The target knows every key but "title".
+			name: "decode: unknown key",
+			run: func(d *Document) error {
+				var cfg struct {
+					Tags   []int          `toml:"tags"`
+					Point  map[string]int `toml:"point"`
+					Server struct {
+						Host string `toml:"host"`
+					} `toml:"server"`
+					Products []struct {
+						Name string `toml:"name"`
+					} `toml:"products"`
+				}
+				return d.Decode(&cfg)
+			},
+			wantKind: KindUnknownKey,
+			wantSent: ErrUnknownKey,
+			wantPath: "title",
+		},
 	}
 
 	for _, tt := range tests {
