@@ -477,21 +477,33 @@ func TestUnmarshal_UnknownTagOptionIsRefused(t *testing.T) {
 	}
 }
 
-// Fails if a toml tag on an unexported field is accepted: no document key can
-// ever reach it, so the tag says something the decoder cannot honour.
-func TestUnmarshal_TagOnUnexportedFieldIsRefused(t *testing.T) {
+// Fails if a toml tag on an unexported field stops being inert. The field is
+// outside the mapping either way, so the tag binds nothing and refuses
+// nothing: a target carrying one decodes like any other, and a document key
+// spelling that tag is unknown, exactly like a key the target never declared.
+func TestUnmarshal_TagOnUnexportedFieldIsInert(t *testing.T) {
 	type Config struct {
+		Name   string `toml:"name"`
 		secret string `toml:"secret"`
 	}
 	var cfg Config
-	err := Unmarshal([]byte(`other = 1`), &cfg)
+	if err := Unmarshal([]byte("name = \"x\"\n"), &cfg); err != nil {
+		t.Fatalf("Unmarshal refused a target carrying a toml tag on an unexported field: %v", err)
+	}
+	if cfg.Name != "x" {
+		t.Errorf("Name = %q, want %q", cfg.Name, "x")
+	}
+
+	err := Unmarshal([]byte("name = \"x\"\nsecret = \"y\"\n"), &cfg)
 	if err == nil {
-		t.Fatal("Unmarshal accepted a toml tag on an unexported field")
+		t.Fatal("Unmarshal bound a document key to an unexported field through its tag")
 	}
-	if !strings.Contains(err.Error(), "secret") {
-		t.Errorf("err = %v, want the offending field named", err)
+	if !errors.Is(err, ErrUnknownKey) {
+		t.Errorf("err = %v, want an unknown-key diagnostic", err)
 	}
-	_ = cfg.secret
+	if cfg.secret != "" {
+		t.Errorf("secret = %q, want the tag to bind nothing", cfg.secret)
+	}
 }
 
 // Fails if the required tag option stops being read: it is how a struct says

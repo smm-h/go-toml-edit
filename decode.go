@@ -721,9 +721,8 @@ func (en *engine) fillDesc(d *desc, rt reflect.Type) error {
 // checkTags derives the field mapping of every struct type the target can
 // reach, so a toml tag the package cannot honour is refused whatever the
 // document says. A tag rule is a property of the type: "nonsense" is not an
-// option this package reads and a tag on an unexported field names a key
-// nothing can bind, and neither becomes true or false because a document
-// happens to carry the key above it.
+// option this package reads, and that does not become true or false because a
+// document happens to carry the key above it.
 //
 // Only TAG rules are eager. Whether a type can be decoded AT ALL stays lazy:
 // an untagged field of a type no row of the conversion table accepts is
@@ -810,13 +809,13 @@ func (en *engine) tableForType(rt reflect.Type) (*tableDesc, error) {
 func (en *engine) collectFields(rt reflect.Type, prefix []int, td *tableDesc) error {
 	for i := 0; i < rt.NumField(); i++ {
 		f := rt.Field(i)
-		tag, tagged := f.Tag.Lookup("toml")
+		// An unexported field is not part of the mapping, and a toml tag on
+		// one is inert text: no document key can reach the field, so a key
+		// spelling that tag is unknown like any other undeclared key.
 		if !f.IsExported() {
-			if tagged {
-				return fmt.Errorf("tomledit: %s.%s carries a toml tag but is unexported, so no document key can reach it", rt, f.Name)
-			}
 			continue
 		}
+		tag := f.Tag.Get("toml")
 		name, required, excluded, err := parseFieldTag(tag, rt, f.Name)
 		if err != nil {
 			return err

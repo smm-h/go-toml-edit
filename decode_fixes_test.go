@@ -231,12 +231,12 @@ type eagerBadOption struct {
 }
 
 // eagerTaggedUnexported carries a toml tag on a field no document key can ever
-// reach.
+// reach, which makes the tag inert text rather than a defect.
 type eagerTaggedUnexported struct {
 	secret string `toml:"secret"`
 }
 
-// The field exists to be refused, never to be read or written; the read is
+// The field exists to be ignored, never to be read or written; the read is
 // what tells a linter that.
 var _ = eagerTaggedUnexported{}.secret
 
@@ -287,10 +287,9 @@ type eagerRecursiveClean struct {
 
 // Fails if a toml tag defect stays invisible because the document never
 // reaches the type carrying it. A tag rule is a property of the TARGET, not of
-// the input: a meaningless tag option and a tag on an unexported field are
-// refused for every document a target is used with, or they are refused only
-// by the inputs that happen to descend far enough -- which is silence for
-// every other input.
+// the input: a meaningless tag option is refused for every document a target
+// is used with, or it is refused only by the inputs that happen to descend far
+// enough -- which is silence for every other input.
 func TestDecode_TagErrorsAreEagerAcrossTheTypeGraph(t *testing.T) {
 	tests := []struct {
 		name    string
@@ -328,13 +327,6 @@ func TestDecode_TagErrorsAreEagerAcrossTheTypeGraph(t *testing.T) {
 			alsoSee: "top = 1\n[nested]\nbad = \"x\"\n",
 		},
 		{
-			name:    "a tag on an unexported field",
-			input:   "top = 1\n",
-			target:  func() any { return new(eagerUnexportedTagField) },
-			wantIn:  "secret",
-			alsoSee: "top = 1\n[nested]\nother = 1\n",
-		},
-		{
 			name:   "a recursive type",
 			input:  "name = \"x\"\n",
 			target: func() any { return new(eagerRecursiveBad) },
@@ -361,6 +353,31 @@ func TestDecode_TagErrorsAreEagerAcrossTheTypeGraph(t *testing.T) {
 				t.Errorf("a document reaching the type reported %v, want the same tag error", reached)
 			}
 		})
+	}
+}
+
+// Fails if the eager tag walk starts refusing a toml tag on an unexported
+// field again. The tag names a key nothing can bind, which is not a defect to
+// report but text with no effect: the type graph carrying it constructs, and a
+// document key spelling the tag is unknown like any other undeclared key.
+func TestDecode_TagOnUnexportedFieldIsInertAcrossTheTypeGraph(t *testing.T) {
+	var cfg eagerUnexportedTagField
+	if err := Unmarshal([]byte("top = 1\n"), &cfg); err != nil {
+		t.Fatalf("Unmarshal refused a type graph carrying a tag on an unexported field: %v", err)
+	}
+	if cfg.Top != 1 {
+		t.Errorf("Top = %d, want 1", cfg.Top)
+	}
+
+	err := Unmarshal([]byte("top = 1\n[nested]\nsecret = \"x\"\n"), &cfg)
+	if err == nil {
+		t.Fatal("Unmarshal bound a document key to an unexported field through its tag")
+	}
+	if !errors.Is(err, ErrUnknownKey) {
+		t.Errorf("err = %v, want an unknown-key diagnostic", err)
+	}
+	if cfg.Nested.secret != "" {
+		t.Errorf("secret = %q, want the tag to bind nothing", cfg.Nested.secret)
 	}
 }
 
