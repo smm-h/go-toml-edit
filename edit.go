@@ -64,6 +64,11 @@ import (
 // A NaN whose sign bit is set is refused with KindBadInput, since TOML has one
 // NaN spelling and writing it would drop the sign; the ordinary NaN is accepted
 // and writes "nan".
+//
+// Text that is not valid UTF-8 is refused with KindBadInput too, wherever it
+// appears: a string value, a string inside a container value, a map or []Pair
+// key, and a key the path itself names. A TOML document is UTF-8, so such bytes
+// would be written as replacement characters and read back as something else.
 func (d *Document) Set(path string, value any) error {
 	return d.diag(d.setInternal(path, value, false), path)
 }
@@ -83,6 +88,9 @@ func (d *Document) setInternal(path string, value any, create bool) error {
 	}
 	if len(segments) == 0 {
 		return newError(KindBadPath, "empty path")
+	}
+	if err := checkWritableKeys(segments); err != nil {
+		return err
 	}
 
 	// The last segment is the target key/index to set.
@@ -674,10 +682,11 @@ func (d *Document) deleteIndexFromParent(parent layerPos, index int) error {
 //
 // It reports KindNotFound when the path names nothing, KindWrongContainer when
 // the last path segment is an array index (an element has no key to rename) or
-// when the parent names an array-of-tables rather than one of its entries, and
+// when the parent names an array-of-tables rather than one of its entries,
 // KindConflict when anything in the parent already binds newKey -- a value, a
-// table in any spelling, or an array-of-tables. A refused rename changes
-// nothing.
+// table in any spelling, or an array-of-tables -- and KindBadInput when newKey
+// is not valid UTF-8 and so is not a key TOML can carry. A refused rename
+// changes nothing.
 func (d *Document) RenameKey(path string, newKey string) error {
 	return d.diag(d.renameKeyAt(path, newKey), path)
 }
@@ -695,6 +704,13 @@ func (d *Document) renameKeyAt(path string, newKey string) error {
 	lastSeg := segments[len(segments)-1]
 	if lastSeg.Kind != SegmentKey {
 		return newError(KindWrongContainer, "cannot rename an array index")
+	}
+
+	// The new name is written into every construct that spells the old one out,
+	// so it has to be a key TOML can carry. It is asked before anything is
+	// resolved, so a refused rename changes nothing.
+	if err := checkWritableText(newKey, "key"); err != nil {
+		return err
 	}
 
 	parentSegs := segments[:len(segments)-1]
@@ -943,6 +959,9 @@ func headerKeyPath(path string, op string) ([]string, error) {
 		}
 		keyPath = append(keyPath, seg.Key)
 	}
+	if err := checkWritableKeys(segments); err != nil {
+		return nil, err
+	}
 	return keyPath, nil
 }
 
@@ -989,6 +1008,35 @@ func (d *Document) headerTarget(keyPath []string) (Entry, bool, error) {
 	return e, ok, nil
 }
 
+// checkWritableText refuses text that is not valid UTF-8. A TOML document is
+// UTF-8, and the renderers that write a string or a key decode what they are
+// handed -- an invalid byte becomes U+FFFD, so the document would read back a
+// value, or a name, the caller never wrote. Every write refuses it here instead;
+// the exported renderers stay total and are never reached with such input. what
+// names the input in the diagnostic.
+func checkWritableText(s string, what string) error {
+	if utf8.ValidString(s) {
+		return nil
+	}
+	return newError(KindBadInput,
+		"the %s %q is not valid UTF-8 and cannot be written into a TOML document", what, s).withValue(s)
+}
+
+// checkWritableKeys refuses a path a write cannot spell out. A write creates
+// the keys its path names -- the final one, and, for SetCreate, the tables
+// along the way -- so each of them has to be a key TOML can carry.
+func checkWritableKeys(segments []PathSegment) error {
+	for _, seg := range segments {
+		if seg.Kind != SegmentKey {
+			continue
+		}
+		if err := checkWritableText(seg.Key, "key"); err != nil {
+			return err
+		}
+	}
+	return nil
+}
+
 // valueToNode converts a Go value to the appropriate AST node.
 // All created nodes are dirty (no raw bytes).
 //
@@ -1004,6 +1052,9 @@ func valueToNode(v any) (Node, error) {
 
 	switch val := v.(type) {
 	case string:
+		if err := checkWritableText(val, "string value"); err != nil {
+			return nil, err
+		}
 		n := &StringNode{val: scalarOf(val), style: StringBasic}
 		n.markDirty()
 		return n, nil
@@ -1168,9 +1219,8 @@ func pairsToInlineTableNode(pairs []Pair) (Node, error) {
 	tbl.markDirty()
 	seen := make(map[string]struct{}, len(pairs))
 	for _, pair := range pairs {
-		if !utf8.ValidString(pair.Key) {
-			return nil, newError(KindBadInput,
-				"key %q is not valid UTF-8 and cannot be written as a TOML key", pair.Key).withValue(pair.Key)
+		if err := checkWritableText(pair.Key, "key"); err != nil {
+			return nil, err
 		}
 		if _, dup := seen[pair.Key]; dup {
 			return nil, newError(KindBadInput,
@@ -1197,6 +1247,9 @@ func mapToInlineTableNode(m map[string]any) (Node, error) {
 	}
 	sort.Strings(keys)
 	for _, k := range keys {
+		if err := checkWritableText(k, "key"); err != nil {
+			return nil, err
+		}
 		valNode, err := valueToNode(m[k])
 		if err != nil {
 			return nil, wrapError(err, "inline table key %q", k)

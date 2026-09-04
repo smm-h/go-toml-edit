@@ -26,8 +26,13 @@ import (
 // Non-ASCII text is written as itself: a basic string carries it directly, and
 // escaping it would only make the result harder to read.
 //
-// The result always parses back to s, so QuoteString is the inverse of reading
-// a string value.
+// It is TOTAL: every Go string has an output. For a string that is valid UTF-8
+// -- which is every string a write can carry, since the value-writing
+// operations refuse anything else -- the result parses back to s, so QuoteString
+// is the inverse of reading a string value. A string that is NOT valid UTF-8 is
+// rendered with each invalid byte as U+FFFD, and the inverse property does not
+// hold for it: no TOML spelling carries such a byte, and this renderer has no
+// input to refuse.
 func QuoteString(s string) string {
 	var b strings.Builder
 	b.Grow(len(s) + 2)
@@ -74,6 +79,10 @@ func QuoteString(s string) string {
 //
 // It quotes ONE key. A dotted path is a sequence of keys, each quoted on its
 // own and joined with dots; JoinPath does that for the library's path syntax.
+//
+// It is total on the same terms as QuoteString, and inherits its treatment of a
+// key that is not valid UTF-8: the invalid bytes render as U+FFFD, and the
+// key-writing operations refuse such a key before it ever reaches here.
 func QuoteKey(s string) string {
 	if isBareKey(s) {
 		return s

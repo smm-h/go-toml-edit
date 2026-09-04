@@ -13,6 +13,10 @@ import (
 // key-value pairs; nested map[string]any values become [section] table headers.
 // Keys are sorted alphabetically for deterministic output, with simple
 // (non-map) keys emitted before sections.
+//
+// A key or a string value that is not valid UTF-8 is refused with KindBadInput,
+// as it is on every other write: what Marshal returns is a TOML document, and a
+// TOML document is UTF-8.
 func Marshal(v any) ([]byte, error) {
 	if v == nil {
 		return nil, fmt.Errorf("toml: Marshal requires a map type, got nil")
@@ -70,6 +74,9 @@ func mapToDocument(rv reflect.Value) (*Document, error) {
 
 	// Emit sections for nested maps.
 	for _, k := range sectionKeys {
+		if err := checkWritableText(k, "key"); err != nil {
+			return nil, fmt.Errorf("toml: section %q: %w", k, err)
+		}
 		val := rv.MapIndex(reflect.ValueOf(k))
 		// Unwrap interface.
 		for val.Kind() == reflect.Interface {
@@ -110,6 +117,9 @@ func mapChildrenToNodes(rv reflect.Value) ([]Node, error) {
 
 // makeKeyValue creates a KeyValueNode for a single key and Go value.
 func makeKeyValue(key string, val any) (*KeyValueNode, error) {
+	if err := checkWritableText(key, "key"); err != nil {
+		return nil, err
+	}
 	valNode, err := valueToNode(val)
 	if err != nil {
 		return nil, err
