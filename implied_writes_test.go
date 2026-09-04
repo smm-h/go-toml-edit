@@ -288,3 +288,97 @@ func TestSetComment_InADottedRegionInsideAnInlineTable(t *testing.T) {
 		t.Errorf("SetComment reported %v, want a wrong-container diagnostic; the document reads %q", err, doc.Bytes())
 	}
 }
+
+// --- removal, continued: what a key's removal has to take with it ---
+//
+// A key names a table that may be spelled out by several constructs at once --
+// dotted pairs beside each other, headers written under it further down the
+// file -- and removing the key means removing all of them: what the removal
+// leaves behind must no longer bind the name.
+
+// Fails if only the first pair of a dotted table goes: "a" is spelled out by
+// every pair written under it.
+func TestDelete_TakesEveryPairOfADottedTable(t *testing.T) {
+	doc := parseOrFail(t, "a.b = 1\na.c = 2\nz = 3\n")
+	if err := doc.Delete("a"); err != nil {
+		t.Fatalf(`Delete("a") reported %v`, err)
+	}
+	if got := string(doc.Bytes()); got != "z = 3\n" {
+		t.Errorf("the document reads %q, want %q", got, "z = 3\n")
+	}
+	mustFold(t, doc)
+}
+
+// Fails if a table nested inside a dotted key survives: the pair binds one
+// leaf, and "a.b" is the table that leaf sits in.
+func TestDelete_TakesANestedDottedTable(t *testing.T) {
+	doc := parseOrFail(t, "a.b.c = 1\n")
+	if err := doc.Delete("a.b"); err != nil {
+		t.Fatalf(`Delete("a.b") reported %v`, err)
+	}
+	if got := string(doc.Bytes()); got != "" {
+		t.Errorf("the document reads %q, want the pair gone with the table", got)
+	}
+}
+
+// Fails if the same removal inside a [header] table takes only one pair.
+func TestDelete_TakesEveryPairOfADottedTableInsideATable(t *testing.T) {
+	doc := parseOrFail(t, "[t]\na.b = 1\na.c = 2\n")
+	if err := doc.Delete("t.a"); err != nil {
+		t.Fatalf(`Delete("t.a") reported %v`, err)
+	}
+	if got := string(doc.Bytes()); got != "[t]\n" {
+		t.Errorf("the document reads %q, want %q", got, "[t]\n")
+	}
+	mustFold(t, doc)
+}
+
+// Fails if a header written under the removed table survives it and binds the
+// name again.
+func TestDelete_TakesSubTablesOfADottedTableInsideATable(t *testing.T) {
+	doc := parseOrFail(t, "[t]\na.b = 1\n[t.a.c]\nx = 1\n")
+	if err := doc.Delete("t.a"); err != nil {
+		t.Fatalf(`Delete("t.a") reported %v`, err)
+	}
+	if got := string(doc.Bytes()); got != "[t]\n" {
+		t.Errorf("the document reads %q, want %q", got, "[t]\n")
+	}
+	mustFold(t, doc)
+}
+
+// Fails if a table written under an array-of-tables entry cannot be removed
+// through that entry.
+func TestDelete_TakesATableUnderAnArrayOfTablesEntry(t *testing.T) {
+	doc := parseOrFail(t, "[[s]]\nx = 1\n[s.a]\ny = 2\n")
+	if err := doc.Delete("s[0].a"); err != nil {
+		t.Fatalf(`Delete("s[0].a") reported %v`, err)
+	}
+	if got := string(doc.Bytes()); got != "[[s]]\nx = 1\n" {
+		t.Errorf("the document reads %q, want %q", got, "[[s]]\nx = 1\n")
+	}
+	mustFold(t, doc)
+}
+
+// Fails if only the first pair of a dotted table inside an INLINE table goes.
+func TestDelete_TakesEveryPairOfADottedTableInsideAnInlineTable(t *testing.T) {
+	doc := parseOrFail(t, "t = { a.b = 1, a.c = 2, z = 3 }\n")
+	if err := doc.Delete("t.a"); err != nil {
+		t.Fatalf(`Delete("t.a") reported %v`, err)
+	}
+	if got := string(doc.Bytes()); got != "t = {z = 3}\n" {
+		t.Errorf("the document reads %q, want %q", got, "t = {z = 3}\n")
+	}
+	mustFold(t, doc)
+}
+
+// Fails if an array-of-tables written under the removed key survives: the
+// headers under "a" are what spell "a" out there.
+func TestDelete_TakesAnArrayOfTablesUnderTheDeletedKey(t *testing.T) {
+	doc := parseOrFail(t, "[[a.b]]\nx = 1\n[[a.b]]\nx = 2\n")
+	if err := doc.Delete("a"); err != nil {
+		t.Fatalf(`Delete("a") reported %v`, err)
+	}
+	if got := string(doc.Bytes()); got != "" {
+		t.Errorf("the document reads %q, want the entries gone", got)
+	}
+}
