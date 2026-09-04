@@ -61,3 +61,4 @@
 {"format_version":1,"id":"18d223bcd6af08e1644b770406a54e78befef7a531988dfc","commits":["fa4196f389ecd6bd994ac8368c5463f4192b8156"],"user_facing":false}
 {"format_version":1,"id":"18d223bce6650924e3bd7cc694634720a4fcb05a3ceab7d9","commits":["a2d280c4b50c495a1f38ed93749fdb74c7d0f4b1"],"user_facing":false}
 {"format_version":1,"id":"18d2258de993978396f8382c8bcd4671934981d608295155","commits":["4831b323e1e27e09a5f458277a4bd387c724ea0e"],"user_facing":false}
+{"format_version":1,"id":"18d2261040c60336e9f8c5dd28fe46f5b79ea3624ca6eb41","commits":["7bf6583871ccd57a91b1a19db6e695c956125e6d"],"user_facing":true,"description":"**Fix.** Setting an unsigned value larger than a TOML integer can hold (a `uint`/`uint64` above 9223372036854775807) is refused with a `KindBadInput` diagnostic naming the value, where it used to wrap around and write a negative number.","type":"fix"}
