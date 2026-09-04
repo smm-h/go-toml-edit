@@ -89,9 +89,12 @@ descriptors) validating over the read-layer; collect-independent error
 reporting per the record (continue across siblings, never descend below an
 errored node, document order, aggregate with first-rendered). The struct
 front end deriving descriptors via reflection, preserving embedded
-promotion, case matching, hooks, and pointer targets; exclusions and
-unknown tag options as hard errors; the conversion table implemented once
-and consumed by both stages. `Validate`, `Decode`, `Unmarshal`,
+promotion, hooks, and pointer targets, with EXACT-ONLY key matching (the
+existing decoder's case-insensitive fallback deleted per the record);
+exclusions and unknown tag options as hard errors, the tag on an unexported
+field inert; the `Unmarshaler` hook applying at the root target too, and a
+hook's error collected as `KindHookError`; the conversion table implemented
+once and consumed by both stages. `Validate`, `Decode`, `Unmarshal`,
 `DecodeNode` per the API block. The old structure-re-deriving decode
 families deleted. Red-green within this phase: the four decode bugs
 (map-of-struct truncation, array-of-tables under a plain table, the
@@ -135,6 +138,12 @@ a concrete header table REFUSES with `KindWrongContainer` — value writes
 touch value fragments; structural constructs change only via structural
 operations or an explicit `Delete`. Red-green like the rest of the
 family.
+
+Also here, one ruled kind change riding this phase: a comment write inside
+an inline table refuses with `KindWrongContainer` instead of the
+`KindConflict` the code returns today — one line plus its test update, per
+the record's write-path section (an inline table structurally cannot host a
+comment; same family as the array-index rename refusal).
 
 Verify: op tests incl. bijection violations by kind; the acceptance test
 green; determinism assertion for `EnsureDefaults`; none of the eleven
@@ -197,9 +206,31 @@ types), and Cursor terminals (short spellings; `Err()` for
 navigation-terminated chains); the widening flips; `Lookup`/`Has`
 allocation assertion (warm cache); `WriteFile` with its full invariant
 set.
+
+The decode entry-point reshape, per the record's decode-error-reporting
+section, rides this phase because it is the same `(T, bool)`-to-`(T, error)`
+family of signature work: `Unmarshal`, `Decode`, and `DecodeNode` become
+VALUE-RETURNING generic forms (`Unmarshal[T](data []byte) (*T, error)` and
+its two siblings — exact spellings settled at implementation against the
+record, which holds the shape, not the letter), so a failed decode leaves no
+caller-owned target to observe. Because Go has no parameterized methods, the
+document- and node-level forms become PACKAGE FUNCTIONS taking the document
+or node as their first argument. A seed-factory form (the caller supplies a
+prepared value the decode overlays) covers the defaults-overlay pattern the
+value-returning form otherwise loses. `DecodeSpec` is added on the
+descriptor path — atomic, no partial map on error. The aggregate gains
+written-path reporting (an `Errors.Written()`-style accessor, exact shape
+settled at implementation) so a consumer wanting the partial result reads it
+as data. The doc comments' partial-write sentence ("do not use the target
+after an error") is REPLACED by the unobservability contract, and the
+consumer break list of Phase 13 grows by every decode call site.
 Verify: per-stage kind tests; the scripted `(T, bool)`-to-`(T, error)`
 call-site sweep (dry run, counts, reviewed diff); WriteFile invariant
-tests incl. injected failures; full suite green.
+tests incl. injected failures; the reshaped entry points covered by the
+existing decode suites (values asserted, not just error-ness), a
+seed-factory test, a `DecodeSpec` atomicity test (an errored decode returns
+no map), and a written-path test over a fixture with a mid-document
+violation; snapshot regenerated; full suite green.
 
 ## Phase 11 — Ports, deletions, final sweep
 

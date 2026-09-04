@@ -16,6 +16,10 @@ resolved. Origin tags:
 - `[derived]` — implementation-internal, resolved by the session under the
   constraints of the other rulings. Revisable without a user decision whenever
   the surrounding rulings permit.
+- `[%% trust-adopted]` — the user accepted the session's recommendation
+  without making the decision themselves (the `%%` answer). Freely
+  reversible, and never to be cited back to the user as their deliberate
+  intent; a future session may walk it back on its own reasoning.
 
 Process rule: where the record claims a verifiable property it names the
 test or check that fails when the property does not hold; claims of intent
@@ -102,7 +106,9 @@ Vocabulary used throughout, defined once:
   identical diagnostics — path, kind, and order — scoped to what both
   spellings can express: presence, kind, and required-ness (a hand-built
   descriptor does not express Go target widths, so width-dependent
-  diagnostics are outside the comparison). `[approved]`
+  diagnostics are outside the comparison — the width exception is the ONLY
+  exception; exact-only key matching in both schema sources means the
+  comparison needs no case exception). `[approved]`
 - The descriptor surface (shapes in the API-contracts section) is exported
   and hand-constructible without reflection: consumers with runtime-known
   schemas build descriptors from their own registries. Mechanism: a test in
@@ -114,10 +120,25 @@ Vocabulary used throughout, defined once:
   those, written against the read-layer so they retain source positions.
   `[deliberate]` (An "enum in the descriptor" extension goes into the
   deferred-work todo as an open decision, not a rejection.)
+- Key matching is EXACT-ONLY, in both schema sources: a document key binds a
+  struct field only when it equals the field's `toml` tag name or, absent a
+  tag, the field name itself; a hand-built `Spec` matches only the exact
+  strings in `Fields`. A key differing in case matches nothing and is
+  therefore an unknown key. The existing decoder's exact-then-case-
+  insensitive fallback does not survive: case-folding is a lenience policy,
+  and this decoder has one mode. Mechanism: a test per schema source
+  asserting a case-differing document key produces `KindUnknownKey`.
+  `[deliberate]`
 - Exclusions are refusals: a document key naming a `toml:"-"` field or an
   unexported field is a hard error, exactly like any unknown key. Exclusion
   means "this name is not part of the document universe", never "present but
-  ignored". Mechanism: a test per exclusion category. `[approved]`
+  ignored". A `toml` tag on an UNEXPORTED field is inert: it is not a
+  construction error, it names nothing, and its only observable consequence
+  is that a document key spelling that name is an unknown key (reflection
+  cannot write the field, so honoring the tag is impossible and refusing
+  the struct would reject valid Go). Mechanism: a test per exclusion
+  category, plus a test that a tagged unexported field constructs cleanly
+  and rejects the key. `[approved]`
 - Unknown struct-tag options are hard errors at field-mapping construction —
   a meaningless tag option must fail loudly, not silently no-op (tag options
   such as `omitempty` are read by nothing in the package). Mechanism: a test
@@ -134,6 +155,24 @@ Vocabulary used throughout, defined once:
   target implementing `Unmarshaler` is handed the node before any table row
   applies; `encoding.TextUnmarshaler` applies to string nodes next; the
   conversion table governs everything else. `[derived]`
+- The `Unmarshaler` hook applies WHEREVER the implementing type appears,
+  including the top-level target of `Decode` and `DecodeNode` — the root
+  target receives the document node (for `DecodeNode`, the node it was
+  handed). There is no root exception: "the node the key binds" reads as
+  "the node the target is bound to", and the root target is bound to the
+  document. Mechanism: a test decoding into a root-level `Unmarshaler` and
+  asserting the hook received the document node and no field-walk ran.
+  `[approved]`
+- A consumer hook's error (`Unmarshaler.UnmarshalTOML`, or
+  `encoding.TextUnmarshaler` on a string value) is COLLECTED like any other
+  violation: one diagnostic of kind `KindHookError` carrying the hook's own
+  error as its wrapped error, positioned at the node the hook was handed.
+  The walk continues across siblings and never descends below the errored
+  node — the same independence rule as every other diagnostic, so one
+  failing hook does not abort the rest of the document. Mechanism: a fixture
+  with two failing hooks and a valid sibling asserting both diagnostics, the
+  sibling's success, and `errors.Is` reaching the consumer's error through
+  the aggregate. `[approved]`
 - **The conversion table.** All value conversion — engine, struct front end,
   and every accessor family — is driven by one table, written once in code
   and reproduced here as the ruling. It drives BOTH the type-check stage
@@ -164,10 +203,22 @@ Vocabulary used throughout, defined once:
   provably value-preserving (the integer-to-float rows, exactness-checked);
   narrowing INTO the declared Go target's width is the caller's explicit
   choice, range-checked, never silent-wrapping. Custom hooks, embedded
-  struct promotion, exact-then-case-insensitive field matching, and pointer
-  targets are all kept from the existing decoder. `[approved for the
+  struct promotion, and pointer targets are all kept from the existing
+  decoder; its field matching is not — matching is exact-only per the
+  key-matching ruling above. `[approved for the
   widening rows; deliberate for the fixed-array exact-length row; derived
   for the rest]`
+
+- The criterion for keeping or rejecting an ecosystem convention (the
+  `encoding/json` family's habits, and the existing decoder's inheritance of
+  them): a convention about MECHANISM is kept — where a hook applies, what a
+  hook's error means, what state a failed decode leaves, how a tag is
+  spelled; a convention that is a LENIENCE POLICY is rejected — case-folding
+  document keys onto field names, tolerating unknown keys, silently ignoring
+  a meaningless tag option. Mechanism is what consumers must interoperate
+  with; lenience is a stance this library takes for itself, and its stance
+  is strictness. This criterion retro-explains the key-matching, exclusion,
+  and unknown-tag-option rulings together. `[%% trust-adopted]`
 
 ## 3. Decode error reporting
 
@@ -193,6 +244,24 @@ Vocabulary used throughout, defined once:
 - Parsing remains first-error-only (a parse cannot meaningfully continue
   past a syntax error); parse errors are not wrapped in the aggregate. The
   asymmetry is deliberate and documented. `[approved]`
+- **Failed-decode target state.** Collecting diagnostics means the engine
+  keeps walking after a violation, so a failed `Decode`/`Unmarshal` leaves
+  the caller's target PARTIALLY WRITTEN: the keys that decoded cleanly
+  before, beside, and after the errored ones are already in it. The doc
+  comments of the decode entry points say so plainly — do not use the target
+  after an error — rather than promising an all-or-nothing write the
+  collecting engine cannot deliver. This is the mechanism convention the
+  `encoding/json` family also follows, kept per the criterion in the strict-
+  decoding section. Adopted direction, resolving the same problem
+  structurally: the decode entry points become VALUE-RETURNING, so a failed
+  decode has no target to observe and the partial-write sentence is replaced
+  by an unobservability contract; the descriptor path gains
+  `DecodeSpec(spec *Spec) (map[string]any, error)`, atomic with no exception
+  clause; and the aggregate gains written-path reporting (an
+  `Errors.Written()`-style accessor naming the paths the engine did write,
+  exact shape settled at implementation) so a consumer that wants the
+  partial result gets it as data instead of as a damaged target. Scheduled
+  in the plan's accessor phase. `[%% trust-adopted]`
 
 ## 4. The unified diagnostic contract
 
@@ -203,6 +272,17 @@ Vocabulary used throughout, defined once:
   access) is the documented compatibility contract. Diagnostics are always
   `*Error`. Mechanism: a contract test matching one representative error
   from each producing surface through both idioms. `[approved]`
+- **What is a diagnostic and what is a plain error.** A failure that depends
+  on the DOCUMENT — its syntax, its keys, its values, the path a caller
+  asked for — is a diagnostic: an `*Error` with a kind, a path, and a
+  position, because the consumer's remedy is to look at a place in a file. A
+  failure that depends only on the consumer's own Go code — a target of the
+  wrong shape, an invalid or unknown struct-tag option, a descriptor built
+  with a missing sub-descriptor — is a plain error, because there is no
+  document position to point at and the remedy is to edit Go source. This
+  criterion is the reason the construction-time failures of the strict-
+  decoding section are plain errors while everything the engine reports is
+  a diagnostic. `[%% trust-adopted]`
 - The complete kind set (held closed by the API-snapshot test):
   - `KindSyntax` — lexing/parsing failure.
   - `KindUnknownKey` — strict decode: a key matching no descriptor field
@@ -215,11 +295,18 @@ Vocabulary used throughout, defined once:
   - `KindInexact` — the conversion table's range, exactness, and arity
     failures (including fixed-array length mismatch); carries the offending
     value.
+  - `KindHookError` — strict decode: a consumer hook (`UnmarshalTOML`, or
+    `encoding.TextUnmarshaler` on a string value) returned an error; wraps
+    that error, so `errors.Is`/`errors.As` reach the consumer's own error
+    type through the aggregate.
   - `KindNotFound` — access/edit: the path names nothing.
   - `KindBadPath` — path syntax error.
-  - `KindWrongContainer` — access/edit: a path step is structurally
-    inapplicable (key on an array, index on a scalar, a concrete-node read
-    on a logical-only path per the read-layer section).
+  - `KindWrongContainer` — access/edit: a path step, or the operation
+    itself, is structurally inapplicable to what the path names (key on an
+    array, index on a scalar, a concrete-node read on a logical-only path
+    per the read-layer section, a value write at a name bound by a
+    structural construct per the Set-equality section, a comment write into
+    a container that cannot host a comment per the write-path section).
   - `KindBadInput` — an invalid input value to an editing operation
     (unsupported Go type, sign-bit NaN, duplicate ordered-input key,
     non-bijective permutation, unsigned overflow).
@@ -228,6 +315,15 @@ Vocabulary used throughout, defined once:
     creation).
   - `KindRoundTrip` — `WriteFile`'s validation failure: carries the filename
     and the byte offset of the first divergence in its own field. `[derived]`
+- **`(*Error).Error()` renders in the compiler convention**: the parts
+  [location, path, message], each omitted when empty, joined by `": "`. The
+  location is `file:LINE:COL` when both a filename and a position are known,
+  `LINE:COL` when only a position is, the bare `file` when only a filename
+  is, and absent when neither is — so a diagnostic from a `ParseFile`
+  document reads `config.toml:12:7: server.port: expected integer, got
+  string`, and one from an in-memory parse drops the filename part only.
+  Mechanism: a rendering test covering all four location shapes and the
+  empty-path case. `[approved]`
 - `Position` carries line, column, and byte offset. This is a change to the
   position type itself, so every node span carries the offset: the token
   gains an offset, position advancement carries it, and every span
@@ -246,7 +342,9 @@ Vocabulary used throughout, defined once:
 - The array-of-tables collection span is synthesized by the read-layer,
   which owns the collection concept: from the first entry's header start to
   the last entry's content end (the entry's header end when the entry has no
-  children). The concrete array-table node's own span is unchanged.
+  children), where "content end" is pinned by the read-layer section — the
+  end of the last entry's OWN AST children. The concrete array-table node's
+  own span is unchanged.
   Mechanism: span assertions in the read-layer suite. `[derived]`
 - A document parsed via `ParseFile` remembers its filename, and every later
   diagnostic produced from that document (decode, access, edit, write)
@@ -268,6 +366,16 @@ Vocabulary used throughout, defined once:
   concrete constructs). A consumer reading values uses the layer; a consumer
   editing, or inspecting how something was written, uses the AST and the
   path API. That contract belongs in the package documentation. `[approved]`
+- The two surfaces have opposite stances, and the pair explains most of the
+  individual rulings on either side. **Reads are spelling-blind**: the layer
+  exposes whatever concretely exists, without regard to how it was written —
+  an inline table and a header table answer the same questions, a value's
+  base or quoting style is invisible to a reader who did not ask for it.
+  **Writes are structurally conservative**: a value write touches value
+  fragments and nothing else, and a structural construct changes only via a
+  structural operation or an explicit `Delete` — the library never rewrites
+  one spelling into another as a side effect of a write the caller meant as
+  a value edit. `[%% trust-adopted]`
 - Fold semantics, stated as rules (the fold suite is the executable form;
   worked examples below are normative):
   1. Key order is first-appearance order across all binding forms.
@@ -288,6 +396,31 @@ Vocabulary used throughout, defined once:
      impossibility (an unhandled node kind, a slot collision) is a hard
      internal error, never a silent guess. `[approved; the rule
      formulation is derived]`
+- Two span pins under rule 6, each the answer to a question the rule alone
+  does not settle:
+  1. When a later header re-anchors a record that an earlier construct only
+     implied, the entry's `KeySpan` MOVES WITH THE ANCHOR — it is the
+     anchoring header's own key part. In `[a.b]` followed by `[a]`, the root
+     entry `a` reports the `a` inside the `[a]` header, not the `a` part of
+     the earlier `[a.b]` header: the span answers "where is this record
+     declared", and after re-anchoring that is the explicit header.
+  2. A collection's span ends at the last entry's OWN AST children. A
+     sub-table header that folds INTO that entry (`[[s]]` then `[s.t]`) is a
+     separate top-level construct, not a child of the entry's node, and does
+     not extend the collection's span.
+  Mechanism: span assertions in the fold suite for both shapes.
+  `[%% trust-adopted]`
+- `Entry.Node()` answers only for VALUE-KINDED entries (scalars and plain
+  arrays) — a record-kinded entry has no single node to hand back in
+  general, and the comma-ok answer keeps that honest. The concrete backing
+  construct of a record is reachable from the record itself:
+  `(*Record) Node() (Node, bool)` returns `(node, true)` for a record backed
+  by one concrete construct — a header table, an inline table, an
+  array-of-tables ENTRY record, and the root record (whose node is the
+  `Document`) — and `(nil, false)` for an implied record (a dotted-key
+  prefix, or a prefix implied by a deeper header and never given a header of
+  its own). Mechanism: a fold test asserting the answer for each of the four
+  backed shapes and for an implied record. `[approved]`
 - Implementation directive: the layer is a separate post-parse fold. (An
   earlier directive to extend the parser's definition tracker was reversed:
   the tracker keeps unordered child maps, retains only the last
@@ -330,7 +463,8 @@ Vocabulary used throughout, defined once:
   layer position (a record, an array-of-tables entry list, or a concrete
   node), so `Key` and `At` navigate compound tables and collections without
   the deleted views; terminals behave per the accessor section; a terminal
-  at a position with no concrete node (`Node()` on a compound record)
+  at a position with no concrete node (`Node()` at a record for which
+  `Record.Node` answers `(nil, false)` — an implied or compound record)
   reports `KindWrongContainer` through `Err()`. Behavioral change beyond
   signatures: none — chains that resolved before resolve after. Mechanism:
   the existing cursor suites, updated for signatures. `[derived]`
@@ -468,6 +602,16 @@ Vocabulary used throughout, defined once:
 - `Set` refuses sign-bit NaN input (`KindBadInput`); the accepted NaN writes
   `nan`. Infinities need no input rule. Mechanism: input-refusal tests.
   `[deliberate]`
+- `Set`/`SetCreate` targeting a name bound by a concrete `[header]` table
+  REFUSES with `KindWrongContainer`. Value writes touch value fragments;
+  structural constructs change only via structural operations or an explicit
+  `Delete`. Replacing a header table with a value would mean deleting a
+  construct, its children, and its comments as a side effect of what the
+  caller spelled as a value write; a caller who wants that spells it as
+  `Delete` followed by the write. (The refusal is about the BINDING, not the
+  written form: an inline-table-valued key is a value fragment and Set
+  replaces it wholesale per the container rule above.) Mechanism: a refusal
+  test per binding kind. `[deliberate]`
 - A no-op `Set` never clears dirtiness from an earlier edit. Mechanism: an
   edit-then-identical-Set test asserting the first edit still renders.
   `[approved]`
@@ -518,6 +662,14 @@ Vocabulary used throughout, defined once:
   Normalized comment-text getters (content without `#` and surrounding
   whitespace) are added to the `Node` interface; `Raw()` remains for
   byte-exact inspection. `[approved]`
+- A comment write targeting a key INSIDE AN INLINE TABLE refuses with
+  `KindWrongContainer`, not `KindConflict`. TOML gives an inline table no
+  place to put a comment, so the container kind structurally cannot host the
+  operation — the same family as renaming through an array index, which is
+  already a wrong-container refusal. `KindConflict` is for an edit that
+  would produce an INVALID document; this edit has nowhere to be written at
+  all. Mechanism: a refusal test asserting the kind, alongside the
+  array-index rename refusal. `[%% trust-adopted]`
 - `ParseFile` and an atomic validate-on-write `WriteFile` are added.
   `WriteFile` contract, each item tested: temp file in the destination's
   directory; the rendered bytes must re-parse AND the re-parse's re-render
@@ -761,6 +913,9 @@ type Error struct {
     Offset   int      // KindRoundTrip: first divergence in rendered bytes
     // wraps an underlying error where one exists; Unwrap() error
 }
+// (e *Error) Error() string — the compiler convention: the non-empty parts
+// of [location, path, message] joined by ": ", where location is
+// "file:LINE:COL", "LINE:COL", "file", or absent (section 4).
 
 type Errors struct{ /* diagnostics in document order */ }
 // (e *Errors) Error() string  — renders the first diagnostic
@@ -775,6 +930,9 @@ func ParseFile(path string) (*Document, error)
 // (r *Record) Len() int                 — entry count
 // (r *Record) Get(key string) (Entry, bool)
 // (r *Record) Span() Span               — the record's anchoring span
+// (r *Record) Node() (Node, bool)       — the backing concrete construct:
+//   header table, inline table, array-of-tables entry, or the Document for
+//   the root record; (nil, false) for an implied record
 // (e Entry) Key() string
 // (e Entry) KeySpan() Span
 // (e Entry) Kind() EntryKind            — scalar/array, record, records
@@ -782,6 +940,8 @@ func ParseFile(path string) (*Document, error)
 // (e Entry) Records() ([]*Record, bool) — array-of-tables entries (copy)
 // (e Entry) RecordsSpan() Span          — the synthesized collection span
 // (e Entry) Node() (Node, bool)         — scalars and plain arrays
+//   (value-kinded entries only; a record-kinded entry answers through
+//   Record.Node above)
 
 // Descriptor. Field values are built whole and assigned into Fields
 // (map elements are not addressable; in-place mutation is not a
@@ -808,6 +968,14 @@ func FieldAny() Field // the explicit any-value spelling
 // func DecodeNode(n Node, v any) error         — node-level decode; accepts
 //   container nodes (tables, array-tables, inline tables, arrays) and,
 //   for scalar targets, scalar nodes
+// (d *Document) DecodeSpec(spec *Spec) (map[string]any, error) — the
+//   descriptor path's value-returning form; atomic, no partial result on
+//   error (decode-error-reporting section)
+// The three pointer-target entry points above are scheduled to become
+// value-returning generic forms, with a seed-factory form for the
+// defaults-overlay pattern and written-path reporting on the aggregate;
+// spellings are settled at implementation against the decode-error-
+// reporting section, and the snapshot moves with them.
 
 // Structural operations (concrete containers; logical-only paths refuse).
 // (d *Document) PermuteChildren(path string, order []int) error
