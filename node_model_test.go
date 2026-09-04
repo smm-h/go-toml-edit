@@ -340,6 +340,53 @@ func TestNodeModel_RawPartsCopiesEachPart(t *testing.T) {
 	}
 }
 
+// Fails if Raw hands out the node's own backing bytes. Raw answers with a copy,
+// so a caller writing into what it was given changes neither what the next read
+// answers nor what the document renders; the serializer reads the field itself
+// and pays nothing for it.
+func TestNodeModel_RawCopiesTheNodesBytes(t *testing.T) {
+	const src = "x = \"v\" # note\n\n# standalone\n[t]\ny = 1\n"
+	doc := parseOrFail(t, src)
+
+	var targets []Node
+	for _, child := range doc.Children() {
+		targets = append(targets, child)
+		switch n := child.(type) {
+		case *KeyValueNode:
+			targets = append(targets, n.Key(), n.Val())
+		case *TableNode:
+			for _, inner := range n.Children() {
+				targets = append(targets, inner)
+				if kv, ok := inner.(*KeyValueNode); ok {
+					targets = append(targets, kv.Key(), kv.Val())
+				}
+			}
+		}
+	}
+
+	clobbered := 0
+	for _, n := range targets {
+		want := string(n.Raw())
+		raw := n.Raw()
+		if len(raw) > 0 {
+			clobbered++
+		}
+		for i := range raw {
+			raw[i] = 'Z'
+		}
+		if got := string(n.Raw()); got != want {
+			t.Errorf("%s: writing into what Raw returned changed the node's bytes: got %q, want %q", n.Type(), got, want)
+		}
+	}
+	if clobbered == 0 {
+		t.Fatal("no node in the document answered Raw with any bytes; the test proves nothing")
+	}
+
+	if got := string(doc.Bytes()); got != src {
+		t.Errorf("writing into what Raw returned changed the document:\n  got:  %q\n  want: %q", got, src)
+	}
+}
+
 // Fails if a node kind that holds structure rather than a value starts
 // carrying Value(). The compile-time assertions in node.go hold the other half
 // -- that every value-carrying kind implements Scalar -- and together they pin
