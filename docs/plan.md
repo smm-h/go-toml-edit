@@ -124,13 +124,18 @@ Fold-aware edit refusals (added after the Phase 4 audit found eleven
 public edit sequences that build an unfoldable document, leaving `Root()`
 to panic and the document unrepairable): every edit operation that can
 create a binding conflict refuses instead — `NewTable`/`NewArrayTable`
-against any existing binding of the name (value, record, or collection),
-`RenameKey` to a name bound by any construct kind (not just key-value
-siblings), and dotted-key/table duplicate collisions — each refusal
-`KindConflict` per the record's definition, each red-green against its
-audited sequence. `Set`/`SetCreate` on a logical-only path (an
-array-of-tables collection name, an implied parent, a dotted-key prefix)
-refuse with `KindWrongContainer` per the record's read-layer section.
+refuse exactly what the parser's definition tracker refuses (a name whose
+FINAL key redefines a value, record, collection, or dotted-implied table;
+descending through a dotted-implied prefix to a deeper sub-table is legal
+per the compliance corpus), `RenameKey` to a name bound by any construct
+kind (not just key-value siblings), and dotted-key/table duplicate
+collisions — each refusal `KindConflict` per the record's definition,
+each red-green against its audited sequence. `Set`/`SetCreate` refuse
+with `KindWrongContainer` when the TARGET NAME itself is logical-only (an
+array-of-tables collection name, a name a longer header implies, a
+dotted-key prefix); writes whose PARENT record merely lacks a concrete
+node succeed per the record's write-path policy (existing keys reachable;
+new keys via dotted extension or anchoring-header materialization).
 `Delete`'s fold-failure swallow is removed so a fold error surfaces
 instead of reading as "parent not found". The Set-on-header-table case
 is RULED (user, 2026-09-04): `Set`/`SetCreate` targeting a name bound by

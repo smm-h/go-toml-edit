@@ -620,6 +620,23 @@ Vocabulary used throughout, defined once:
   impossible to write cleanly), EXCEPT that the existing defect where a
   missing-key delete inside an inline table dirtied the table is fixed.
   `[derived]`
+- Writes into a record with NO concrete node of its own (a table implied by
+  dotted keys or by a longer header) are not refusals: an EXISTING key's
+  concrete key-value node is reachable by every write surface (edit,
+  delete, comment) regardless of the parent record's own node; CREATING a
+  new key uses the one TOML-valid spelling per case — under a
+  dotted-implied parent, a dotted key-value written in the region that
+  implied it (materializing a header there would be the redefinition the
+  parser refuses); under a header-implied parent, the anchoring header is
+  materialized and the key written beneath it, matching `EnsureDefaults`'
+  standard-table intermediates. The ruled target-name refusals above are
+  untouched by this. `[%% trust-adopted]`
+- `NewTable`/`NewArrayTable` refuse exactly the constructions the parser's
+  own definition tracker refuses, and nothing more: redefining a
+  dotted-implied table at the header's FINAL key is refused
+  (`KindConflict`); descending through a dotted-implied prefix to create a
+  deeper sub-table is legal, as the compliance corpus's own fixtures show.
+  `[%% trust-adopted]`
 - The contract lives in the exported doc comments of the value-writing entry
   points. `[derived]`
 
@@ -632,8 +649,9 @@ Vocabulary used throughout, defined once:
   from external ranking data a comparator could not express; a declarative
   ordering convenience is deferred work, to be designed only after the
   deferred structural comment model settles.) The permutation is total — a
-  bijection; violations are `KindBadInput` naming the offending index, and
-  nothing is reordered. Its doc comment carries the drift note
+  bijection; violations are `KindBadInput` naming the offending index where
+  one exists (an out-of-range or repeated index; a wrong-length order names
+  none), and nothing is reordered. Its doc comment carries the drift note
   (read-then-permute in one editing sequence). `PermuteChildren` addresses
   the children/elements of any concrete container node (document, table,
   array-table entry, array, inline table); a logical-only path refuses per
