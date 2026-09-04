@@ -81,21 +81,41 @@ func (d *Document) resolveCommentTarget(path string) (Node, error) {
 		return nil, wrapError(err, "parent path not found")
 	}
 
+	// The comment goes on the line that binds the key, so what hosts it is the
+	// container that WRITES the pair: for a table no single node stands for,
+	// that is the region a dotted key spelled the table out in.
+	host := parent.node
+	if host == nil && parent.rec != nil {
+		host, _, _ = parent.rec.impliedRegion()
+	}
+
 	// TOML gives an inline table no place to put a comment, so the container
 	// structurally cannot host the operation -- the same refusal as renaming
 	// through an array index, and not a conflict, which would say the edit
 	// produces an invalid document.
-	if isInsideInlineTable(parent.node) {
+	if isInsideInlineTable(host) {
 		return nil, newError(KindWrongContainer, "an inline table has nowhere to put a comment: TOML does not allow one inside")
 	}
 
-	kv := findKVInParent(parent.node, lastSeg.Key)
-	if kv != nil {
+	if kv := bindingKV(parent, lastSeg.Key); kv != nil {
 		return kv, nil
 	}
 
 	// Fallback: return the resolved node itself.
 	return node, nil
+}
+
+// bindingKV returns the pair that binds key at the position: the one written in
+// a concrete container, or -- for a table no single node stands for -- the
+// dotted pair in the region that spells that table out.
+func bindingKV(pos layerPos, key string) *KeyValueNode {
+	if pos.node != nil {
+		return findKVInParent(pos.node, key)
+	}
+	if pos.rec != nil {
+		return pos.rec.dottedKV(key)
+	}
+	return nil
 }
 
 // isInsideInlineTable returns true if the node is an InlineTableNode or
