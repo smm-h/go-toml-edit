@@ -81,10 +81,12 @@ func (d *Document) resolveCommentTarget(path string) (Node, error) {
 		return nil, wrapError(err, "parent path not found")
 	}
 
-	// Check if the parent is an inline table. TOML does not allow comments
-	// inside inline tables, so setting a comment would produce invalid TOML.
+	// TOML gives an inline table no place to put a comment, so the container
+	// structurally cannot host the operation -- the same refusal as renaming
+	// through an array index, and not a conflict, which would say the edit
+	// produces an invalid document.
 	if isInsideInlineTable(parent.node) {
-		return nil, newError(KindConflict, "cannot set comment on inline table member: TOML does not allow comments inside inline tables")
+		return nil, newError(KindWrongContainer, "an inline table has nowhere to put a comment: TOML does not allow one inside")
 	}
 
 	kv := findKVInParent(parent.node, lastSeg.Key)
