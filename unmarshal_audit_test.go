@@ -667,29 +667,31 @@ func TestAudit_EmptyInlineTableIntoInterface(t *testing.T) {
 }
 
 // ==========================================================================
-// Additional edge cases: Case-insensitive matching details
+// Additional edge cases: exact key matching
 // ==========================================================================
 
-func TestAudit_CaseInsensitive_AllCaps(t *testing.T) {
-	// TOML key "HOST" should match struct field "Host" case-insensitively
+func TestAudit_ExactMatch_AllCapsKeyIsUnknown(t *testing.T) {
+	// Matching never folds case: "HOST" does not reach the field "Host".
 	input := `HOST = "example.com"`
 	type Config struct {
 		Host string // no tag, field name is "Host"
 	}
 	var cfg Config
 	err := Unmarshal([]byte(input), &cfg)
-	if err != nil {
-		t.Fatalf("Unmarshal failed: %v", err)
+	if err == nil {
+		t.Fatalf("Unmarshal accepted an all-caps spelling of a field name: %+v", cfg)
 	}
-	// BUG check: lookup("HOST") should try strings.ToLower("HOST") = "host"
-	// and find the fallback for "Host". If this fails, lookup is incomplete.
-	if cfg.Host != "example.com" {
-		t.Errorf("Host = %q, want %q (case-insensitive match for HOST -> Host failed)", cfg.Host, "example.com")
+	if !errors.Is(err, ErrUnknownKey) {
+		t.Fatalf("err = %v, want an unknown-key diagnostic", err)
+	}
+	var d *Error
+	if !errors.As(err, &d) || d.Path != "HOST" {
+		t.Errorf("err = %v, want the diagnostic to name the document's spelling %q", err, "HOST")
 	}
 }
 
-func TestAudit_CaseInsensitive_ExactFirst(t *testing.T) {
-	// When there's an exact match AND a case-insensitive match, exact wins.
+func TestAudit_ExactMatch_TagIsSpelledExactly(t *testing.T) {
+	// A tag naming a capitalized key is reached by that exact key.
 	input := `Name = "exact"`
 	type Config struct {
 		Name string `toml:"Name"`

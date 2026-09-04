@@ -35,14 +35,18 @@ func diagnosticsOf(t *testing.T, err error) []*Error {
 }
 
 // engineTestDoc carries one of every violation the decode contract can report,
-// plus keys buried under a construct that is itself refused.
+// plus keys buried under a construct that is itself refused. The keys spelled
+// "Name" and "Host" differ from a declared key only in case: matching is exact
+// in both front ends, so each is an unknown key like any other.
 const engineTestDoc = `name = "app"
 port = "8080"
 extra = true
+Name = "cased"
 
 [server]
 host = "h"
 bogus = 1
+Host = "cased"
 
 [unknown_table]
 a = 1
@@ -94,7 +98,7 @@ func TestEngine_ViolationKindsAndPositions(t *testing.T) {
 	var cfg engineConfig
 	err = doc.Decode(&cfg)
 	if err == nil {
-		t.Fatal("Decode accepted a document with five violations")
+		t.Fatal("Decode accepted a document full of violations")
 	}
 
 	want := []struct {
@@ -105,9 +109,11 @@ func TestEngine_ViolationKindsAndPositions(t *testing.T) {
 	}{
 		{KindTypeMismatch, "port", 2, 1},
 		{KindUnknownKey, "extra", 3, 1},
-		{KindUnknownKey, "server.bogus", 7, 1},
-		{KindUnknownTable, "unknown_table", 9, 2},
-		{KindTypeMismatch, "items[0].label", 14, 1},
+		{KindUnknownKey, "Name", 4, 1},
+		{KindUnknownKey, "server.bogus", 8, 1},
+		{KindUnknownKey, "server.Host", 9, 1},
+		{KindUnknownTable, "unknown_table", 11, 2},
+		{KindTypeMismatch, "items[0].label", 16, 1},
 		{KindMissingKey, "timeout", 1, 1},
 	}
 	diags := diagnosticsOf(t, err)
@@ -189,7 +195,9 @@ func TestEngine_UnknownArrayOfTablesCarriesFirstEntryKeys(t *testing.T) {
 
 // Fails if the two front ends stop agreeing. A descriptor cannot express a Go
 // target's width, so the comparison is scoped to what both spell: presence,
-// kind and required-ness -- the kinds, the paths, and their order.
+// kind and required-ness -- the kinds, the paths, and their order. The fixture
+// includes keys that differ from a declared key only in case, so the agreement
+// covers how each front end matches spelling, rather than avoiding it.
 func TestEngine_FrontEndsReportIdentically(t *testing.T) {
 	doc, err := Parse([]byte(engineTestDoc))
 	if err != nil {

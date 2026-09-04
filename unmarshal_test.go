@@ -663,12 +663,13 @@ arr = [1, 2, 3]
 	}
 }
 
-// --- 11. Case-insensitive matching ---
+// --- 11. Exact key matching ---
 
-func TestUnmarshal_CaseInsensitive(t *testing.T) {
-	input := `host = "localhost"`
+// An untagged field is reached by its own name, spelled exactly.
+func TestUnmarshal_UntaggedFieldMatchesItsExactName(t *testing.T) {
+	input := `Host = "localhost"`
 	type Config struct {
-		Host string
+		Host string // no tag, field name is "Host"
 	}
 	var cfg Config
 	if err := Unmarshal([]byte(input), &cfg); err != nil {
@@ -679,18 +680,30 @@ func TestUnmarshal_CaseInsensitive(t *testing.T) {
 	}
 }
 
-func TestUnmarshal_CaseInsensitiveLower(t *testing.T) {
-	// TOML key "host" matches struct field "Host" case-insensitively.
+// Fails if case folding comes back: a document key that differs from a field's
+// name only in case is an unknown key, not a match.
+func TestUnmarshal_CaseDifferingKeyIsUnknown(t *testing.T) {
 	input := `host = "example.com"`
 	type Config struct {
 		Host string // no tag, field name is "Host"
 	}
 	var cfg Config
-	if err := Unmarshal([]byte(input), &cfg); err != nil {
-		t.Fatalf("Unmarshal failed: %v", err)
+	err := Unmarshal([]byte(input), &cfg)
+	if err == nil {
+		t.Fatalf("Unmarshal accepted a case-differing key: %+v", cfg)
 	}
-	if cfg.Host != "example.com" {
-		t.Errorf("Host = %q, want %q", cfg.Host, "example.com")
+	if !errors.Is(err, ErrUnknownKey) {
+		t.Fatalf("err = %v, want an unknown-key diagnostic", err)
+	}
+	var d *Error
+	if !errors.As(err, &d) {
+		t.Fatalf("err = %v (%T), want a diagnostic", err, err)
+	}
+	if d.Path != "host" {
+		t.Errorf("Path = %q, want the document's own spelling %q", d.Path, "host")
+	}
+	if cfg.Host != "" {
+		t.Errorf("Host = %q, want it left untouched", cfg.Host)
 	}
 }
 

@@ -67,8 +67,10 @@ func Unmarshal(data []byte, v any) error {
 // Decode decodes the document into v, which must be a non-nil pointer -- to a
 // struct, a map with string keys, or any.
 //
-// Struct fields are matched by their "toml" tag, then by exact field name,
-// then case-insensitively. A tag of "-" excludes the field, and an excluded
+// Struct fields are matched by their "toml" tag, or, with no tag, by their
+// exact field name. Matching is exact: a document key that differs only in
+// case from a field's name is an unknown key, not a match. A tag of "-"
+// excludes the field, and an excluded
 // name is not part of the document's universe at all: a document key naming
 // one is as unknown as any other. The only tag option the package reads is
 // "required" (`toml:"port,required"`), which makes the key's absence an error;
@@ -213,22 +215,19 @@ func (d *desc) expects() string {
 // tableDesc is the compiled key set of a table.
 type tableDesc struct {
 	fields  map[string]*fieldSlot
-	folded  map[string]*fieldSlot // case-insensitive fallbacks (reflection only)
-	names   []string              // sorted: the order missing keys are reported in
-	dynamic *fieldSlot            // the descriptor every unnamed key reads
+	names   []string   // sorted: the order missing keys are reported in
+	dynamic *fieldSlot // the descriptor every unnamed key reads
 
 	container containerKind
 	keyRT     reflect.Type // the map's key type
 	elemRT    reflect.Type // the map's element type
 }
 
-// lookup finds the slot a document key binds: an exact match first, then a
-// case-insensitive one, then the dynamic slot that makes a table total.
+// lookup finds the slot a document key binds: an exact match, then the dynamic
+// slot that makes a table total. Matching never folds case -- a key that
+// differs in case from every declared name is unknown, in both front ends.
 func (td *tableDesc) lookup(key string) (*fieldSlot, bool) {
 	if slot, ok := td.fields[key]; ok {
-		return slot, true
-	}
-	if slot, ok := td.folded[strings.ToLower(key)]; ok {
 		return slot, true
 	}
 	if td.dynamic != nil {
@@ -770,7 +769,7 @@ func (en *engine) tableForType(rt reflect.Type) (*tableDesc, error) {
 	if td, ok := en.tables[rt]; ok {
 		return td, nil
 	}
-	td := &tableDesc{fields: map[string]*fieldSlot{}, folded: map[string]*fieldSlot{}}
+	td := &tableDesc{fields: map[string]*fieldSlot{}}
 	en.tables[rt] = td
 
 	switch rt.Kind() {
@@ -838,10 +837,6 @@ func (en *engine) collectFields(rt reflect.Type, prefix []int, td *tableDesc) er
 		if _, exists := td.fields[name]; !exists {
 			td.fields[name] = slot
 			td.names = append(td.names, name)
-		}
-		lower := strings.ToLower(name)
-		if _, exists := td.folded[lower]; !exists {
-			td.folded[lower] = slot
 		}
 	}
 	return nil
