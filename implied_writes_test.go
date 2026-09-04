@@ -1,6 +1,9 @@
 package tomledit
 
-import "testing"
+import (
+	"errors"
+	"testing"
+)
 
 // Writes whose PARENT is a table no single node stands for -- one a dotted key
 // spelled out, or one only a longer header implies. The parent's own spelling
@@ -239,4 +242,49 @@ func TestDelete_ArrayOfTablesUnderAHeaderImpliedTable(t *testing.T) {
 		t.Errorf("the document reads %q, want both entries gone", got)
 	}
 	mustFold(t, doc)
+}
+
+// --- comments ---
+
+// Fails if a comment written on a key a dotted pair binds reaches nothing: the
+// comment belongs on that pair's line, and the operation reported success while
+// the line kept splicing its original bytes.
+func TestSetComment_OnAKeyUnderADottedTable(t *testing.T) {
+	doc := parseOrFail(t, "a.b = 1\n")
+	if err := doc.SetComment("a.b", "note"); err != nil {
+		t.Fatalf(`SetComment("a.b", "note") reported %v`, err)
+	}
+	if got := string(doc.Bytes()); got != "a.b = 1 # note\n" {
+		t.Errorf("the document reads %q, want the comment on the pair's line", got)
+	}
+
+	inside := parseOrFail(t, "[t]\na.b = 1\n")
+	if err := inside.SetComment("t.a.b", "note"); err != nil {
+		t.Fatalf(`SetComment("t.a.b", "note") reported %v`, err)
+	}
+	if got := string(inside.Bytes()); got != "[t]\na.b = 1 # note\n" {
+		t.Errorf("the document reads %q, want the comment on the pair's line", got)
+	}
+}
+
+// Fails if leading comments written on a key a dotted pair binds reach nothing.
+func TestSetLeadingComments_OnAKeyUnderADottedTable(t *testing.T) {
+	doc := parseOrFail(t, "a.b = 1\n")
+	if err := doc.SetLeadingComments("a.b", []string{"why"}); err != nil {
+		t.Fatalf(`SetLeadingComments("a.b") reported %v`, err)
+	}
+	if got := string(doc.Bytes()); got != "# why\na.b = 1\n" {
+		t.Errorf("the document reads %q, want the comment above the pair", got)
+	}
+}
+
+// Fails if a comment written into a dotted region INSIDE an inline table is
+// accepted and then dropped: TOML gives an inline table nowhere to put one, so
+// the refusal is the same wrong-container answer a key of an inline table gets.
+func TestSetComment_InADottedRegionInsideAnInlineTable(t *testing.T) {
+	doc := parseOrFail(t, "t = { a.b = 1 }\n")
+	err := doc.SetComment("t.a.b", "no")
+	if !errors.Is(err, ErrWrongContainer) {
+		t.Errorf("SetComment reported %v, want a wrong-container diagnostic; the document reads %q", err, doc.Bytes())
+	}
 }
