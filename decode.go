@@ -238,8 +238,9 @@ func (td *tableDesc) lookup(key string) (*fieldSlot, bool) {
 }
 
 // fieldSlot is one key of a table descriptor: what it expects, and where it
-// goes. In the reflection front end the descriptor is derived on first use,
-// so a Go type the document never reaches is never inspected.
+// goes. In the reflection front end the descriptor is derived on first use, so
+// a Go type whose SHAPE the document never reaches is never checked against the
+// conversion table. Its TAGS are checked all the same -- see checkTags.
 type fieldSlot struct {
 	name     string
 	required bool
@@ -257,10 +258,15 @@ type engine struct {
 
 	types  map[reflect.Type]*desc
 	tables map[reflect.Type]*tableDesc
+	tagged map[reflect.Type]bool // types whose tag rules have been checked
 }
 
 func newEngine() *engine {
-	return &engine{types: map[reflect.Type]*desc{}, tables: map[reflect.Type]*tableDesc{}}
+	return &engine{
+		types:  map[reflect.Type]*desc{},
+		tables: map[reflect.Type]*tableDesc{},
+		tagged: map[reflect.Type]bool{},
+	}
 }
 
 // add records one diagnostic.
@@ -620,7 +626,15 @@ func pathLabel(path string) string {
 
 // descForType derives the descriptor a Go type declares. Deriving is memoized
 // per type, which is also what makes a recursive type terminate.
+//
+// A type entering derivation has its whole reachable tag graph checked first
+// (see checkTags), so a tag defect is reported for every document the target is
+// used with rather than only for the ones whose keys descend far enough to
+// derive the offending type.
 func (en *engine) descForType(rt reflect.Type) (*desc, error) {
+	if err := en.checkTags(rt); err != nil {
+		return nil, err
+	}
 	if d, ok := en.types[rt]; ok {
 		return d, nil
 	}
@@ -674,6 +688,63 @@ func (en *engine) fillDesc(d *desc, rt reflect.Type) error {
 			return err
 		}
 		d.table = table
+	}
+	return nil
+}
+
+// checkTags derives the field mapping of every struct type the target can
+// reach, so a toml tag the package cannot honour is refused whatever the
+// document says. A tag rule is a property of the type: "nonsense" is not an
+// option this package reads and a tag on an unexported field names a key
+// nothing can bind, and neither becomes true or false because a document
+// happens to carry the key above it.
+//
+// Only TAG rules are eager. Whether a type can be decoded AT ALL stays lazy:
+// an untagged field of a type no row of the conversion table accepts is
+// refused when a document key reaches it, and is otherwise none of the
+// document's business. So this walk never asks targetClassOf anything -- it
+// follows only the type constructors decoding itself follows (a pointer, the
+// element of a slice, an array or a map, and the fields a struct's mapping
+// binds), and derives a struct's key set to surface what collectFields refuses.
+//
+// A type that decodes itself through Unmarshaler ends the walk: the engine
+// hands it the node whole and maps none of its fields, so its tags are not
+// field mappings at all.
+//
+// The visited set is what makes a recursive type terminate; it is dropped
+// again on failure so a later derivation of the same type reports the same
+// error rather than silently passing.
+func (en *engine) checkTags(rt reflect.Type) error {
+	if rt == nil || en.tagged[rt] {
+		return nil
+	}
+	en.tagged[rt] = true
+	if err := en.walkTags(rt); err != nil {
+		delete(en.tagged, rt)
+		return err
+	}
+	return nil
+}
+
+// walkTags is checkTags without the memoization, which its caller owns.
+func (en *engine) walkTags(rt reflect.Type) error {
+	if implementsHook(rt, unmarshalerIface) {
+		return nil
+	}
+	switch rt.Kind() {
+	case reflect.Pointer, reflect.Slice, reflect.Array, reflect.Map:
+		return en.checkTags(rt.Elem())
+	case reflect.Struct:
+		td, err := en.tableForType(rt)
+		if err != nil {
+			return err
+		}
+		// In name order: the mapping's own order is a map's, which has none.
+		for _, name := range td.names {
+			if err := en.checkTags(td.fields[name].rt); err != nil {
+				return err
+			}
+		}
 	}
 	return nil
 }
