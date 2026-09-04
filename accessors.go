@@ -33,13 +33,10 @@ func (n *KeyValueNode) Val() Node { return n.val }
 // ["a", "b"], and a quoted part carries no quotes.
 func (n *KeyNode) Parts() []string { return copyStrings(n.parts) }
 
-// RawParts returns the source bytes of each part, as written, as a copy. It is
-// empty for a key created programmatically.
-func (n *KeyNode) RawParts() [][]byte {
-	out := make([][]byte, len(n.rawParts))
-	copy(out, n.rawParts)
-	return out
-}
+// RawParts returns the source bytes of each part, as written, as a copy: the
+// outer slice and every part in it. It is empty for a key created
+// programmatically.
+func (n *KeyNode) RawParts() [][]byte { return copyByteSlices(n.rawParts) }
 
 // Styles returns the quoting style of each part, as a copy.
 func (n *KeyNode) Styles() []StringStyle {

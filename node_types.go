@@ -46,6 +46,28 @@ func copyStrings(s []string) []string {
 	return out
 }
 
+// copyBytes returns a copy of a byte slice, nil for a nil one: a caller handed
+// bytes by an accessor writes into its own array, not the node's.
+func copyBytes(b []byte) []byte {
+	if b == nil {
+		return nil
+	}
+	out := make([]byte, len(b))
+	copy(out, b)
+	return out
+}
+
+// copyByteSlices returns a copy of a slice of byte slices, each element copied
+// too. Copying only the outer slice would leave every element shared with the
+// node, which is the same hole one level down.
+func copyByteSlices(s [][]byte) [][]byte {
+	out := make([][]byte, len(s))
+	for i, b := range s {
+		out[i] = copyBytes(b)
+	}
+	return out
+}
+
 // Document is the root node of a TOML document.
 type Document struct {
 	nodeBase
