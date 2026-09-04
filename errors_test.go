@@ -329,9 +329,10 @@ name = "a"
 			wantSent: ErrWrongContainer,
 		},
 		{
-			name: "merge defaults: unsupported value",
+			name: "ensure defaults: unsupported value",
 			run: func(d *Document) error {
-				return d.MergeDefaults("", map[string]any{"fresh": make(chan int)})
+				_, err := d.EnsureDefaults([]Default{{Path: "fresh", Value: make(chan int)}})
+				return err
 			},
 			wantKind: KindBadInput,
 			wantSent: ErrBadInput,

@@ -5,8 +5,8 @@ import (
 	"testing"
 )
 
-// Audit 1: Nested map defaults 3+ levels deep, verify no overwrite at any level.
-func TestAudit_MergeDefaults_ThreeLevelsDeep(t *testing.T) {
+// Audit 1: defaults three levels deep, verify no overwrite at any level.
+func TestAudit_EnsureDefaults_ThreeLevelsDeep(t *testing.T) {
 	doc, err := Parse([]byte(`[a]
 x = 1
 
@@ -20,20 +20,15 @@ z = 3
 		t.Fatalf("parse: %v", err)
 	}
 
-	defaults := map[string]any{
-		"x": 999,
-		"w": 10,
-		"b": map[string]any{
-			"y": 999,
-			"v": 20,
-			"c": map[string]any{
-				"z": 999,
-				"u": 30,
-			},
-		},
-	}
-	if err := doc.MergeDefaults("a", defaults); err != nil {
-		t.Fatalf("MergeDefaults: %v", err)
+	if _, err := doc.EnsureDefaults([]Default{
+		{Path: "a.x", Value: 999},
+		{Path: "a.w", Value: 10},
+		{Path: "a.b.y", Value: 999},
+		{Path: "a.b.v", Value: 20},
+		{Path: "a.b.c.z", Value: 999},
+		{Path: "a.b.c.u", Value: 30},
+	}); err != nil {
+		t.Fatalf("EnsureDefaults: %v", err)
 	}
 
 	// Level 1: existing key preserved, new key added
@@ -73,9 +68,9 @@ z = 3
 	}
 }
 
-// Audit 2: MergeDefaults with existing nested structure -- document has
-// [server.database] with some keys, defaults add new keys to the same table.
-func TestAudit_MergeDefaults_ExistingNestedStructure(t *testing.T) {
+// Audit 2: defaults against an existing nested structure -- the document has
+// [server.database] with some keys, the defaults add new keys to that table.
+func TestAudit_EnsureDefaults_ExistingNestedStructure(t *testing.T) {
 	doc, err := Parse([]byte(`[server]
 host = "prod.example.com"
 port = 443
@@ -88,20 +83,17 @@ host = "db.example.com"
 		t.Fatalf("parse: %v", err)
 	}
 
-	defaults := map[string]any{
-		"host":    "localhost",
-		"port":    8080,
-		"workers": 4,
-		"database": map[string]any{
-			"name":      "devdb",
-			"host":      "localhost",
-			"port":      5432,
-			"pool_size": 10,
-			"ssl":       false,
-		},
-	}
-	if err := doc.MergeDefaults("server", defaults); err != nil {
-		t.Fatalf("MergeDefaults: %v", err)
+	if _, err := doc.EnsureDefaults([]Default{
+		{Path: "server.host", Value: "localhost"},
+		{Path: "server.port", Value: 8080},
+		{Path: "server.workers", Value: 4},
+		{Path: "server.database.name", Value: "devdb"},
+		{Path: "server.database.host", Value: "localhost"},
+		{Path: "server.database.port", Value: 5432},
+		{Path: "server.database.pool_size", Value: 10},
+		{Path: "server.database.ssl", Value: false},
+	}); err != nil {
+		t.Fatalf("EnsureDefaults: %v", err)
 	}
 
 	// Existing keys unchanged

@@ -1,56 +1,9 @@
 package tomledit
 
-// MergeDefaults recursively walks defaults and sets keys that do not exist in
-// the document at the given path. If path is empty, merges at the document root.
-//
-// Maps (map[string]any) merge recursively: only missing keys are set. Scalars
-// and arrays are atomic: existing keys are never overwritten. This is useful
-// for applying default configuration values to a user-provided TOML file.
-func (d *Document) MergeDefaults(path string, defaults map[string]any) error {
-	return d.diag(d.mergeMap(path, defaults), "")
-}
-
-// mergeMap recursively merges a map[string]any into the document at the given
-// path prefix. Keys that already exist in the document are skipped unless the
-// value is itself a map, in which case it recurses.
-func (d *Document) mergeMap(prefix string, m map[string]any) error {
-	for key, val := range m {
-		fullPath := key
-		if prefix != "" {
-			fullPath = prefix + "." + key
-		}
-
-		subMap, isMap := val.(map[string]any)
-		existing, present := d.probe(fullPath)
-
-		if !present {
-			// Key doesn't exist: set it. For maps, use SetCreate so the whole
-			// inline table is created atomically.
-			if err := d.SetCreate(fullPath, val); err != nil {
-				return wrapError(err, "setting default %q", fullPath)
-			}
-			continue
-		}
-
-		// Key exists. If both sides are tables, recurse. An array-of-tables,
-		// a scalar and an array are all atomic: the existing value stands.
-		if isMap {
-			if existing.rec != nil {
-				if err := d.mergeMap(fullPath, subMap); err != nil {
-					return err
-				}
-			}
-			continue
-		}
-
-		// Existing key with non-map default: keep existing value (atomic).
-	}
-	return nil
-}
-
-// Merge merges all values from the other document into d. Same recursive
-// semantics as MergeDefaults: only keys that do not exist in d are set;
-// existing values are never overwritten.
+// Merge merges all values from the other document into d. Only keys that do
+// not exist in d are set; existing values are never overwritten. Seeding a
+// document from a list of defaults rather than from another document is
+// EnsureDefaults.
 //
 // Comment handling:
 //   - For existing keys: other's leading comments are appended to d's leading

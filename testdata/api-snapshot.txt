@@ -194,6 +194,10 @@ type DateTimeNode struct
 	method (*DateTimeNode) Type() NodeType
 	method (*DateTimeNode) Value() any
 
+type Default struct
+	field Path string
+	field Value any
+
 type Document struct
 	field Children []Node
 	method (*Document) AppendToArray(path string, value any) error
@@ -201,6 +205,7 @@ type Document struct
 	method (*Document) Comment() string
 	method (*Document) Decode(v any) error
 	method (*Document) Delete(path string) error
+	method (*Document) EnsureDefaults(defaults []Default) (added []string, err error)
 	method (*Document) Format(opts ...FormatOption) []byte
 	method (*Document) GetBool(path string) (bool, bool)
 	method (*Document) GetFloat(path string) (float64, bool)
@@ -214,7 +219,6 @@ type Document struct
 	method (*Document) Len(path string) int
 	method (*Document) Lookup(path string) (Node, bool)
 	method (*Document) Merge(other *Document) error
-	method (*Document) MergeDefaults(path string, defaults map[string]any) error
 	method (*Document) NewArrayTable(path string) error
 	method (*Document) NewTable(path string) error
 	method (*Document) PermuteChildren(path string, order []int) error

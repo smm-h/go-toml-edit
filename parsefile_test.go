@@ -95,8 +95,9 @@ func TestParseFileDiagnosticsNameTheFile(t *testing.T) {
 		{"new table", func(d *Document) error { return d.NewTable("server") }},
 		{"comment", func(d *Document) error { return d.SetComment("point.x", "no") }},
 		{"cursor", func(d *Document) error { return d.Key("server").Key("port").Err() }},
-		{"merge defaults", func(d *Document) error {
-			return d.MergeDefaults("", map[string]any{"fresh": make(chan int)})
+		{"ensure defaults", func(d *Document) error {
+			_, err := d.EnsureDefaults([]Default{{Path: "fresh", Value: make(chan int)}})
+			return err
 		}},
 	}
 	for _, tt := range tests {
