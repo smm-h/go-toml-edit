@@ -260,3 +260,39 @@ name = "Gadget"
 		}
 	}
 }
+
+// The comment getters answer a comment's normalized content and the path-based
+// setters take that content back, so content read from one document and written
+// to another is written as it was read -- with the two exceptions named beside
+// normalizeCommentText, which this pins. Content that itself begins with "#"
+// gains one on the way back, because the setter adds the marker the getter
+// removed; content that is empty is how the setter spells removal, so a comment
+// with nothing after its marker cannot be written back at all.
+func TestAudit_CommentContentRoundTripExceptions(t *testing.T) {
+	t.Run("content beginning with a hash gains one", func(t *testing.T) {
+		doc := parseOrFail(t, "x = 1 ## section\n")
+		got := doc.Children()[0].Comment()
+		if want := "# section"; got != want {
+			t.Fatalf("Comment() = %q, want %q", got, want)
+		}
+		if err := doc.SetComment("x", got); err != nil {
+			t.Fatalf("SetComment: %v", err)
+		}
+		if rendered, want := string(doc.Bytes()), "x = 1 # # section\n"; rendered != want {
+			t.Errorf("writing the content back rendered %q, want %q", rendered, want)
+		}
+	})
+
+	t.Run("an empty comment is read as no comment", func(t *testing.T) {
+		doc := parseOrFail(t, "x = 1 #\n")
+		if got := doc.Children()[0].Comment(); got != "" {
+			t.Fatalf("Comment() = %q, want %q", got, "")
+		}
+		if err := doc.SetComment("x", ""); err != nil {
+			t.Fatalf("SetComment: %v", err)
+		}
+		if rendered, want := string(doc.Bytes()), "x = 1\n"; rendered != want {
+			t.Errorf("writing the content back rendered %q, want %q", rendered, want)
+		}
+	})
+}

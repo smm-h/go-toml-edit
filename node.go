@@ -249,8 +249,22 @@ func (n *nodeBase) LeadingComments() []string {
 
 // normalizeCommentText returns a comment's content: the bytes with the leading
 // "#" and the whitespace on either side of it removed. It is what the comment
-// getters answer and what the path-based setters take, so a comment read from
-// one document and written to another survives the round trip unchanged.
+// getters answer and what the path-based setters take, so content read from one
+// document and written to another is written as it was read -- normalized, not
+// verbatim: the marker and the spacing around it are the setter's to choose,
+// and a comment written "#note" reads and rewrites as "# note".
+//
+// Two inputs do not survive that round trip, both because the content and its
+// marker are not separable once the marker is gone:
+//
+//   - Content that itself begins with "#". "## section" reads as "# section",
+//     and the setter puts its own marker in front of that, giving
+//     "# # section".
+//   - The empty comment. "#" reads as "", which is what the setters take to
+//     mean removal, so writing it back removes the comment instead of
+//     restoring it.
+//
+// A caller that needs the bytes exactly reads Raw instead.
 func normalizeCommentText(b []byte) string {
 	text := strings.TrimSpace(string(b))
 	text = strings.TrimPrefix(text, "#")
