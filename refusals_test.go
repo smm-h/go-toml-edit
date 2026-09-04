@@ -609,6 +609,55 @@ func TestDelete_MissingPathStaysASilentNoOp(t *testing.T) {
 	}
 }
 
+// Fails if a delete that removes nothing still counts as a write. Rendering
+// alone cannot see this: a container whose contents were replaced by the SAME
+// contents splices its gap fragments and emits exactly the bytes it was read
+// with. What changes is everything else a write does -- the container is marked
+// as no longer splicing, the read-layer's generation moves, and the folded
+// record every reader is holding is dropped and refolded. A removal that took
+// nothing must do none of it.
+func TestDelete_ARemovalThatTookNothingIsNotAWrite(t *testing.T) {
+	cases := []struct {
+		name      string
+		src       string
+		path      string
+		container string // the path of the container the delete reaches into
+	}{
+		{"inside an inline table", "t = {a = 1}\n", "t.missing", "t"},
+		{"inside a header table", "[t]\na = 1\n", "t.missing", "t"},
+		{"inside a table a dotted key spelled out", "t.a = 1\n", "t.missing", "t"},
+	}
+	for _, tc := range cases {
+		t.Run(tc.name, func(t *testing.T) {
+			doc := parseOrFail(t, tc.src)
+
+			// Fold once, so the layer is cached and its identity means something.
+			before := doc.Root()
+			gen := doc.generation
+
+			if err := doc.Delete(tc.path); err != nil {
+				t.Fatalf("Delete(%q): %v", tc.path, err)
+			}
+
+			if doc.generation != gen {
+				t.Errorf("a delete that removed nothing bumped the read-layer generation from %d to %d",
+					gen, doc.generation)
+			}
+			if after := doc.Root(); after != before {
+				t.Error("a delete that removed nothing dropped the folded read-layer")
+			}
+			for _, child := range doc.children {
+				if child.subtreeDirty() {
+					t.Errorf("a delete that removed nothing marked %s as no longer splicing", child.Type())
+				}
+			}
+			if got := string(doc.Bytes()); got != tc.src {
+				t.Errorf("the document reads %q, want %q", got, tc.src)
+			}
+		})
+	}
+}
+
 // --- table creation, continued ---
 
 // Fails if a sub-table under a table only a LONGER header implies stops being
