@@ -635,8 +635,10 @@ func conversionCases() []conversionCase {
 }
 
 // Fails if a row of the conversion table stops holding for either of its
-// consumers: the reflection front end, and a descriptor field. (The accessor
-// families join this test when they move onto the same table.)
+// consumers: the reflection front end, and a descriptor field. The third
+// consumer, the accessor families, is checked against the same cases by
+// TestConversionTable_AccessorFamilies, which asserts it answers what a decode
+// target of the same Go type answers.
 func TestConversionTable_BothConsumers(t *testing.T) {
 	for _, tc := range conversionCases() {
 		t.Run(tc.name, func(t *testing.T) {
