@@ -428,3 +428,49 @@ func TestConversionTable_AccessorFamilies(t *testing.T) {
 		}
 	}
 }
+
+// --- the comma-ok existence surface's allocation budget ---
+
+// Fails if Lookup or Has starts allocating beyond the path parse. They are the
+// existence surface a caller polls, so their cost is a contract: parsing the
+// path text is the only allocation either is allowed, and walking a warm
+// read-layer to the node adds none.
+//
+// The budget is measured rather than written down: whatever ParsePath allocates
+// for this path is what Lookup and Has may allocate for it.
+func TestLookupAndHasAllocateOnlyTheirPath(t *testing.T) {
+	doc, err := Parse([]byte(stagesDoc))
+	if err != nil {
+		t.Fatalf("parse error: %v", err)
+	}
+	const path = "server.host"
+	// Warm the read-layer: the first read folds the document, and the fold is
+	// what the cache exists to avoid repeating.
+	if !doc.Has(path) {
+		t.Fatalf("Has(%q) = false, want true", path)
+	}
+
+	budget := testing.AllocsPerRun(100, func() {
+		if _, err := ParsePath(path); err != nil {
+			t.Fatalf("ParsePath: %v", err)
+		}
+	})
+
+	lookup := testing.AllocsPerRun(100, func() {
+		if _, ok := doc.Lookup(path); !ok {
+			t.Fatalf("Lookup(%q) reported false", path)
+		}
+	})
+	if lookup > budget {
+		t.Errorf("Lookup allocates %.0f times, want no more than the %.0f of its path parse", lookup, budget)
+	}
+
+	has := testing.AllocsPerRun(100, func() {
+		if !doc.Has(path) {
+			t.Fatalf("Has(%q) = false", path)
+		}
+	})
+	if has > budget {
+		t.Errorf("Has allocates %.0f times, want no more than the %.0f of its path parse", has, budget)
+	}
+}
