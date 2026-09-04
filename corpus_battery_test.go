@@ -5,6 +5,7 @@ import (
 	"errors"
 	"math"
 	"sort"
+	"strconv"
 	"testing"
 	"time"
 
@@ -301,13 +302,86 @@ func TestBatteryRendersFromValuesAlone(t *testing.T) {
 		if err != nil {
 			t.Fatalf("the re-rendered document does not parse: %v\n%s", err, out)
 		}
-		compareRecord(t, "", reparsed.Root(), want)
+		renderedCheck.record(t, "", reparsed.Root(), want)
 		if again := renderFromValuesAlone(reparsed); !bytes.Equal(out, again) {
 			t.Errorf("re-rendering is not idempotent:\nfirst:  %q\nsecond: %q", out, again)
 		}
 	})
 	if ran != wantValidCases {
 		t.Errorf("ran %d valid cases, want %d", ran, wantValidCases)
+	}
+}
+
+// renderedCheck is the reference check this pass uses, and the reason it does
+// not reuse the fold's: the fold's comparator asserts the payloads of strings,
+// integers and booleans only, which is right for a question about folding and
+// wrong for a question about RENDERING. Under it, a renderer that wrote the
+// same wrong number for every float in the corpus would satisfy this whole
+// pass -- the output would still parse, still fold to a float of the right
+// kind, and still re-render identically. So this pass asserts every payload.
+var renderedCheck = referenceCheck{scalar: compareRenderedScalar}
+
+// compareRenderedScalar checks a scalar's kind against the reference tag and
+// its payload against the reference spelling, for every kind.
+//
+// A float is compared bit for bit, so a signed zero is not the zero and a
+// rounded value is not the value. NaN is the one exception, compared by kind:
+// TOML has one NaN spelling, the reference says "nan" whatever sign the source
+// carried, and the renderer writes "nan" for the same reason.
+//
+// A date-time is compared by value: the instant an offset date-time denotes,
+// and the fields of each local flavor read as UTC.
+func compareRenderedScalar(t *testing.T, path string, node Node, typ, value string) {
+	t.Helper()
+	compareScalar(t, path, node, typ, value)
+	if wantKind, known := referenceKinds[typ]; !known || node.Type() != wantKind {
+		return // compareScalar has already reported the kind
+	}
+	switch n := node.(type) {
+	case *FloatNode:
+		compareFloatPayload(t, path, n.val.get(), value)
+	case *DateTimeNode:
+		compareTimePayload(t, path, n.val.get(), value, time.RFC3339Nano)
+	case *LocalDateTimeNode:
+		compareTimePayload(t, path, goTime(n), value, "2006-01-02T15:04:05.999999999")
+	case *LocalDateNode:
+		compareTimePayload(t, path, goTime(n), value, "2006-01-02")
+	case *LocalTimeNode:
+		v := n.val.get()
+		got := time.Date(0, time.January, 1, v.Hour, v.Minute, v.Second, v.Nanosecond, time.UTC)
+		compareTimePayload(t, path, got, value, "15:04:05.999999999")
+	}
+}
+
+// compareFloatPayload checks a float against its reference spelling, bit for
+// bit, with NaN compared by kind.
+func compareFloatPayload(t *testing.T, path string, got float64, value string) {
+	t.Helper()
+	want, err := strconv.ParseFloat(value, 64)
+	if err != nil {
+		t.Fatalf("%s: undecodable reference float %q: %v", path, value, err)
+	}
+	if math.IsNaN(want) {
+		if !math.IsNaN(got) {
+			t.Errorf("%s: float is %s, the reference says %s", path, FormatFloat(got), value)
+		}
+		return
+	}
+	if math.Float64bits(got) != math.Float64bits(want) {
+		t.Errorf("%s: float is %s, the reference says %s", path, FormatFloat(got), value)
+	}
+}
+
+// compareTimePayload checks a date-time against its reference spelling, read
+// with the layout that spelling uses.
+func compareTimePayload(t *testing.T, path string, got time.Time, value, layout string) {
+	t.Helper()
+	want, err := time.Parse(layout, value)
+	if err != nil {
+		t.Fatalf("%s: undecodable reference date-time %q: %v", path, value, err)
+	}
+	if !got.Equal(want) {
+		t.Errorf("%s: date-time is %s, the reference says %s", path, got.Format(layout), value)
 	}
 }
 

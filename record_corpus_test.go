@@ -20,6 +20,21 @@ import (
 // Values are compared where the comparison is about the fold rather than about
 // rendering: strings, integers and booleans. Floats and date-times are compared
 // by kind only -- their spellings belong to the renderer and the decoder.
+//
+// The walk over a reference tree is shared, and the only thing a pass chooses
+// is which scalar payloads it asserts: referenceCheck carries that choice, so
+// the renderer pass can demand every payload without loosening or tightening
+// what the fold pass says.
+
+// referenceCheck walks a folded document against a toml-test reference tree,
+// asserting scalars through the comparator it carries.
+type referenceCheck struct {
+	scalar func(t *testing.T, path string, node Node, typ, value string)
+}
+
+// foldCheck is the fold's own pass: kinds always, and the payloads whose
+// reference spelling is unambiguous. See the carve-out above.
+var foldCheck = referenceCheck{scalar: compareScalar}
 
 // Fails if the fold stops agreeing with toml-test's own reference tree for any
 // valid case: a missing or invented key, a table folded as a value (or the
@@ -34,7 +49,7 @@ func TestFoldMatchesReferenceCorpus(t *testing.T) {
 		if err != nil {
 			t.Fatalf("parse failed: %v", err)
 		}
-		compareRecord(t, "", doc.Root(), want)
+		foldCheck.record(t, "", doc.Root(), want)
 	})
 
 	if ran != wantValidCases {
@@ -103,8 +118,8 @@ var referenceKinds = map[string]NodeType{
 	"time-local":     NodeLocalTime,
 }
 
-// compareRecord checks a folded record against a reference table.
-func compareRecord(t *testing.T, path string, rec *Record, want map[string]any) {
+// record checks a folded record against a reference table.
+func (c referenceCheck) record(t *testing.T, path string, rec *Record, want map[string]any) {
 	t.Helper()
 	if rec.Len() != len(want) {
 		t.Errorf("%s: the record holds %d keys, the reference names %d (%v vs %v)",
@@ -116,7 +131,7 @@ func compareRecord(t *testing.T, path string, rec *Record, want map[string]any) 
 			t.Errorf("%s: no entry %q (holds %v)", pathOrRoot(path), key, recordKeys(rec))
 			continue
 		}
-		compareEntry(t, joinTestPath(path, key), e, wantVal)
+		c.entry(t, joinTestPath(path, key), e, wantVal)
 	}
 	for e := range rec.Entries() {
 		if _, ok := want[e.Key()]; !ok {
@@ -125,8 +140,8 @@ func compareRecord(t *testing.T, path string, rec *Record, want map[string]any) 
 	}
 }
 
-// compareEntry checks one entry against its reference value.
-func compareEntry(t *testing.T, path string, e Entry, want any) {
+// entry checks one entry against its reference value.
+func (c referenceCheck) entry(t *testing.T, path string, e Entry, want any) {
 	t.Helper()
 	switch {
 	case isReferenceTable(want):
@@ -135,10 +150,10 @@ func compareEntry(t *testing.T, path string, e Entry, want any) {
 			t.Errorf("%s: the reference names a table, the fold holds a %s", path, e.Kind())
 			return
 		}
-		compareRecord(t, path, rec, want.(map[string]any))
+		c.record(t, path, rec, want.(map[string]any))
 
 	case isReferenceArray(want):
-		compareArray(t, path, e, want.([]any))
+		c.array(t, path, e, want.([]any))
 
 	default:
 		typ, value, ok := taggedValue(want)
@@ -150,13 +165,13 @@ func compareEntry(t *testing.T, path string, e Entry, want any) {
 			t.Errorf("%s: the reference names a %s value, the fold holds a %s with no node", path, typ, e.Kind())
 			return
 		}
-		compareScalar(t, path, node, typ, value)
+		c.scalar(t, path, node, typ, value)
 	}
 }
 
-// compareArray checks an entry the reference tree spells as a JSON array: an
+// array checks an entry the reference tree spells as a JSON array: an
 // array-of-tables collection, or a plain array node.
-func compareArray(t *testing.T, path string, e Entry, want []any) {
+func (c referenceCheck) array(t *testing.T, path string, e Entry, want []any) {
 	t.Helper()
 	if records, ok := e.Records(); ok {
 		if len(records) != len(want) {
@@ -169,7 +184,7 @@ func compareArray(t *testing.T, path string, e Entry, want []any) {
 				t.Errorf("%s[%d]: the reference names a value, the fold holds an array-of-tables entry", path, i)
 				continue
 			}
-			compareRecord(t, fmt.Sprintf("%s[%d]", path, i), rec, table)
+			c.record(t, fmt.Sprintf("%s[%d]", path, i), rec, table)
 		}
 		return
 	}
@@ -178,11 +193,11 @@ func compareArray(t *testing.T, path string, e Entry, want []any) {
 		t.Errorf("%s: the reference names an array, the fold holds a %s with no node", path, e.Kind())
 		return
 	}
-	compareArrayNode(t, path, node, want)
+	c.arrayNode(t, path, node, want)
 }
 
-// compareArrayNode checks a plain array node against a reference array.
-func compareArrayNode(t *testing.T, path string, node Node, want []any) {
+// arrayNode checks a plain array node against a reference array.
+func (c referenceCheck) arrayNode(t *testing.T, path string, node Node, want []any) {
 	t.Helper()
 	arr, ok := node.(*ArrayNode)
 	if !ok {
@@ -207,15 +222,15 @@ func compareArrayNode(t *testing.T, path string, node Node, want []any) {
 				t.Errorf("%s: folding the inline table: %v", elemPath, err)
 				continue
 			}
-			compareRecord(t, elemPath, rec, want[i].(map[string]any))
+			c.record(t, elemPath, rec, want[i].(map[string]any))
 		case isReferenceArray(want[i]):
-			compareArrayNode(t, elemPath, elem, want[i].([]any))
+			c.arrayNode(t, elemPath, elem, want[i].([]any))
 		default:
 			typ, value, ok := taggedValue(want[i])
 			if !ok {
 				t.Fatalf("%s: undecodable reference value %#v", elemPath, want[i])
 			}
-			compareScalar(t, elemPath, elem, typ, value)
+			c.scalar(t, elemPath, elem, typ, value)
 		}
 	}
 }
