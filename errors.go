@@ -136,23 +136,32 @@ type Error struct {
 	err error // the underlying error this diagnostic reports, if any
 }
 
-// Error renders the diagnostic: the file and position when they are known,
-// then the path, then the message.
+// Error renders the diagnostic in the compiler convention: the location, the
+// path and the message, joined with ": ", with every absent part left out.
+// The location is "file:line:column" when both the file and a position are
+// known, "line:column" with a position alone, and the file alone when there is
+// no position -- so a diagnostic reads as one of
+//
+//	config.toml:3:10: expected value, got EOF
+//	3:10: expected value, got EOF
+//	config.toml: server.port: key not found
+//	server.port: key not found
+//	key not found
 func (e *Error) Error() string {
-	var b strings.Builder
-	if e.File != "" {
-		b.WriteString(e.File)
-		b.WriteString(": ")
-	}
-	if e.Pos.IsValid() {
-		fmt.Fprintf(&b, "line %d, column %d: ", e.Pos.Line, e.Pos.Column)
+	var parts []string
+	switch {
+	case e.File != "" && e.Pos.IsValid():
+		parts = append(parts, fmt.Sprintf("%s:%d:%d", e.File, e.Pos.Line, e.Pos.Column))
+	case e.Pos.IsValid():
+		parts = append(parts, fmt.Sprintf("%d:%d", e.Pos.Line, e.Pos.Column))
+	case e.File != "":
+		parts = append(parts, e.File)
 	}
 	if e.Path != "" {
-		b.WriteString(e.Path)
-		b.WriteString(": ")
+		parts = append(parts, e.Path)
 	}
-	b.WriteString(e.Message)
-	return b.String()
+	parts = append(parts, e.Message)
+	return strings.Join(parts, ": ")
 }
 
 // Unwrap returns the underlying error this diagnostic reports, or nil.

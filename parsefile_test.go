@@ -73,7 +73,7 @@ func TestParseFileSyntaxErrorNamesTheFile(t *testing.T) {
 	if diag.File != path {
 		t.Errorf("File = %q, want %q", diag.File, path)
 	}
-	if !strings.HasPrefix(err.Error(), path+": ") {
+	if !strings.HasPrefix(err.Error(), path+":") {
 		t.Errorf("rendered error %q does not start with the file name", err.Error())
 	}
 }
@@ -116,7 +116,7 @@ func TestParseFileDiagnosticsNameTheFile(t *testing.T) {
 			if diag.File != path {
 				t.Errorf("File = %q, want %q (err: %v)", diag.File, path, err)
 			}
-			if !strings.HasPrefix(err.Error(), path+": ") {
+			if !strings.HasPrefix(err.Error(), path+":") {
 				t.Errorf("rendered error %q does not start with the file name", err.Error())
 			}
 		})

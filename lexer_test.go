@@ -1640,7 +1640,7 @@ func TestParseErrorFormat(t *testing.T) {
 		Message: "unexpected character",
 	}
 	got := e.Error()
-	expected := "line 3, column 10: unexpected character"
+	expected := "3:10: unexpected character"
 	if got != expected {
 		t.Errorf("Error.Error() = %q, want %q", got, expected)
 	}

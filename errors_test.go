@@ -11,8 +11,10 @@ import (
 // and structurally through errors.As, and an aggregate that renders as its
 // first diagnostic while exposing all of them.
 
-// Fails if the rendering of a diagnostic stops including the file, position
-// and path it carries, or starts including them when they are absent.
+// Fails if the rendering of a diagnostic stops following the compiler
+// convention -- the location "file:line:column", the path and the message
+// joined with ": " -- or starts including a part the diagnostic does not
+// carry. Every combination of file, position and path presence is covered.
 func TestErrorRendering(t *testing.T) {
 	tests := []struct {
 		name string
@@ -20,9 +22,33 @@ func TestErrorRendering(t *testing.T) {
 		want string
 	}{
 		{
+			name: "file and position",
+			err: &Error{
+				Kind: KindSyntax, File: "config.toml",
+				Pos: Position{Line: 3, Column: 10, Offset: 42}, Message: "expected value, got EOF",
+			},
+			want: "config.toml:3:10: expected value, got EOF",
+		},
+		{
 			name: "position only",
-			err:  &Error{Kind: KindSyntax, Pos: Position{Line: 3, Column: 10, Offset: 42}, Message: "unexpected character"},
-			want: "line 3, column 10: unexpected character",
+			err: &Error{
+				Kind: KindSyntax,
+				Pos:  Position{Line: 3, Column: 10, Offset: 42}, Message: "expected value, got EOF",
+			},
+			want: "3:10: expected value, got EOF",
+		},
+		{
+			name: "file and path, no position",
+			err: &Error{
+				Kind: KindNotFound, File: "config.toml", Path: "server.port",
+				Message: "key not found",
+			},
+			want: "config.toml: server.port: key not found",
+		},
+		{
+			name: "path only",
+			err:  &Error{Kind: KindNotFound, Path: "server.port", Message: "key not found"},
+			want: "server.port: key not found",
 		},
 		{
 			name: "message only",
@@ -30,9 +56,9 @@ func TestErrorRendering(t *testing.T) {
 			want: `key "host" not found`,
 		},
 		{
-			name: "path and message",
-			err:  &Error{Kind: KindNotFound, Path: "server.host", Message: "key not found"},
-			want: "server.host: key not found",
+			name: "file only",
+			err:  &Error{Kind: KindSyntax, File: "config.toml", Message: "unexpected character"},
+			want: "config.toml: unexpected character",
 		},
 		{
 			name: "file, position, path and message",
@@ -40,7 +66,15 @@ func TestErrorRendering(t *testing.T) {
 				Kind: KindSyntax, File: "config.toml", Path: "server.host",
 				Pos: Position{Line: 2, Column: 1, Offset: 6}, Message: "duplicate key",
 			},
-			want: "config.toml: line 2, column 1: server.host: duplicate key",
+			want: "config.toml:2:1: server.host: duplicate key",
+		},
+		{
+			name: "position and path, no file",
+			err: &Error{
+				Kind: KindSyntax, Path: "server.host",
+				Pos: Position{Line: 2, Column: 1, Offset: 6}, Message: "duplicate key",
+			},
+			want: "2:1: server.host: duplicate key",
 		},
 	}
 	for _, tt := range tests {
