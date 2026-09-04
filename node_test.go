@@ -235,16 +235,17 @@ func TestTrivia(t *testing.T) {
 		t.Errorf("LeadingComments() = %v, want empty", got)
 	}
 
-	// Set inline comment
-	n.SetComment("# inline")
-	if got := n.Comment(); got != "# inline" {
-		t.Errorf("Comment() = %q, want %q", got, "# inline")
+	// Set inline comment. The getter answers the comment's text, not its
+	// bytes: the "#" and the whitespace around it are the spelling.
+	n.setComment("# inline")
+	if got := n.Comment(); got != "inline" {
+		t.Errorf("Comment() = %q, want %q", got, "inline")
 	}
 
 	// Set leading comments
-	n.SetLeadingComments([]string{"# line 1\n", "# line 2\n"})
+	n.setLeadingComments([]string{"# line 1\n", "# line 2\n"})
 	lc := n.LeadingComments()
-	if len(lc) != 2 || lc[0] != "# line 1\n" || lc[1] != "# line 2\n" {
+	if len(lc) != 2 || lc[0] != "line 1" || lc[1] != "line 2" {
 		t.Errorf("LeadingComments() = %v, unexpected", lc)
 	}
 }
@@ -266,18 +267,18 @@ func TestDirtyFlag(t *testing.T) {
 		t.Errorf("Raw() = %q, want %q", n.Raw(), "42")
 	}
 
-	// SetComment marks dirty
+	// setComment marks dirty
 	n2 := &IntegerNode{val: scalarOf[int64](10)}
-	n2.SetComment("# ten")
+	n2.setComment("# ten")
 	if !n2.isDirty() {
-		t.Error("SetComment should mark dirty")
+		t.Error("setComment should mark dirty")
 	}
 
-	// SetLeadingComments marks dirty
+	// setLeadingComments marks dirty
 	n3 := &IntegerNode{val: scalarOf[int64](20)}
-	n3.SetLeadingComments([]string{"# twenty"})
+	n3.setLeadingComments([]string{"# twenty"})
 	if !n3.isDirty() {
-		t.Error("SetLeadingComments should mark dirty")
+		t.Error("setLeadingComments should mark dirty")
 	}
 
 	// markDirty directly

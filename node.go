@@ -1,5 +1,7 @@
 package tomledit
 
+import "strings"
+
 // NodeType identifies the kind of AST node.
 type NodeType int
 
@@ -82,8 +84,17 @@ func (t *Trivia) blankRun(i int) []byte {
 // package.
 type Node interface {
 	Type() NodeType
+
+	// Comment returns the node's inline comment as text: without the "#" and
+	// the whitespace around it, and empty when there is none.
 	Comment() string
+
+	// LeadingComments returns the comment lines written above the node as
+	// text, each without its "#", its trailing newline and the whitespace
+	// around them.
 	LeadingComments() []string
+
+	// Raw returns the node's bytes as written, comments and spacing included.
 	Raw() []byte
 
 	// Span returns the source range the node covered in the most recent
@@ -201,28 +212,42 @@ func (n *nodeBase) trivia() *Trivia {
 	return &n.nodeTrivia
 }
 
+// Comment returns the text of the node's inline comment, without the "#" and
+// the whitespace around it: a node written `x = 1 # note` answers "note". A
+// node with no inline comment answers the empty string. Raw carries the bytes
+// as written, for a caller that needs them exactly.
 func (n *nodeBase) Comment() string {
-	return string(n.nodeTrivia.InlineComment)
+	return normalizeCommentText(n.nodeTrivia.InlineComment)
 }
 
-func (n *nodeBase) SetComment(comment string) {
+func (n *nodeBase) setComment(comment string) {
 	n.nodeTrivia.InlineComment = []byte(comment)
 	n.markDirty()
 }
 
-func (n *nodeBase) setComment(comment string) {
-	n.SetComment(comment)
-}
-
+// LeadingComments returns the text of each comment line written above the node,
+// in order, each without its "#", its trailing newline and the whitespace
+// around them. Raw carries the bytes as written, for a caller that needs them
+// exactly.
 func (n *nodeBase) LeadingComments() []string {
 	result := make([]string, len(n.nodeTrivia.LeadingComments))
 	for i, c := range n.nodeTrivia.LeadingComments {
-		result[i] = string(c)
+		result[i] = normalizeCommentText(c)
 	}
 	return result
 }
 
-func (n *nodeBase) SetLeadingComments(comments []string) {
+// normalizeCommentText returns a comment's content: the bytes with the leading
+// "#" and the whitespace on either side of it removed. It is what the comment
+// getters answer and what the path-based setters take, so a comment read from
+// one document and written to another survives the round trip unchanged.
+func normalizeCommentText(b []byte) string {
+	text := strings.TrimSpace(string(b))
+	text = strings.TrimPrefix(text, "#")
+	return strings.TrimSpace(text)
+}
+
+func (n *nodeBase) setLeadingComments(comments []string) {
 	t := &n.nodeTrivia
 	// The blank lines that separated this node from the one above it, and those
 	// that stood between the last comment and the node, survive replacing the
@@ -245,10 +270,6 @@ func (n *nodeBase) SetLeadingComments(comments []string) {
 		t.blankRuns[len(comments)] = tail
 	}
 	n.markDirty()
-}
-
-func (n *nodeBase) setLeadingComments(comments []string) {
-	n.SetLeadingComments(comments)
 }
 
 // LocalDateTime represents a TOML local date-time (no timezone).

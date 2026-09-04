@@ -313,22 +313,16 @@ func nodeToValue(n Node) any {
 // copyComments copies leading and inline comments from a source KV node to
 // the target document at the given path.
 func copyComments(target *Document, path string, srcKV *KeyValueNode) {
+	// The getters answer in the same normalized text the setters take, so a
+	// comment moves from one document to another without being reformatted.
 	srcLeading := srcKV.LeadingComments()
 	srcInline := srcKV.Comment()
 
 	if len(srcLeading) > 0 {
-		// SetLeadingComments expects comment text without "# " prefix and "\n" suffix.
-		cleaned := cleanLeadingComments(srcLeading)
-		if len(cleaned) > 0 {
-			_ = target.SetLeadingComments(path, cleaned)
-		}
+		_ = target.SetLeadingComments(path, srcLeading)
 	}
 	if srcInline != "" {
-		// SetComment expects text without "# " prefix.
-		cleaned := cleanInlineComment(srcInline)
-		if cleaned != "" {
-			_ = target.SetComment(path, cleaned)
-		}
+		_ = target.SetComment(path, srcInline)
 	}
 }
 
@@ -343,12 +337,8 @@ func mergeCommentsOnExisting(target *Document, path string, srcKV *KeyValueNode)
 		if err != nil {
 			return
 		}
-		existingLeading := targetNode.LeadingComments()
-
 		// Append source comments to existing.
-		cleanedSrc := cleanLeadingComments(srcLeading)
-		cleanedExisting := cleanLeadingComments(existingLeading)
-		combined := append(cleanedExisting, cleanedSrc...)
+		combined := append(targetNode.LeadingComments(), srcLeading...)
 		if len(combined) > 0 {
 			_ = target.SetLeadingComments(path, combined)
 		}
@@ -361,10 +351,7 @@ func mergeCommentsOnExisting(target *Document, path string, srcKV *KeyValueNode)
 			return
 		}
 		if targetNode.Comment() == "" {
-			cleaned := cleanInlineComment(srcInline)
-			if cleaned != "" {
-				_ = target.SetComment(path, cleaned)
-			}
+			_ = target.SetComment(path, srcInline)
 		}
 	}
 }
@@ -379,10 +366,7 @@ func mergeTableComments(target *Document, path string, srcTbl *TableNode) {
 		if err != nil {
 			return
 		}
-		existingLeading := targetNode.LeadingComments()
-		cleanedSrc := cleanLeadingComments(srcLeading)
-		cleanedExisting := cleanLeadingComments(existingLeading)
-		combined := append(cleanedExisting, cleanedSrc...)
+		combined := append(targetNode.LeadingComments(), srcLeading...)
 		if len(combined) > 0 {
 			_ = target.SetLeadingComments(path, combined)
 		}
@@ -394,43 +378,7 @@ func mergeTableComments(target *Document, path string, srcTbl *TableNode) {
 			return
 		}
 		if targetNode.Comment() == "" {
-			cleaned := cleanInlineComment(srcInline)
-			if cleaned != "" {
-				_ = target.SetComment(path, cleaned)
-			}
+			_ = target.SetComment(path, srcInline)
 		}
 	}
-}
-
-// cleanLeadingComments strips "# " prefix and trailing "\n" from leading
-// comment strings, returning the bare text suitable for SetLeadingComments.
-func cleanLeadingComments(comments []string) []string {
-	var result []string
-	for _, c := range comments {
-		text := c
-		// Strip leading "# "
-		if len(text) >= 2 && text[0] == '#' && text[1] == ' ' {
-			text = text[2:]
-		} else if len(text) >= 1 && text[0] == '#' {
-			text = text[1:]
-		}
-		// Strip trailing newline
-		if len(text) > 0 && text[len(text)-1] == '\n' {
-			text = text[:len(text)-1]
-		}
-		result = append(result, text)
-	}
-	return result
-}
-
-// cleanInlineComment strips the "# " prefix from an inline comment string.
-func cleanInlineComment(comment string) string {
-	text := comment
-	if len(text) >= 2 && text[0] == '#' && text[1] == ' ' {
-		return text[2:]
-	}
-	if len(text) >= 1 && text[0] == '#' {
-		return text[1:]
-	}
-	return text
 }

@@ -141,3 +141,75 @@ func TestSetComment_GetStillWorks(t *testing.T) {
 		t.Errorf("expected name=\"mydb\" after SetLeadingComments, got %q (ok=%v)", name, ok)
 	}
 }
+
+// Fails if the comment getters answer with a comment's bytes rather than its
+// text: the "#" and the whitespace around it are the spelling, and a caller
+// reading a comment to write it somewhere else would have to strip them itself.
+func TestComments_GettersAnswerNormalizedText(t *testing.T) {
+	cases := []struct {
+		name    string
+		src     string
+		inline  string
+		leading []string
+	}{
+		{"spaced", "# lead\nx = 1 # note\n", "note", []string{"lead"}},
+		{"unspaced", "#lead\nx = 1 #note\n", "note", []string{"lead"}},
+		{"padded", "#   lead   \nx = 1 #   note   \n", "note", []string{"lead"}},
+		{"hash-only", "#\nx = 1 #\n", "", []string{""}},
+		{"indented", "[t]\n  # lead\n  x = 1 # note\n", "note", []string{"lead"}},
+		{"none", "x = 1\n", "", nil},
+	}
+	for _, tc := range cases {
+		t.Run(tc.name, func(t *testing.T) {
+			doc := parseOrFail(t, tc.src)
+			node := doc.Children()[len(doc.Children())-1]
+			if tbl, ok := node.(*TableNode); ok {
+				node = tbl.Children()[0]
+			}
+			if got := node.Comment(); got != tc.inline {
+				t.Errorf("Comment() = %q, want %q", got, tc.inline)
+			}
+			got := node.LeadingComments()
+			if len(got) != len(tc.leading) {
+				t.Fatalf("LeadingComments() = %q, want %q", got, tc.leading)
+			}
+			for i := range got {
+				if got[i] != tc.leading[i] {
+					t.Errorf("LeadingComments()[%d] = %q, want %q", i, got[i], tc.leading[i])
+				}
+			}
+		})
+	}
+}
+
+// Fails if the getters and the path-based setters stop agreeing on what a
+// comment's text is: reading a comment and writing it back would then reformat
+// it, which is what Merge's comment copying depends on not happening.
+func TestComments_GetterFeedsSetterUnchanged(t *testing.T) {
+	doc := parseOrFail(t, "# lead one\n# lead two\nx = 1 # note\ny = 2\n")
+	src := doc.Children()[0]
+
+	if err := doc.SetComment("y", src.Comment()); err != nil {
+		t.Fatalf("SetComment: %v", err)
+	}
+	if err := doc.SetLeadingComments("y", src.LeadingComments()); err != nil {
+		t.Fatalf("SetLeadingComments: %v", err)
+	}
+	want := "# lead one\n# lead two\nx = 1 # note\n# lead one\n# lead two\ny = 2 # note\n"
+	if got := string(doc.Bytes()); got != want {
+		t.Errorf("the copied comments read:\n  got:  %q\n  want: %q", got, want)
+	}
+}
+
+// Fails if a node-level comment setter becomes exported again: the public
+// spelling of a comment write is path-based, so that the document decides
+// where the comment goes and can refuse a container that cannot host one.
+func TestComments_NodeSettersAreNotExported(t *testing.T) {
+	var n Node = &StringNode{}
+	if _, exported := any(n).(interface{ SetComment(string) }); exported {
+		t.Error("a node exposes SetComment; the public spelling is (*Document).SetComment(path, text)")
+	}
+	if _, exported := any(n).(interface{ SetLeadingComments([]string) }); exported {
+		t.Error("a node exposes SetLeadingComments; the public spelling is (*Document).SetLeadingComments(path, texts)")
+	}
+}

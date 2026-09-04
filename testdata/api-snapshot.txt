@@ -120,8 +120,6 @@ type ArrayNode struct
 	method (*ArrayNode) Elements() []Node
 	method (*ArrayNode) LeadingComments() []string
 	method (*ArrayNode) Raw() []byte
-	method (*ArrayNode) SetComment(comment string)
-	method (*ArrayNode) SetLeadingComments(comments []string)
 	method (*ArrayNode) Span() Span
 	method (*ArrayNode) Type() NodeType
 
@@ -131,8 +129,6 @@ type ArrayTableNode struct
 	method (*ArrayTableNode) KeyPath() []string
 	method (*ArrayTableNode) LeadingComments() []string
 	method (*ArrayTableNode) Raw() []byte
-	method (*ArrayTableNode) SetComment(comment string)
-	method (*ArrayTableNode) SetLeadingComments(comments []string)
 	method (*ArrayTableNode) Span() Span
 	method (*ArrayTableNode) Type() NodeType
 
@@ -140,8 +136,6 @@ type BooleanNode struct
 	method (*BooleanNode) Comment() string
 	method (*BooleanNode) LeadingComments() []string
 	method (*BooleanNode) Raw() []byte
-	method (*BooleanNode) SetComment(comment string)
-	method (*BooleanNode) SetLeadingComments(comments []string)
 	method (*BooleanNode) Span() Span
 	method (*BooleanNode) Type() NodeType
 	method (*BooleanNode) Value() any
@@ -159,8 +153,6 @@ type CommentNode struct
 	method (*CommentNode) Comment() string
 	method (*CommentNode) LeadingComments() []string
 	method (*CommentNode) Raw() []byte
-	method (*CommentNode) SetComment(comment string)
-	method (*CommentNode) SetLeadingComments(comments []string)
 	method (*CommentNode) Span() Span
 	method (*CommentNode) Text() string
 	method (*CommentNode) Type() NodeType
@@ -182,8 +174,6 @@ type DateTimeNode struct
 	method (*DateTimeNode) Comment() string
 	method (*DateTimeNode) LeadingComments() []string
 	method (*DateTimeNode) Raw() []byte
-	method (*DateTimeNode) SetComment(comment string)
-	method (*DateTimeNode) SetLeadingComments(comments []string)
 	method (*DateTimeNode) Span() Span
 	method (*DateTimeNode) Type() NodeType
 	method (*DateTimeNode) Value() any
@@ -279,8 +269,6 @@ type FloatNode struct
 	method (*FloatNode) Comment() string
 	method (*FloatNode) LeadingComments() []string
 	method (*FloatNode) Raw() []byte
-	method (*FloatNode) SetComment(comment string)
-	method (*FloatNode) SetLeadingComments(comments []string)
 	method (*FloatNode) Span() Span
 	method (*FloatNode) Type() NodeType
 	method (*FloatNode) Value() any
@@ -297,8 +285,6 @@ type InlineTableNode struct
 	method (*InlineTableNode) Comment() string
 	method (*InlineTableNode) LeadingComments() []string
 	method (*InlineTableNode) Raw() []byte
-	method (*InlineTableNode) SetComment(comment string)
-	method (*InlineTableNode) SetLeadingComments(comments []string)
 	method (*InlineTableNode) Span() Span
 	method (*InlineTableNode) Type() NodeType
 
@@ -309,8 +295,6 @@ type IntegerNode struct
 	method (*IntegerNode) Comment() string
 	method (*IntegerNode) LeadingComments() []string
 	method (*IntegerNode) Raw() []byte
-	method (*IntegerNode) SetComment(comment string)
-	method (*IntegerNode) SetLeadingComments(comments []string)
 	method (*IntegerNode) Span() Span
 	method (*IntegerNode) Type() NodeType
 	method (*IntegerNode) Value() any
@@ -321,8 +305,6 @@ type KeyNode struct
 	method (*KeyNode) Parts() []string
 	method (*KeyNode) Raw() []byte
 	method (*KeyNode) RawParts() [][]byte
-	method (*KeyNode) SetComment(comment string)
-	method (*KeyNode) SetLeadingComments(comments []string)
 	method (*KeyNode) Span() Span
 	method (*KeyNode) Styles() []StringStyle
 	method (*KeyNode) Type() NodeType
@@ -332,8 +314,6 @@ type KeyValueNode struct
 	method (*KeyValueNode) Key() *KeyNode
 	method (*KeyValueNode) LeadingComments() []string
 	method (*KeyValueNode) Raw() []byte
-	method (*KeyValueNode) SetComment(comment string)
-	method (*KeyValueNode) SetLeadingComments(comments []string)
 	method (*KeyValueNode) Span() Span
 	method (*KeyValueNode) Type() NodeType
 	method (*KeyValueNode) Val() Node
@@ -347,8 +327,6 @@ type LocalDateNode struct
 	method (*LocalDateNode) Comment() string
 	method (*LocalDateNode) LeadingComments() []string
 	method (*LocalDateNode) Raw() []byte
-	method (*LocalDateNode) SetComment(comment string)
-	method (*LocalDateNode) SetLeadingComments(comments []string)
 	method (*LocalDateNode) Span() Span
 	method (*LocalDateNode) Type() NodeType
 	method (*LocalDateNode) Value() any
@@ -366,8 +344,6 @@ type LocalDateTimeNode struct
 	method (*LocalDateTimeNode) Comment() string
 	method (*LocalDateTimeNode) LeadingComments() []string
 	method (*LocalDateTimeNode) Raw() []byte
-	method (*LocalDateTimeNode) SetComment(comment string)
-	method (*LocalDateTimeNode) SetLeadingComments(comments []string)
 	method (*LocalDateTimeNode) Span() Span
 	method (*LocalDateTimeNode) Type() NodeType
 	method (*LocalDateTimeNode) Value() any
@@ -382,8 +358,6 @@ type LocalTimeNode struct
 	method (*LocalTimeNode) Comment() string
 	method (*LocalTimeNode) LeadingComments() []string
 	method (*LocalTimeNode) Raw() []byte
-	method (*LocalTimeNode) SetComment(comment string)
-	method (*LocalTimeNode) SetLeadingComments(comments []string)
 	method (*LocalTimeNode) Span() Span
 	method (*LocalTimeNode) Type() NodeType
 	method (*LocalTimeNode) Value() any
@@ -443,8 +417,6 @@ type StringNode struct
 	method (*StringNode) Comment() string
 	method (*StringNode) LeadingComments() []string
 	method (*StringNode) Raw() []byte
-	method (*StringNode) SetComment(comment string)
-	method (*StringNode) SetLeadingComments(comments []string)
 	method (*StringNode) Span() Span
 	method (*StringNode) Style() StringStyle
 	method (*StringNode) Type() NodeType
@@ -458,8 +430,6 @@ type TableNode struct
 	method (*TableNode) KeyPath() []string
 	method (*TableNode) LeadingComments() []string
 	method (*TableNode) Raw() []byte
-	method (*TableNode) SetComment(comment string)
-	method (*TableNode) SetLeadingComments(comments []string)
 	method (*TableNode) Span() Span
 	method (*TableNode) Type() NodeType
 
