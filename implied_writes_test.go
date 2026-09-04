@@ -145,3 +145,23 @@ func TestEnsureDefaults_SeedsBesideADottedKey(t *testing.T) {
 		t.Errorf("the seeded value reads %q (ok=%v)", got, ok)
 	}
 }
+
+// Fails if the region a dotted key spells out inside an INLINE table stops
+// being writable: the pair belongs to the inline table's own children there,
+// and the table re-renders as one value fragment.
+func TestSet_NewKeyUnderADottedTableInsideAnInlineTable(t *testing.T) {
+	doc := parseOrFail(t, "t = { a.b = 1 }\n")
+	if err := doc.Set("t.a.new", 5); err != nil {
+		t.Fatalf(`Set("t.a.new", 5) was refused: %v`, err)
+	}
+	again, err := Parse(doc.Bytes())
+	if err != nil {
+		t.Fatalf("the result is not valid TOML: %v\n%s", err, doc.Bytes())
+	}
+	if got, ok := again.GetInt("t.a.new"); !ok || got != 5 {
+		t.Errorf("t.a.new reads %d (ok=%v) in %q", got, ok, doc.Bytes())
+	}
+	if got, ok := again.GetInt("t.a.b"); !ok || got != 1 {
+		t.Errorf("t.a.b reads %d (ok=%v) in %q", got, ok, doc.Bytes())
+	}
+}

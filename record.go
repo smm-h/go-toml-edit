@@ -91,6 +91,16 @@ type Record struct {
 	// its own, so the structural creators refuse to bind its name, where a
 	// record merely implied by a longer header may still be anchored.
 	dottedImplied bool
+
+	// container is the concrete node whose children carry the dotted key that
+	// spelled this record out -- the document, the [header] table, the
+	// array-of-tables entry or the inline table the pair was written in -- and
+	// prefix is the key path from that container to this record. Together they
+	// name the REGION a key written into this table belongs in, which is how a
+	// table no single node stands for is still written to. Both are unset for a
+	// record with a node of its own and for one only a longer header implies.
+	container Node
+	prefix    []string
 }
 
 // Entry is one key of a record: the key, where it was written, and what it
@@ -146,6 +156,41 @@ func (r *Record) Node() (Node, bool) {
 		return nil, false
 	}
 	return r.node, true
+}
+
+// impliedRegion returns the concrete container whose children spell this record
+// out and the key path from that container to it. It reports false for a record
+// with a node of its own and for one only a longer header implies: neither has
+// a region of dotted pairs to be written into.
+func (r *Record) impliedRegion() (Node, []string, bool) {
+	if r.container == nil {
+		return nil, nil, false
+	}
+	return r.container, r.prefix, true
+}
+
+// dottedKV returns the pair that binds key inside this record's own dotted
+// region -- the "a.b = 1" line for key "b" of the table "a.b = 1" implies --
+// or nil when no pair there binds it.
+func (r *Record) dottedKV(key string) *KeyValueNode {
+	if r.container == nil {
+		return nil
+	}
+	children, _, err := containerChildren(r.container)
+	if err != nil {
+		return nil
+	}
+	want := len(r.prefix) + 1
+	for _, child := range *children {
+		kv, ok := child.(*KeyValueNode)
+		if !ok || len(kv.Key.Parts) != want {
+			continue
+		}
+		if kv.Key.Parts[want-1] == key && pathsEqual(kv.Key.Parts[:want-1], r.prefix) {
+			return kv
+		}
+	}
+	return nil
 }
 
 // Entries iterates the record's entries in first-appearance order.
@@ -376,6 +421,12 @@ func foldKeyValue(rec *Record, kv *KeyValueNode) error {
 		next, err := cur.implied(parts[i], kv.Key.partSpan(i), kv, true)
 		if err != nil {
 			return err
+		}
+		if next.node == nil && next.container == nil {
+			// This pair spells the table out, so the region it was written in
+			// is where a key written into that table belongs.
+			next.container = rec.node
+			next.prefix = parts[:i+1]
 		}
 		cur = next
 	}

@@ -24,6 +24,14 @@ import (
 // structural operation, or through an explicit Delete followed by the write. A
 // key holding an inline table is a value, and setting it replaces that value
 // wholesale, interior comments and spellings included.
+//
+// The PARENT table's spelling decides only where the write goes, never whether
+// it happens. A table no single node stands for is written where the document
+// already spells it out: a key it already carries is replaced through the pair
+// that binds it; a new key of a table a dotted key spelled out joins the same
+// region as another dotted pair ("a.b = 1" gains "a.new = 5" beside it); and a
+// new key of a table only a longer header implies arrives under the anchoring
+// header the write gives that table -- the one TOML allows it.
 func (d *Document) Set(path string, value any) error {
 	return d.diag(d.setInternal(path, value, false), path)
 }
@@ -71,7 +79,7 @@ func (d *Document) setInternal(path string, value any, create bool) error {
 
 	switch lastSeg.Kind {
 	case SegmentKey:
-		return setKeyInParent(parent, lastSeg.Key, valNode)
+		return d.setKeyInParent(parent, parentSegs, lastSeg.Key, valNode)
 	case SegmentIndex:
 		return setIndexInParent(parent, lastSeg.Index, valNode)
 	default:
@@ -110,7 +118,7 @@ func (d *Document) resolveOrCreateParent(segments []PathSegment) (layerPos, erro
 		if err != nil {
 			return layerPos{}, err
 		}
-		if err := d.createIntermediateTable(parent, segments[i-1].Key); err != nil {
+		if err := d.createIntermediateTable(parent, segments[:i]); err != nil {
 			return layerPos{}, err
 		}
 	}
@@ -122,9 +130,16 @@ func (d *Document) resolveOrCreateParent(segments []PathSegment) (layerPos, erro
 	return pos, nil
 }
 
-// createIntermediateTable appends a new [table] for the given key under the
-// parent position. A parent no single node stands for cannot hold one.
-func (d *Document) createIntermediateTable(parent layerPos, key string) error {
+// createIntermediateTable appends a new [table] for the last of segs, the whole
+// path of the table to create, under the parent position that path reaches.
+//
+// A parent no single node stands for still names a table the new header can be
+// nested under -- TOML refuses only a header that REDEFINES such a table -- so
+// the header names the path in full. That path has to be spellable as one: a
+// parent reached through an array-of-tables index is refused, since a header
+// written for it would address the array's last entry.
+func (d *Document) createIntermediateTable(parent layerPos, segs []PathSegment) error {
+	key := segs[len(segs)-1].Key
 	var newPath []string
 
 	switch scope := parent.node.(type) {
@@ -135,16 +150,19 @@ func (d *Document) createIntermediateTable(parent layerPos, key string) error {
 	case *ArrayTableNode:
 		newPath = append(append([]string(nil), scope.KeyPath...), key)
 	default:
-		return newError(KindWrongContainer, "cannot create intermediate table under %s", parent.describe())
+		if parent.rec == nil {
+			return newError(KindWrongContainer, "cannot create intermediate table under %s", parent.describe())
+		}
+		path, ok := keyPathOfSegments(segs)
+		if !ok {
+			return newError(KindWrongContainer,
+				"cannot create table %q under a table reached through an array-of-tables index: a header created for it would address the array's LAST entry",
+				key)
+		}
+		newPath = path
 	}
 
-	tbl := &TableNode{
-		KeyPath: newPath,
-	}
-	tbl.markDirty()
-	tbl.nodeTrivia.TrailingNewline = []byte("\n")
-
-	d.Children = append(d.Children, tbl)
+	d.appendTable(newPath)
 	return nil
 }
 
@@ -172,7 +190,9 @@ func checkValueWriteTarget(parent layerPos, key string) error {
 }
 
 // setKeyInParent sets or replaces a key-value in a parent container.
-func setKeyInParent(parent layerPos, key string, valNode Node) error {
+// parentSegs is the path the parent was reached by, which is what names a table
+// no single node stands for when one has to be given a header.
+func (d *Document) setKeyInParent(parent layerPos, parentSegs []PathSegment, key string, valNode Node) error {
 	switch p := parent.node.(type) {
 	case *Document:
 		return setKeyInDocument(p, key, valNode)
@@ -183,13 +203,111 @@ func setKeyInParent(parent layerPos, key string, valNode Node) error {
 	case *InlineTableNode:
 		return setKeyInChildren(&p.Children, key, valNode)
 	default:
-		if parent.records != nil || parent.rec != nil {
-			// A position no single node stands for: an array-of-tables, or a
-			// table another construct only implied.
+		if parent.records != nil {
+			// An array-of-tables holds no keys of its own; an entry of it does.
 			return parent.noNodeError()
+		}
+		if parent.rec != nil {
+			return d.setKeyInImpliedTable(parent.rec, parentSegs, key, valNode)
 		}
 		return newError(KindWrongContainer, "cannot set key %q in %s", key, parent.describe())
 	}
+}
+
+// setKeyInImpliedTable writes a key into a table no single node stands for. The
+// table has no children of its own to append to, so the write goes where the
+// document already spells that table out:
+//
+//   - a key the table already carries is bound by a concrete pair, and the
+//     write replaces that pair's value;
+//   - a new key of a table a DOTTED key spelled out joins the same region as
+//     another dotted pair -- a header there would redefine the table, which
+//     TOML refuses;
+//   - a new key of a table only a LONGER header implies gets that table the
+//     anchoring header TOML does allow it, and is written inside it.
+func (d *Document) setKeyInImpliedTable(rec *Record, parentSegs []PathSegment, key string, valNode Node) error {
+	if kv := rec.dottedKV(key); kv != nil {
+		kv.Val = valNode
+		kv.markDirty()
+		return nil
+	}
+	if container, prefix, ok := rec.impliedRegion(); ok {
+		return insertDottedKey(container, prefix, key, valNode)
+	}
+	keyPath, ok := keyPathOfSegments(parentSegs)
+	if !ok {
+		return newError(KindWrongContainer,
+			"key %q belongs to a table with no header of its own, reached through an array-of-tables index: a header created for it would address the array's LAST entry, so give the table its header with NewTable first",
+			key)
+	}
+	tbl := d.appendTable(keyPath)
+	tbl.Children = append(tbl.Children, newKeyValueNode(key, valNode))
+	return nil
+}
+
+// insertDottedKey writes prefix+key as one dotted pair into the region that
+// spells the table out, beside the pairs already there.
+func insertDottedKey(container Node, prefix []string, key string, valNode Node) error {
+	children, valueFragment, err := containerChildren(container)
+	if err != nil {
+		return err
+	}
+	parts := append(append([]string(nil), prefix...), key)
+	at := lastDottedSiblingIndex(*children, prefix) + 1
+	if at == 0 {
+		// No pair of the region among these children, which only a document
+		// whose region is empty can reach: keep the key out of the table
+		// regions that follow the first header.
+		at = firstHeaderIndex(*children)
+	}
+	*children = append(*children, nil)
+	copy((*children)[at+1:], (*children)[at:])
+	(*children)[at] = newDottedKeyValueNode(parts, valNode)
+	if valueFragment {
+		// An array and an inline table render as one value fragment, so their
+		// own bytes no longer describe their contents.
+		container.markDirty()
+	}
+	return nil
+}
+
+// lastDottedSiblingIndex returns the position of the last pair whose key starts
+// with prefix, or -1 when the children carry none.
+func lastDottedSiblingIndex(children []Node, prefix []string) int {
+	last := -1
+	for i, child := range children {
+		kv, ok := child.(*KeyValueNode)
+		if !ok || len(kv.Key.Parts) <= len(prefix) {
+			continue
+		}
+		if pathsEqual(kv.Key.Parts[:len(prefix)], prefix) {
+			last = i
+		}
+	}
+	return last
+}
+
+// keyPathOfSegments returns the key path the segments spell out, and whether
+// they spell one at all: a path stepping through an array index names no table
+// a header could be written for.
+func keyPathOfSegments(segments []PathSegment) ([]string, bool) {
+	keyPath := make([]string, 0, len(segments))
+	for _, seg := range segments {
+		if seg.Kind != SegmentKey {
+			return nil, false
+		}
+		keyPath = append(keyPath, seg.Key)
+	}
+	return keyPath, true
+}
+
+// appendTable appends a new [header] table for the key path to the document.
+func (d *Document) appendTable(keyPath []string) *TableNode {
+	tbl := &TableNode{KeyPath: keyPath}
+	tbl.markDirty()
+	tbl.nodeTrivia.TrailingNewline = []byte("\n")
+	d.Children = append(d.Children, tbl)
+	return tbl
 }
 
 // setKeyInDocument sets or replaces a key at the document's own level. A key
@@ -272,10 +390,22 @@ func setIndexInParent(parent layerPos, index int, valNode Node) error {
 
 // newKeyValueNode creates a dirty KeyValueNode for the given key and value.
 func newKeyValueNode(key string, val Node) *KeyValueNode {
+	return newDottedKeyValueNode([]string{key}, val)
+}
+
+// newDottedKeyValueNode creates a dirty KeyValueNode whose key is the given
+// path, written as one dotted key.
+func newDottedKeyValueNode(parts []string, val Node) *KeyValueNode {
+	rawParts := make([][]byte, len(parts))
+	styles := make([]StringStyle, len(parts))
+	for i, part := range parts {
+		rawParts[i] = []byte(part)
+		styles[i] = StringBasic
+	}
 	keyNode := &KeyNode{
-		Parts:    []string{key},
-		RawParts: [][]byte{[]byte(key)},
-		Styles:   []StringStyle{StringBasic},
+		Parts:    parts,
+		RawParts: rawParts,
+		Styles:   styles,
 	}
 	keyNode.markDirty()
 
@@ -587,13 +717,7 @@ func (d *Document) newTableAt(path string) error {
 		// A table implied by a longer header: this header anchors it.
 	}
 
-	tbl := &TableNode{
-		KeyPath: keyPath,
-	}
-	tbl.markDirty()
-	tbl.nodeTrivia.TrailingNewline = []byte("\n")
-
-	d.Children = append(d.Children, tbl)
+	d.appendTable(keyPath)
 	return nil
 }
 
