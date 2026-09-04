@@ -290,6 +290,66 @@ func TestNewTable_AllowsAnchoringATableImpliedByALongerHeader(t *testing.T) {
 	}
 }
 
+// Fails if a header UNDER a table a dotted key spelled out stops being
+// creatable. TOML forbids giving such a table a header of its OWN; a header for
+// a table nested under it is explicitly permitted, and the compliance corpus
+// this package passes carries the document as valid/spec-1.0.0/table-9.toml.
+func TestNewTable_AllowsASubTableUnderADottedImpliedTable(t *testing.T) {
+	doc := parseOrFail(t, "[fruit]\napple.color = \"red\"\napple.taste.sweet = true\n")
+	if err := doc.NewTable("fruit.apple.texture"); err != nil {
+		t.Fatalf(`NewTable("fruit.apple.texture") was refused: %v`, err)
+	}
+	mustFold(t, doc)
+	if err := doc.Set("fruit.apple.texture.smooth", true); err != nil {
+		t.Fatalf("writing into the new table was refused: %v", err)
+	}
+	again, err := Parse(doc.Bytes())
+	if err != nil {
+		t.Fatalf("the result is not valid TOML: %v\n%s", err, doc.Bytes())
+	}
+	if got, ok := again.GetBool("fruit.apple.texture.smooth"); !ok || !got {
+		t.Errorf("after the round-trip the document reads\n%s", doc.Bytes())
+	}
+}
+
+// Fails if an array-of-tables entry UNDER a table a dotted key spelled out
+// stops being creatable -- the corpus's valid/table/array-within-dotted.toml.
+func TestNewArrayTable_AllowsAnEntryUnderADottedImpliedTable(t *testing.T) {
+	doc := parseOrFail(t, "[fruit]\napple.color = \"red\"\n")
+	if err := doc.NewArrayTable("fruit.apple.seeds"); err != nil {
+		t.Fatalf(`NewArrayTable("fruit.apple.seeds") was refused: %v`, err)
+	}
+	mustFold(t, doc)
+	if err := doc.Set("fruit.apple.seeds[0].size", 2); err != nil {
+		t.Fatalf("writing into the new entry was refused: %v", err)
+	}
+	again, err := Parse(doc.Bytes())
+	if err != nil {
+		t.Fatalf("the result is not valid TOML: %v\n%s", err, doc.Bytes())
+	}
+	if got, ok := again.GetInt("fruit.apple.seeds[0].size"); !ok || got != 2 {
+		t.Errorf("after the round-trip the document reads\n%s", doc.Bytes())
+	}
+}
+
+// Fails if the refusal at the FINAL key weakens or misnames its subject: a
+// header may not redefine a table a dotted key spelled out, whether that table
+// is the path's own last key or one a longer dotted key implied deeper, and the
+// diagnostic must name the path whose final key violates the rule.
+func TestNewTable_RefusesRedefiningADottedImpliedTable(t *testing.T) {
+	const src = "[fruit]\napple.color = \"red\"\napple.taste.sweet = true\n"
+
+	doc := parseOrFail(t, src)
+	refuse(t, doc, `NewTable("fruit.apple")`, doc.NewTable("fruit.apple"), ErrConflict)
+
+	deeper := parseOrFail(t, src)
+	err := deeper.NewTable("fruit.apple.taste")
+	refuse(t, deeper, `NewTable("fruit.apple.taste")`, err, ErrConflict)
+	if err != nil && !strings.Contains(err.Error(), `"fruit.apple.taste"`) {
+		t.Errorf("the refusal reads %v; it must name fruit.apple.taste, whose final key redefines the dotted table", err)
+	}
+}
+
 // Fails if NewArrayTable stops appending entries: a name already bound to an
 // array-of-tables is exactly what a new entry extends.
 func TestNewArrayTable_AllowsAnotherEntry(t *testing.T) {
