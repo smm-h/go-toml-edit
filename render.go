@@ -15,8 +15,20 @@ import (
 // nodes are re-rendered from their semantic values; unmodified nodes retain
 // their original formatting.
 func (d *Document) Bytes() []byte {
-	var buf []byte
-	for _, child := range d.children {
+	return serializeChildren(nil, d.children)
+}
+
+// serializeChildren appends each child's bytes to buf, keeping one construct
+// from continuing another's line. A file whose last line carries no newline
+// gives that construct none either -- which is exactly right until something is
+// written after it, and then the two would run together into a document that no
+// longer parses. The separator belongs to neither construct's fragments, so the
+// serializer writes it where the join happens.
+func serializeChildren(buf []byte, children []Node) []byte {
+	for _, child := range children {
+		if n := len(buf); n > 0 && buf[n-1] != '\n' {
+			buf = append(buf, '\n')
+		}
 		buf = append(buf, serializeNode(child)...)
 	}
 	return buf
@@ -41,10 +53,7 @@ func serializeNode(n Node) []byte {
 		} else {
 			buf = append(buf, renderTableHeader(node)...)
 		}
-		for _, child := range node.children {
-			buf = append(buf, serializeNode(child)...)
-		}
-		return buf
+		return serializeChildren(buf, node.children)
 
 	case *ArrayTableNode:
 		var buf []byte
@@ -53,10 +62,7 @@ func serializeNode(n Node) []byte {
 		} else {
 			buf = append(buf, renderArrayTableHeader(node)...)
 		}
-		for _, child := range node.children {
-			buf = append(buf, serializeNode(child)...)
-		}
-		return buf
+		return serializeChildren(buf, node.children)
 
 	case *KeyValueNode:
 		if spliceOriginalBytes && !node.subtreeDirty() {
