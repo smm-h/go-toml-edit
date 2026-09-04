@@ -77,6 +77,11 @@ func (d *Document) Set(path string, value any) error {
 // the document does not carry, as standard [header] tables appended to the
 // document. It refuses exactly what Set refuses, and is a no-op on exactly the
 // same terms -- see Set's equality rule.
+//
+// A refused write creates nothing. The value is converted before a single table
+// is made, so a value the library will not write -- and a key it will not spell
+// -- leaves the document byte-for-byte as it was, rather than leaving the
+// headers of the path behind.
 func (d *Document) SetCreate(path string, value any) error {
 	return d.diag(d.setInternal(path, value, true), path)
 }
@@ -97,25 +102,31 @@ func (d *Document) setInternal(path string, value any, create bool) error {
 	parentSegs := segments[:len(segments)-1]
 	lastSeg := segments[len(segments)-1]
 
+	// The value is converted FIRST, before anything is resolved and before
+	// SetCreate makes a single intermediate table, so a value the library
+	// refuses -- a signed NaN, an unsupported type, an unsigned value past
+	// int64, a duplicate ordered key, text that is not valid UTF-8 -- leaves the
+	// document exactly as it was. The tables exist to carry the value; a write
+	// that does not happen creates nothing.
+	valNode, err := valueToNode(value)
+	if err != nil {
+		return err
+	}
+
 	// Resolve the parent node.
 	parent, err := d.resolveParentForEdit(parentSegs, create)
 	if err != nil {
 		return err
 	}
 
-	// What the key already binds decides whether a value may be written at
-	// all, and is asked before any node is built, so a refused write converts
-	// nothing.
+	// What the key already binds decides whether a value may be written at all.
+	// A key a freshly created table would carry binds nothing, so this refusal
+	// only ever answers about a parent that was already there -- which is why
+	// asking it after the parent is resolved still creates nothing.
 	if lastSeg.Kind == SegmentKey {
 		if err := checkValueWriteTarget(parent, lastSeg.Key); err != nil {
 			return err
 		}
-	}
-
-	// Convert value to a node.
-	valNode, err := valueToNode(value)
-	if err != nil {
-		return err
 	}
 
 	// The equality rule: a write of the bytes the value fragment already

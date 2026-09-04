@@ -31,7 +31,8 @@ type Default struct {
 // Partial application: the seeding stops at the first error, everything
 // written before it stays written, and added names exactly those paths -- so a
 // caller that must know what it changed reads them from the return value
-// rather than from a diff.
+// rather than from a diff. The default that failed wrote nothing at all, not
+// even the tables leading to it, so added is exact rather than approximate.
 func (d *Document) EnsureDefaults(defaults []Default) (added []string, err error) {
 	for _, def := range defaults {
 		if _, present := d.probe(def.Path); present {
