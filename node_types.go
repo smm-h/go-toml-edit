@@ -55,23 +55,66 @@ type Document struct {
 	// was parsed from bytes. Every diagnostic the document produces names it.
 	file string
 
-	// layer is the read-layer built from the document as it stands, and
-	// generation counts the structural changes made to it. Every write bumps
-	// the counter, so a cached layer built at an earlier generation is known
-	// to describe a document that no longer exists. Both are guarded by mu,
-	// which is what keeps concurrent reads of a shared document safe.
+	// layer is the read-layer folded from the document as it stood at
+	// generation layerGen, and generation counts the writes made to the
+	// document since it was parsed. Every write bumps the counter, so a cached
+	// layer whose generation is behind is known to describe a document that no
+	// longer exists. All three are guarded by mu, which is what keeps
+	// concurrent reads of a shared document safe: the first reader folds, the
+	// rest wait for it and take the same answer.
 	mu         sync.Mutex
 	layer      *Record
+	layerGen   uint64
 	generation uint64
 }
 
-// bumpGeneration records that the document's shape changed, so the read-layer
-// cached from the old shape is dropped.
+// bumpGeneration records that the document changed, so the read-layer folded
+// from the old one is dropped.
 func (n *Document) bumpGeneration() {
 	n.mu.Lock()
 	n.generation++
 	n.layer = nil
 	n.mu.Unlock()
+}
+
+// readLayer returns the document's read-layer, folding it when the cached one
+// is missing or was folded from a document that has since been written to.
+//
+// Parsing builds nothing: the fold happens the first time something asks a
+// logical question, and every later question at the same generation is answered
+// from the same record. A write drops the cache whole -- an editing sequence
+// that alternates writes and reads folds once per write, which is the cost this
+// wave accepts for keeping the invalidation trivially correct.
+func (d *Document) readLayer() (*Record, error) {
+	d.mu.Lock()
+	defer d.mu.Unlock()
+	if d.layer != nil && d.layerGen == d.generation {
+		return d.layer, nil
+	}
+	root, err := foldDocument(d)
+	if err != nil {
+		// A document that does not fold caches nothing: the next read asks
+		// again, and answers whatever the document says then.
+		return nil, err
+	}
+	probeLayerBuild()
+	d.layer = root
+	d.layerGen = d.generation
+	return root, nil
+}
+
+// layerBuilds counts how many times a read-layer was actually folded, for the
+// tests that pin what parsing builds and what a read reuses. Counting is off
+// unless a test turns it on.
+var (
+	layerBuilds         int
+	countingLayerBuilds bool
+)
+
+func probeLayerBuild() {
+	if countingLayerBuilds {
+		layerBuilds++
+	}
 }
 
 // Type returns NodeDocument.

@@ -22,7 +22,7 @@ type Cursor struct {
 // This is the entry point for the fluent cursor API. Chain additional Key or
 // At calls to traverse deeper, then extract the value with String, Int, etc.
 func (d *Document) Key(name string) *Cursor {
-	root, err := foldDocument(d)
+	root, err := d.readLayer()
 	if err != nil {
 		return &Cursor{doc: d, err: err}
 	}

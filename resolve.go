@@ -193,7 +193,7 @@ func walkFrom(pos layerPos, segments []PathSegment) (layerPos, error) {
 // walkPath folds the document and follows segments from its root. No segments
 // address the document itself.
 func (d *Document) walkPath(segments []PathSegment) (layerPos, error) {
-	root, err := foldDocument(d)
+	root, err := d.readLayer()
 	if err != nil {
 		return layerPos{}, err
 	}

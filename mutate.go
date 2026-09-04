@@ -68,43 +68,52 @@ func (s *scalarValue[T]) setLexeme(b []byte) { s.lexeme = b }
 func (n *StringNode) setValue(v string, style StringStyle) {
 	n.val.set(v)
 	n.style = style
-	n.markDirty()
+	noteValueWrite(n)
 }
 
 func (n *IntegerNode) setValue(v int64, base IntegerBase) {
 	n.val.set(v)
 	n.base = base
-	n.markDirty()
+	noteValueWrite(n)
 }
 
 func (n *FloatNode) setValue(v float64) {
 	n.val.set(v)
-	n.markDirty()
+	noteValueWrite(n)
 }
 
 func (n *BooleanNode) setValue(v bool) {
 	n.val.set(v)
-	n.markDirty()
+	noteValueWrite(n)
 }
 
 func (n *DateTimeNode) setValue(v time.Time) {
 	n.val.set(v)
-	n.markDirty()
+	noteValueWrite(n)
 }
 
 func (n *LocalDateTimeNode) setValue(v LocalDateTime) {
 	n.val.set(v)
-	n.markDirty()
+	noteValueWrite(n)
 }
 
 func (n *LocalDateNode) setValue(v LocalDate) {
 	n.val.set(v)
-	n.markDirty()
+	noteValueWrite(n)
 }
 
 func (n *LocalTimeNode) setValue(v LocalTime) {
 	n.val.set(v)
+	noteValueWrite(n)
+}
+
+// noteValueWrite records a payload replacement: the node's own bytes stop being
+// valid, and the read-layer folded from the document's old values is dropped
+// with them, so a record handed out before the write is never handed out again
+// after it.
+func noteValueWrite(n Node) {
 	n.markDirty()
+	invalidateLayer(n)
 }
 
 // --- the lexeme, at parse time ---

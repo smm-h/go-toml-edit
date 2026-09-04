@@ -155,7 +155,7 @@ func (d *Document) Validate(spec *Spec) error {
 	if err != nil {
 		return err
 	}
-	root, err := foldDocument(d)
+	root, err := d.readLayer()
 	if err != nil {
 		return d.diag(err, "")
 	}

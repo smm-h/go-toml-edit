@@ -587,3 +587,125 @@ func TestFold_EntriesStopsEarly(t *testing.T) {
 		t.Errorf("saw %d entries after breaking, want 1", seen)
 	}
 }
+
+// --- the read-layer cache ---
+
+// withLayerBuildCount runs f with the fold counter on and returns how many
+// times the read-layer was actually folded while it ran.
+func withLayerBuildCount(f func()) int {
+	countingLayerBuilds = true
+	layerBuilds = 0
+	f()
+	countingLayerBuilds = false
+	return layerBuilds
+}
+
+// Fails if parsing builds the read-layer. A document that is only rendered,
+// written to a file or handed to Walk never asks a logical question, and the
+// fold is not free.
+func TestLayerCache_ParseBuildsNothing(t *testing.T) {
+	const src = "[a]\nx = 1\n[[b]]\ny = 2\n"
+	folds := withLayerBuildCount(func() {
+		doc, err := Parse([]byte(src))
+		if err != nil {
+			t.Fatalf("Parse: %v", err)
+		}
+		doc.Bytes()
+	})
+	if folds != 0 {
+		t.Errorf("parsing and rendering folded the layer %d times, want 0", folds)
+	}
+}
+
+// Fails if the layer is folded again for a read that changed nothing: the
+// cache is keyed to the document's generation, and reads do not bump it.
+func TestLayerCache_ReadsShareOneFold(t *testing.T) {
+	doc := parseOrFail(t, "[a]\nx = 1\n[[b]]\ny = 2\n")
+	folds := withLayerBuildCount(func() {
+		for i := 0; i < 5; i++ {
+			doc.Root()
+			doc.GetInt("a.x")
+			doc.Has("b[0].y")
+			doc.Resolve("a.x")
+		}
+	})
+	if folds != 1 {
+		t.Errorf("%d reads folded the layer %d times, want 1", 20, folds)
+	}
+}
+
+// Fails if the same record is handed out after a write, or if two reads
+// between writes hand out different ones. Every write drops the whole layer.
+func TestLayerCache_EveryWriteInvalidates(t *testing.T) {
+	writes := []struct {
+		name  string
+		write func(*Document) error
+	}{
+		{"value write", func(d *Document) error { return d.Set("a.x", 2) }},
+		{"key creation", func(d *Document) error { return d.Set("a.z", 1) }},
+		{"delete", func(d *Document) error { return d.Delete("a.x") }},
+		{"rename", func(d *Document) error { return d.RenameKey("a.x", "w") }},
+		{"append to array", func(d *Document) error { return d.AppendToArray("a.arr", 3) }},
+		{"remove from array", func(d *Document) error { return d.RemoveFromArray("a.arr", 0) }},
+		{"permute", func(d *Document) error { return d.PermuteChildren("", []int{0}) }},
+		{"payload write", func(d *Document) error {
+			node, ok := d.Lookup("a.x")
+			if !ok {
+				return newError(KindNotFound, "a.x")
+			}
+			node.(*IntegerNode).setValue(7, IntegerDecimal)
+			return nil
+		}},
+	}
+	for _, tc := range writes {
+		t.Run(tc.name, func(t *testing.T) {
+			doc := parseOrFail(t, "[a]\nx = 1\narr = [1, 2]\n")
+			before := doc.Root()
+			if again := doc.Root(); again != before {
+				t.Fatalf("two reads with no write between them folded twice")
+			}
+			if err := tc.write(doc); err != nil {
+				t.Fatalf("%s: %v", tc.name, err)
+			}
+			if after := doc.Root(); after == before {
+				t.Errorf("the record handed out before the write was handed out again after it")
+			}
+		})
+	}
+}
+
+// Fails if a document that does not fold caches the failure: the next read has
+// to ask again, so an editing sequence that repairs the document is answered
+// correctly afterwards.
+func TestLayerCache_AFailedFoldIsNotCached(t *testing.T) {
+	doc := parseOrFail(t, "[a]\nx = 1\n")
+	broken := &TableNode{keyPath: []string{"a"}}
+	mustSetContents(t, doc, append(doc.Children(), broken))
+
+	if _, err := doc.readLayer(); err == nil {
+		t.Fatalf("a document with two [a] headers folded")
+	}
+	mustSetContents(t, doc, doc.Children()[:1])
+	if _, err := doc.readLayer(); err != nil {
+		t.Errorf("the repaired document still does not fold: %v", err)
+	}
+}
+
+// Fails if a comment write drops the read-layer. Only the two write funnels --
+// the scalar payload mutator and the structure mutator -- bump the document's
+// generation, because only they change what the layer says. A comment is
+// trivia: it invalidates its own fragment's bytes and nothing logical, so the
+// fold standing at that moment still describes the document.
+func TestLayerCache_ATriviaWriteKeepsTheLayer(t *testing.T) {
+	doc := parseOrFail(t, "[a]\nx = 1\n")
+	before := doc.Root()
+	if err := doc.SetComment("a.x", "note"); err != nil {
+		t.Fatalf("SetComment: %v", err)
+	}
+	if after := doc.Root(); after != before {
+		t.Errorf("a comment write dropped the read-layer, which carries no comments")
+	}
+	if got, want := string(doc.Bytes()), "[a]\nx = 1 # note\n"; got != want {
+		t.Errorf("the document reads %q, want %q", got, want)
+	}
+}

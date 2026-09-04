@@ -107,7 +107,7 @@ func (d *Document) resolveParentForEdit(segments []PathSegment, create bool) (la
 // every key step that names nothing yet, and returns the final parent position.
 func (d *Document) resolveOrCreateParent(segments []PathSegment) (layerPos, error) {
 	for i := 1; i <= len(segments); i++ {
-		root, err := foldDocument(d)
+		root, err := d.readLayer()
 		if err != nil {
 			return layerPos{}, err
 		}
@@ -441,7 +441,7 @@ func (d *Document) deleteAt(path string) error {
 	// silent no-op -- removal is idempotent by contract -- but a document that
 	// cannot be folded at all is a failure of its own and is reported: reading
 	// it as "the parent is not there" would hide the real defect.
-	root, err := foldDocument(d)
+	root, err := d.readLayer()
 	if err != nil {
 		return err
 	}
@@ -806,7 +806,7 @@ func headerKeyPath(path string, op string) ([]string, error) {
 // spelled out holds sub-tables perfectly well; what TOML refuses is a header
 // that redefines such a table, which the caller asks about the FINAL key.
 func (d *Document) headerTarget(keyPath []string) (Entry, bool, error) {
-	root, err := foldDocument(d)
+	root, err := d.readLayer()
 	if err != nil {
 		return Entry{}, false, err
 	}

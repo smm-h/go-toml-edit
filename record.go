@@ -123,15 +123,21 @@ type Entry struct {
 // Root returns the read-layer view of the document: the record holding every
 // top-level key, in first-appearance order.
 //
-// The layer is rebuilt on every call, so a record read after an edit reflects
-// that edit, and a record read before it does not.
+// Parsing folds nothing; the layer is built the first time a logical question
+// is asked and kept until the document is written to, so repeated reads share
+// one fold and reads of a shared document stay safe under concurrency. A write
+// drops it: the next call folds again and answers what the document says then.
+// A record obtained BEFORE a write keeps answering what the document said
+// before it -- layer handles are snapshots, and a stale one reports stale data
+// rather than reporting an error. Mutating a document while iterating its
+// entries is unspecified.
 //
 // Root panics when the document cannot be folded -- when two constructs claim
 // one key, for instance. A parsed document never can be: the parser refuses
 // every such conflict. Only an editing sequence that built an invalid document
 // can reach it.
 func (d *Document) Root() *Record {
-	root, err := foldDocument(d)
+	root, err := d.readLayer()
 	if err != nil {
 		panic("tomledit: " + err.Error())
 	}

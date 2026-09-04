@@ -101,7 +101,7 @@ func (d *Document) Decode(v any) error {
 	if err != nil {
 		return err
 	}
-	root, err := foldDocument(d)
+	root, err := d.readLayer()
 	if err != nil {
 		return d.diag(err, "")
 	}
@@ -128,7 +128,7 @@ func DecodeNode(n Node, v any) error {
 	en := newEngine()
 	switch node := n.(type) {
 	case *Document:
-		root, err := foldDocument(node)
+		root, err := node.readLayer()
 		if err != nil {
 			return err
 		}
