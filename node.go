@@ -59,11 +59,12 @@ type Trivia struct {
 	TrailingNewline   []byte
 
 	// inlineGap holds the bytes standing between the construct and its inline
-	// comment -- the whitespace a writer put there. It is a fragment of its
-	// own: a node that re-renders because something else about it changed
-	// writes the gap back exactly, and only a comment written where there was
-	// none falls back to a single space. Removing a comment clears it, so the
-	// line does not keep whitespace pointing at nothing.
+	// comment -- the whitespace a writer put there, which is none at all in
+	// "x = 1# note". It is a fragment of its own: a node that re-renders
+	// because something else about it changed writes the gap back exactly. A
+	// comment written where there was none gets one space, and removing a
+	// comment clears the gap, so the line keeps no whitespace pointing at
+	// nothing.
 	inlineGap []byte
 
 	// blankRuns holds the blank lines around the leading comments: entry i the
@@ -239,12 +240,19 @@ func (n *nodeBase) Comment() string {
 }
 
 func (n *nodeBase) setComment(comment string) {
-	n.nodeTrivia.InlineComment = []byte(comment)
-	if comment == "" {
+	switch {
+	case comment == "":
 		// The gap led to a comment that is no longer there; keeping it would
 		// leave trailing whitespace behind the value.
 		n.nodeTrivia.inlineGap = nil
+	case len(n.nodeTrivia.InlineComment) == 0:
+		// A comment written where there was none: the spacing is the writer's
+		// to choose, and it chooses one space. A comment REPLACING one keeps
+		// the spacing the line was written with, whatever it was -- including
+		// none at all.
+		n.nodeTrivia.inlineGap = []byte(" ")
 	}
+	n.nodeTrivia.InlineComment = []byte(comment)
 	n.markDirty()
 	dropGapsOf(n.parent)
 }

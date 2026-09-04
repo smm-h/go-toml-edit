@@ -757,7 +757,9 @@ func TestRenderTableHeaderWithQuotedKey(t *testing.T) {
 func TestRenderTableHeaderWithInlineComment(t *testing.T) {
 	tbl := &TableNode{keyPath: []string{"server"}}
 	tbl.markDirty()
-	tbl.nodeTrivia.InlineComment = []byte("# config")
+	// Through the comment funnel, which chooses the spacing for a comment
+	// written where there was none.
+	tbl.setComment("# config")
 	got := string(renderTableHeader(tbl))
 	if got != "[server] # config\n" {
 		t.Errorf("got %q, want %q", got, "[server] # config\n")
@@ -776,7 +778,7 @@ func TestRenderArrayTableHeaderSimple(t *testing.T) {
 func TestRenderArrayTableHeaderWithComment(t *testing.T) {
 	atbl := &ArrayTableNode{keyPath: []string{"items"}}
 	atbl.markDirty()
-	atbl.nodeTrivia.InlineComment = []byte("# list")
+	atbl.setComment("# list")
 	got := string(renderArrayTableHeader(atbl))
 	if got != "[[items]] # list\n" {
 		t.Errorf("got %q, want %q", got, "[[items]] # list\n")

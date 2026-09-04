@@ -22,13 +22,21 @@ func (d *Document) Bytes() []byte {
 	return buf
 }
 
+// spliceOriginalBytes governs whether the serializer may write the bytes a
+// construct was read with. It is true in every ordinary use -- splicing is what
+// fidelity IS -- and the package's own corpus battery turns it off to render
+// every document from its semantic content alone, which is the only way to put
+// the renderers themselves under the whole corpus. Nothing exported reads or
+// writes it.
+var spliceOriginalBytes = true
+
 // serializeNode dispatches serialization for a single node. Clean nodes emit
 // their raw bytes; dirty nodes are re-rendered from semantic values.
 func serializeNode(n Node) []byte {
 	switch node := n.(type) {
 	case *TableNode:
 		var buf []byte
-		if !node.isDirty() {
+		if spliceOriginalBytes && !node.isDirty() {
 			buf = append(buf, node.rawBytes()...)
 		} else {
 			buf = append(buf, renderTableHeader(node)...)
@@ -40,7 +48,7 @@ func serializeNode(n Node) []byte {
 
 	case *ArrayTableNode:
 		var buf []byte
-		if !node.isDirty() {
+		if spliceOriginalBytes && !node.isDirty() {
 			buf = append(buf, node.rawBytes()...)
 		} else {
 			buf = append(buf, renderArrayTableHeader(node)...)
@@ -51,13 +59,13 @@ func serializeNode(n Node) []byte {
 		return buf
 
 	case *KeyValueNode:
-		if !node.subtreeDirty() {
+		if spliceOriginalBytes && !node.subtreeDirty() {
 			return node.rawBytes()
 		}
 		return renderKeyValue(node)
 
 	case *CommentNode:
-		if !node.isDirty() {
+		if spliceOriginalBytes && !node.isDirty() {
 			return node.rawBytes()
 		}
 		return renderComment(node)
@@ -66,7 +74,7 @@ func serializeNode(n Node) []byte {
 		// A container that nothing under it changed splices its whole range;
 		// one that did re-renders per fragment, splicing the brackets, the
 		// separators and every clean element inside it.
-		if !n.subtreeDirty() {
+		if spliceOriginalBytes && !n.subtreeDirty() {
 			return n.rawBytes()
 		}
 		return renderValue(n)
@@ -77,6 +85,9 @@ func serializeNode(n Node) []byte {
 		// value fragment's clean bytes and the one thing that drops it is a
 		// write to the payload. That is what keeps a comment written beside
 		// 0x2A from rewriting it as 42.
+		if !spliceOriginalBytes {
+			return renderValue(n)
+		}
 		if !n.subtreeDirty() {
 			return n.rawBytes()
 		}
@@ -435,30 +446,22 @@ func renderKeyValue(n *KeyValueNode) []byte {
 // renderSeparator writes the bytes between a pair's key and its value: the ones
 // it was written with, or the canonical " = " for a pair written from scratch.
 func renderSeparator(n *KeyValueNode) []byte {
-	if n.sep != nil {
+	if spliceOriginalBytes && n.sep != nil {
 		return n.sep
 	}
 	return []byte(" = ")
 }
 
 // renderLineTail writes what follows a construct on its line: the whitespace it
-// was written with before its inline comment, the comment, and the trailing
-// newline. A comment written where there was none gets one space; a construct
+// was written with, its inline comment, and its trailing newline. A construct
 // that ended the file without a newline keeps ending without one.
 func renderLineTail(n Node) []byte {
 	t := n.trivia()
-	var buf []byte
-	switch {
-	case len(t.InlineComment) == 0:
-		// No comment: the gap is whatever trailing whitespace the line carried.
-		buf = append(buf, t.inlineGap...)
-	case len(t.inlineGap) > 0:
-		buf = append(buf, t.inlineGap...)
-		buf = append(buf, t.InlineComment...)
-	default:
-		buf = append(buf, ' ')
-		buf = append(buf, t.InlineComment...)
-	}
+	// The gap is written whatever follows it: before a comment it is the
+	// spacing the line carried (or the one the comment's writer chose), and
+	// with no comment it is the trailing whitespace the line ended with.
+	buf := append([]byte(nil), t.inlineGap...)
+	buf = append(buf, t.InlineComment...)
 	if len(t.TrailingNewline) > 0 {
 		return append(buf, t.TrailingNewline...)
 	}
@@ -475,7 +478,7 @@ func renderLineTail(n Node) []byte {
 // dots and whitespace between them splice too. A key whose fragments were never
 // captured renders from its parts.
 func renderKey(k *KeyNode) []byte {
-	if k.frag.describes(len(k.parts)) {
+	if spliceOriginalBytes && k.frag.describes(len(k.parts)) {
 		return k.frag.splice()
 	}
 	return renderKeyFromParts(k)
@@ -528,7 +531,7 @@ func renderArrayTableHeader(n *ArrayTableNode) []byte {
 // spelled exactly that way; a header created programmatically has none, and is
 // written canonically between the brackets it is given.
 func renderHeaderKey(frag keyFragments, keyPath []string, open, close string) []byte {
-	if frag.describes(len(keyPath)) {
+	if spliceOriginalBytes && frag.describes(len(keyPath)) {
 		return frag.splice()
 	}
 	var buf []byte

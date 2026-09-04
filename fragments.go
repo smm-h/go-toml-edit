@@ -94,6 +94,9 @@ func (k *keyFragments) extendEnd(b []byte) {
 // describe it: one gap before every element and one after the last, so that
 // splicing gap, element, gap, element ... reproduces the container's bytes.
 func containerGaps(n Node) ([][]byte, bool) {
+	if !spliceOriginalBytes {
+		return nil, false
+	}
 	switch c := n.(type) {
 	case *ArrayNode:
 		return c.gaps, len(c.gaps) == len(c.elements)+1
