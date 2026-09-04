@@ -184,6 +184,80 @@ func TestRenameKey_AllowsAFreeName(t *testing.T) {
 	}
 }
 
+// --- value writes ---
+
+// Fails if a value write starts replacing a structural construct: a [header]
+// table changes through a structural operation or an explicit Delete, never as
+// a side effect of writing a value at its name.
+func TestSet_RefusesANameBoundByAHeaderTable(t *testing.T) {
+	doc := parseOrFail(t, "[a]\nx = 1\n")
+	refuse(t, doc, `Set("a", 5)`, doc.Set("a", 5), ErrWrongContainer)
+}
+
+// Fails if a value write starts binding a name a dotted key already spelled
+// out: "a" is a table there, and writing a value at it would define the key
+// twice.
+func TestSet_RefusesANameADottedKeyImplies(t *testing.T) {
+	doc := parseOrFail(t, "a.b = 1\n")
+	refuse(t, doc, `Set("a", 5)`, doc.Set("a", 5), ErrWrongContainer)
+}
+
+// Fails if a value write starts binding a name a dotted key implied inside a
+// table -- the same rule one level down.
+func TestSet_RefusesADottedPrefixInsideATable(t *testing.T) {
+	doc := parseOrFail(t, "[t]\na.b = 1\n")
+	refuse(t, doc, `Set("t.a", 5)`, doc.Set("t.a", 5), ErrWrongContainer)
+}
+
+// Fails if a value write starts binding the name of an array-of-tables, which
+// no single node stands for.
+func TestSetCreate_RefusesAnArrayOfTablesName(t *testing.T) {
+	doc := parseOrFail(t, "[[s]]\nx = 1\n")
+	refuse(t, doc, `SetCreate("s", 5)`, doc.SetCreate("s", 5), ErrWrongContainer)
+}
+
+// Fails if a key written under an array-of-tables collection stops being
+// refused: the collection is not a table, so it holds no keys of its own.
+func TestSetCreate_RefusesAKeyUnderAnArrayOfTables(t *testing.T) {
+	doc := parseOrFail(t, "[[s]]\nx = 1\n")
+	refuse(t, doc, `SetCreate("s.k", 5)`, doc.SetCreate("s.k", 5), ErrWrongContainer)
+}
+
+// Fails if a value write starts binding the name of a table only implied by a
+// longer header.
+func TestSet_RefusesANameALongerHeaderImplies(t *testing.T) {
+	doc := parseOrFail(t, "[a.b]\nx = 1\n")
+	refuse(t, doc, `Set("a", 5)`, doc.Set("a", 5), ErrWrongContainer)
+}
+
+// Fails if the refusals reach an inline table: a key holding one is a value
+// fragment, and setting it replaces that value wholesale.
+func TestSet_ReplacesAnInlineTableWholesale(t *testing.T) {
+	doc := parseOrFail(t, "a = { x = 1 }\n")
+	if err := doc.Set("a", map[string]any{"y": 2}); err != nil {
+		t.Fatalf(`Set over an inline table was refused: %v`, err)
+	}
+	mustFold(t, doc)
+	if got := string(doc.Bytes()); got != "a = {y = 2}\n" {
+		t.Errorf("the document reads %q, want the replaced inline table", got)
+	}
+}
+
+// Fails if the refusals reach an ordinary value write or a new key.
+func TestSet_AllowsValuesAndNewKeys(t *testing.T) {
+	doc := parseOrFail(t, "[a]\nx = 1\n")
+	if err := doc.Set("a.x", 2); err != nil {
+		t.Fatalf(`Set("a.x", 2) was refused: %v`, err)
+	}
+	if err := doc.Set("a.y", 3); err != nil {
+		t.Fatalf(`Set("a.y", 3) was refused: %v`, err)
+	}
+	mustFold(t, doc)
+	if v, ok := doc.GetInt("a.y"); !ok || v != 3 {
+		t.Errorf("after the writes the document reads %q", doc.Bytes())
+	}
+}
+
 // --- table creation, continued ---
 
 // Fails if a sub-table under an existing header stops being creatable.
