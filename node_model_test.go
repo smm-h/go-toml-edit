@@ -306,3 +306,23 @@ func TestNodeModel_StructuralWritesBumpTheGeneration(t *testing.T) {
 		t.Errorf("a write left the read-layer's generation at %d", before)
 	}
 }
+
+// Fails if a node kind that holds structure rather than a value starts
+// carrying Value(). The compile-time assertions in node.go hold the other half
+// -- that every value-carrying kind implements Scalar -- and together they pin
+// the split the API-snapshot test records: a container answers through its own
+// accessors, and a caller asserting Scalar on one is told no rather than handed
+// a nil.
+func TestNodeModel_OnlyValueKindsAreScalars(t *testing.T) {
+	valueKinds := map[NodeType]bool{
+		NodeString: true, NodeInteger: true, NodeFloat: true, NodeBoolean: true,
+		NodeDateTime: true, NodeLocalDateTime: true, NodeLocalDate: true,
+		NodeLocalTime: true,
+	}
+	for _, n := range nodeImplementers() {
+		_, isScalar := n.(Scalar)
+		if want := valueKinds[n.Type()]; isScalar != want {
+			t.Errorf("%s implements Scalar = %v, want %v", n.Type(), isScalar, want)
+		}
+	}
+}
