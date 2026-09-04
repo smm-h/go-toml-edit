@@ -290,6 +290,18 @@ func TestNewTable_AllowsAnchoringATableImpliedByALongerHeader(t *testing.T) {
 	}
 }
 
+// Fails if a header is created under a prefix bound to an INLINE table. TOML
+// gives an inline table no way to be extended, so a [a.c] header beside
+// "a = { b = 1 }" is not valid TOML: the creators must refuse the name rather
+// than write bytes the parser rejects.
+func TestNewTable_RefusesAPrefixBoundToAnInlineTable(t *testing.T) {
+	doc := parseOrFail(t, "a = { b = 1 }\n")
+	refuse(t, doc, `NewTable("a.c")`, doc.NewTable("a.c"), ErrConflict)
+
+	arr := parseOrFail(t, "a = { b = 1 }\n")
+	refuse(t, arr, `NewArrayTable("a.c")`, arr.NewArrayTable("a.c"), ErrConflict)
+}
+
 // Fails if a header UNDER a table a dotted key spelled out stops being
 // creatable. TOML forbids giving such a table a header of its OWN; a header for
 // a table nested under it is explicitly permitted, and the compliance corpus
