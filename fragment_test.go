@@ -163,3 +163,56 @@ func TestFragmentNestedContainerIsolation(t *testing.T) {
 		t.Errorf("rendered %q, want %q", got, want)
 	}
 }
+
+// Fails if two constructs can end up on one line: a construct parsed at end of
+// file carries no trailing newline, and anything written after it would
+// otherwise continue that line into invalid TOML.
+func TestFragmentConstructsStayOnSeparateLines(t *testing.T) {
+	cases := []struct {
+		name string
+		src  string
+		edit func(*Document) error
+		want string
+	}{
+		{
+			name: "a key appended after an unterminated last line",
+			src:  "x = 1",
+			edit: func(d *Document) error { return d.Set("y", 2) },
+			want: "x = 1\ny = 2\n",
+		},
+		{
+			name: "a key appended after an unterminated last line that was edited",
+			src:  "x = 1",
+			edit: func(d *Document) error {
+				if err := d.Set("x", 7); err != nil {
+					return err
+				}
+				return d.Set("y", 2)
+			},
+			want: "x = 7\ny = 2\n",
+		},
+		{
+			name: "a key appended inside a table whose last line is unterminated",
+			src:  "[t]\nx = 1",
+			edit: func(d *Document) error { return d.Set("t.y", 2) },
+			want: "[t]\nx = 1\ny = 2\n",
+		},
+		{
+			name: "a header appended after an unterminated last line",
+			src:  "x = 1",
+			edit: func(d *Document) error { return d.NewTable("t") },
+			want: "x = 1\n[t]\n",
+		},
+	}
+	for _, tc := range cases {
+		t.Run(tc.name, func(t *testing.T) {
+			got := editedBytes(t, tc.src, tc.edit)
+			if got != tc.want {
+				t.Errorf("rendered %q, want %q", got, tc.want)
+			}
+			if _, err := Parse([]byte(got)); err != nil {
+				t.Errorf("the rendered document does not parse: %v", err)
+			}
+		})
+	}
+}
