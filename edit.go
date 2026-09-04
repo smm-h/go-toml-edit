@@ -169,11 +169,11 @@ func setKeyInParent(parent layerPos, key string, valNode Node) error {
 	case *Document:
 		return setKeyInDocument(p, key, valNode)
 	case *TableNode:
-		return setKeyInChildren(&p.Children, key, valNode, false)
+		return setKeyInChildren(&p.Children, key, valNode)
 	case *ArrayTableNode:
-		return setKeyInChildren(&p.Children, key, valNode, false)
+		return setKeyInChildren(&p.Children, key, valNode)
 	case *InlineTableNode:
-		return setKeyInChildren(&p.Children, key, valNode, true)
+		return setKeyInChildren(&p.Children, key, valNode)
 	default:
 		if parent.records != nil || parent.rec != nil {
 			// A position no single node stands for: an array-of-tables, or a
@@ -222,7 +222,7 @@ func firstHeaderIndex(children []Node) int {
 
 // setKeyInChildren searches children for an existing KV with the given key.
 // If found, replaces its value. Otherwise, appends a new KV.
-func setKeyInChildren(children *[]Node, key string, valNode Node, markParentDirty bool) error {
+func setKeyInChildren(children *[]Node, key string, valNode Node) error {
 	for _, child := range *children {
 		if kv, ok := child.(*KeyValueNode); ok {
 			if len(kv.Key.Parts) == 1 && kv.Key.Parts[0] == key {
