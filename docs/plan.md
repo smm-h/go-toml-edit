@@ -1,10 +1,11 @@
 # Implementation plan: the strictness-and-fidelity redesign
 
-The binding specification is `docs/design-record.md`; this file is the
-execution sequence with per-phase verification. Where the two disagree, the
-record wins and the discrepancy is surfaced. The plan contains no open
-decisions and no todo-filing steps — every ruling is in the record, and all
-campaign todos are already filed.
+This file is the execution sequence with per-phase verification. The design
+record that served as the binding specification during the build is retired
+to `todo/.done/design-record.md` (ruled 2026-09-05: it was scaffolding for
+the build; with the build done, the truth lives in the code, the tests, the
+API snapshot and the docs). The plan contains no open decisions and no
+todo-filing steps.
 
 Execution conventions: implementor+auditor subagent pairs per phase;
 authoritative test runs only on a settled tree; one commit per work item
