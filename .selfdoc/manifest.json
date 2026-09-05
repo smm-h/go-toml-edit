@@ -268,11 +268,6 @@
         },
         {
           "level": 3,
-          "text": "`KindHookError`",
-          "anchor": "kindhookerror"
-        },
-        {
-          "level": 3,
           "text": "`NodeDocument`",
           "anchor": "nodedocument"
         },
@@ -543,11 +538,6 @@
         },
         {
           "level": 3,
-          "text": "`ErrHookError`",
-          "anchor": "errhookerror"
-        },
-        {
-          "level": 3,
           "text": "`ErrSkipTable`",
           "anchor": "errskiptable"
         },
@@ -555,11 +545,6 @@
           "level": 3,
           "text": "`Cursor`",
           "anchor": "cursor"
-        },
-        {
-          "level": 3,
-          "text": "`Unmarshaler`",
-          "anchor": "unmarshaler"
         },
         {
           "level": 3,
@@ -1865,11 +1850,6 @@
         },
         {
           "level": 3,
-          "text": "`KindHookError`",
-          "anchor": "kindhookerror"
-        },
-        {
-          "level": 3,
           "text": "`NodeDocument`",
           "anchor": "nodedocument"
         },
@@ -2140,11 +2120,6 @@
         },
         {
           "level": 3,
-          "text": "`ErrHookError`",
-          "anchor": "errhookerror"
-        },
-        {
-          "level": 3,
           "text": "`ErrSkipTable`",
           "anchor": "errskiptable"
         },
@@ -2152,11 +2127,6 @@
           "level": 3,
           "text": "`Cursor`",
           "anchor": "cursor"
-        },
-        {
-          "level": 3,
-          "text": "`Unmarshaler`",
-          "anchor": "unmarshaler"
         },
         {
           "level": 3,
@@ -3614,6 +3584,6 @@
     }
   ],
   "posts": [],
-  "last_gen": "2026-09-05T10:58:20.534221+00:00",
+  "last_gen": "2026-09-05T14:05:10.480486+00:00",
   "theme": "minimal"
 }
