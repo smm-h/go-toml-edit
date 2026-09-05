@@ -25,17 +25,17 @@ func TestErrorRendering(t *testing.T) {
 			name: "file and position",
 			err: &Error{
 				Kind: KindSyntax, File: "config.toml",
-				Pos: Position{Line: 3, Column: 10, Offset: 42}, Message: "expected value, got EOF",
+				Pos: Position{Line: 3, Column: 10, Offset: 42}, Message: "expected a value, got end of input",
 			},
-			want: "config.toml:3:10: expected value, got EOF",
+			want: "config.toml:3:10: expected a value, got end of input",
 		},
 		{
 			name: "position only",
 			err: &Error{
 				Kind: KindSyntax,
-				Pos:  Position{Line: 3, Column: 10, Offset: 42}, Message: "expected value, got EOF",
+				Pos:  Position{Line: 3, Column: 10, Offset: 42}, Message: "expected a value, got end of input",
 			},
-			want: "3:10: expected value, got EOF",
+			want: "3:10: expected a value, got end of input",
 		},
 		{
 			name: "file and path, no position",
@@ -543,6 +543,62 @@ func TestSnippetAtEndOfInput(t *testing.T) {
 			}
 			if diag.Snippet != tt.want {
 				t.Errorf("snippet = %q, want %q", diag.Snippet, tt.want)
+			}
+		})
+	}
+}
+
+// =============================================================================
+// Parse-error messages name tokens in the reader's vocabulary
+// =============================================================================
+
+// A parse error is read by whoever wrote the TOML, not by whoever wrote the
+// lexer, so it names what it saw the way the writer typed it: a fixed piece of
+// punctuation is quoted as its glyph, and everything else is plain words. The
+// lexer's internal spellings -- RightBracket, Newline, EOF, BasicString --
+// never appear.
+//
+// Fails if any parse message reverts to the internal token vocabulary, or if a
+// message's wording changes without this pin being updated.
+func TestParseErrorMessagesUseReaderVocabulary(t *testing.T) {
+	tests := []struct {
+		name  string
+		input string
+		want  string
+	}{
+		{name: "unterminated table header", input: "[foo\n", want: "expected ']', got newline"},
+		{name: "unterminated array table header", input: "[[foo\n", want: "expected ']]', got newline"},
+		{name: "unterminated inline table", input: "a = {b = 1\n", want: "expected '}', got newline"},
+		{name: "missing equals", input: "\"x\" \"y\"\n", want: "expected '=', got a string"},
+		{name: "missing value", input: "a = \n", want: "expected a value, got newline"},
+		{name: "value is an equals sign", input: "a = 1\nb = = 2\n", want: "expected a value, got '='"},
+		{name: "array cut short", input: "a = [1, 2\n", want: "expected ',' or ']' in array, got end of input"},
+		{name: "array missing separator", input: "a = [1 2]\n", want: "expected ',' or ']' in array, got an integer"},
+		{name: "stray equals at top level", input: "= 1\n", want: "'=' is not valid here"},
+		{name: "stray bracket at top level", input: "] = 1\n", want: "']' is not valid here"},
+		{name: "stray bracket in a table body", input: "[t]\n] = 1\n", want: "']' is not valid in a table body"},
+	}
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			_, err := Parse([]byte(tt.input))
+			if err == nil {
+				t.Fatalf("expected a parse error for %q", tt.input)
+			}
+			var diag *Error
+			if !errors.As(err, &diag) {
+				t.Fatalf("expected *Error, got %T: %v", err, err)
+			}
+			if diag.Message != tt.want {
+				t.Errorf("message = %q, want %q", diag.Message, tt.want)
+			}
+			for _, internal := range []string{
+				"RightBracket", "LeftBracket", "DoubleRightBracket", "DoubleLeftBracket",
+				"RightBrace", "LeftBrace", "Newline", "EOF", "BasicString", "LiteralString",
+				"BareKey", "Equals", "Comma", "Integer",
+			} {
+				if strings.Contains(diag.Message, internal) {
+					t.Errorf("message %q names the token type %s by its internal spelling", diag.Message, internal)
+				}
 			}
 		})
 	}

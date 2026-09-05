@@ -91,7 +91,7 @@ func (p *parser) advance() token {
 func (p *parser) expect(typ tokenType) (token, error) {
 	tok := p.advance()
 	if tok.Type != typ {
-		return tok, p.errorfAt(tok, "expected %s, got %s", typ, tok.Type)
+		return tok, p.errorfAt(tok, "expected %s, got %s", typ.describe(), tok.Type.describe())
 	}
 	return tok, nil
 }
@@ -309,7 +309,7 @@ func (p *parser) parseDocument() (*Document, error) {
 			buildAppend(doc, kv)
 
 		default:
-			return nil, p.errorf("unexpected token %s", tt)
+			return nil, p.errorf("%s is not valid here", tt.describe())
 		}
 	}
 
@@ -551,7 +551,7 @@ func (p *parser) parseTableChildren(parent childAdder, childTracker *definitionT
 			parent.addChild(kv)
 
 		default:
-			return p.errorf("unexpected token %s in table body", tt)
+			return p.errorf("%s is not valid in a table body", tt.describe())
 		}
 	}
 }
@@ -692,7 +692,7 @@ func (p *parser) parseSimpleKey() (decoded string, raw []byte, style StringStyle
 		decoded = decodeLiteralString(tok.Raw)
 		return decoded, tok.Raw, StringLiteral, nil
 	default:
-		return "", nil, 0, p.errorf("expected key, got %s", tok.Type)
+		return "", nil, 0, p.errorf("expected a key, got %s", tok.Type.describe())
 	}
 }
 
@@ -768,7 +768,7 @@ func (p *parser) parseValue() (Node, error) {
 	case tokenLeftBrace:
 		return p.parseInlineTableValue()
 	default:
-		return nil, p.errorf("expected value, got %s", tok.Type)
+		return nil, p.errorf("expected a value, got %s", tok.Type.describe())
 	}
 }
 
@@ -963,13 +963,13 @@ func (p *parser) parseArrayValue() (Node, error) {
 			if p.peekType() == tokenRightBracket {
 				continue // will be consumed at top of loop
 			}
-			return nil, p.errorf("expected ',' or ']' in array, got %s", p.peekType())
+			return nil, p.errorf("expected ',' or ']' in array, got %s", p.peekType().describe())
 
 		case tokenRightBracket:
 			continue // will be consumed at top of loop
 
 		default:
-			return nil, p.errorf("expected ',' or ']' in array, got %s", p.peekType())
+			return nil, p.errorf("expected ',' or ']' in array, got %s", p.peekType().describe())
 		}
 	}
 }

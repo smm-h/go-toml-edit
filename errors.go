@@ -149,8 +149,8 @@ type Error struct {
 // known, "line:column" with a position alone, and the file alone when there is
 // no position -- so a diagnostic reads as one of
 //
-//	config.toml:3:10: expected value, got EOF
-//	3:10: expected value, got EOF
+//	config.toml:3:10: expected a value, got end of input
+//	3:10: expected a value, got end of input
 //	config.toml: server.port: key not found
 //	server.port: key not found
 //	key not found

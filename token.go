@@ -59,12 +59,60 @@ var tokenTypeNames = [...]string{
 	tokenEOF:                    "EOF",
 }
 
-// String returns the human-readable name of the token type.
+// String returns the internal name of the token type. It is the lexer's own
+// vocabulary, for test failures and debugging output; a diagnostic a caller
+// reads renders describe instead.
 func (t tokenType) String() string {
 	if int(t) >= 0 && int(t) < len(tokenTypeNames) {
 		return tokenTypeNames[t]
 	}
 	return "Unknown"
+}
+
+// tokenTypeDescriptions spells each token type the way a diagnostic names it:
+// the single place that decides, so every message reads the same. A token that
+// is one fixed piece of punctuation is quoted as the glyph the writer typed,
+// since naming it any other way just asks the reader to translate; everything
+// else is plain words, with the article that makes "expected X, got Y" read as
+// a sentence. Two spellings of the same thing (a basic and a literal string)
+// describe alike: which quoting style was used is not what the message is
+// about.
+var tokenTypeDescriptions = [...]string{
+	tokenBareKey:                "a bare key",
+	tokenBasicString:            "a string",
+	tokenLiteralString:          "a string",
+	tokenMultiLineBasicString:   "a multi-line string",
+	tokenMultiLineLiteralString: "a multi-line string",
+	tokenInteger:                "an integer",
+	tokenFloat:                  "a float",
+	tokenBoolean:                "a boolean",
+	tokenOffsetDateTime:         "an offset date-time",
+	tokenLocalDateTime:          "a local date-time",
+	tokenLocalDate:              "a local date",
+	tokenLocalTime:              "a local time",
+	tokenEquals:                 "'='",
+	tokenDot:                    "'.'",
+	tokenComma:                  "','",
+	tokenLeftBracket:            "'['",
+	tokenRightBracket:           "']'",
+	tokenDoubleLeftBracket:      "'[['",
+	tokenDoubleRightBracket:     "']]'",
+	tokenLeftBrace:              "'{'",
+	tokenRightBrace:             "'}'",
+	tokenComment:                "a comment",
+	tokenWhitespace:             "whitespace",
+	tokenNewline:                "newline",
+	tokenEOF:                    "end of input",
+}
+
+// describe returns the token type's user-facing spelling: what a diagnostic
+// calls it. Every message that names a token routes through here, so a caller
+// never reads the lexer's internal vocabulary.
+func (t tokenType) describe() string {
+	if int(t) >= 0 && int(t) < len(tokenTypeDescriptions) {
+		return tokenTypeDescriptions[t]
+	}
+	return "an unrecognized token"
 }
 
 // token represents a single lexical token from TOML source.

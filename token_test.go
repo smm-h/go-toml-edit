@@ -104,3 +104,41 @@ func TestTokenTypeStringUnknown(t *testing.T) {
 		t.Errorf("String() = %q, want %q", got, "Unknown")
 	}
 }
+
+// Every token type must have a user-facing spelling: the diagnostics table is
+// what a caller reads, so a token type added without an entry would leak the
+// zero value (an empty string) into a message.
+//
+// Fails if a token type is added to the lexer without a description, or if a
+// description is emptied.
+func TestTokenTypeDescriptionsCoverEveryTokenType(t *testing.T) {
+	if len(tokenTypeDescriptions) != len(tokenTypeNames) {
+		t.Fatalf("%d descriptions for %d token types", len(tokenTypeDescriptions), len(tokenTypeNames))
+	}
+	for i := range tokenTypeNames {
+		typ := tokenType(i)
+		if got := typ.describe(); got == "" {
+			t.Errorf("token type %s has no description", typ)
+		}
+	}
+}
+
+// The descriptions are the reader's vocabulary, not the lexer's: no message
+// may name a token by its internal spelling.
+//
+// Fails if a description is ever set to the internal name of its token type.
+func TestTokenTypeDescriptionsAreNotTheInternalNames(t *testing.T) {
+	for i := range tokenTypeNames {
+		typ := tokenType(i)
+		if typ.describe() == typ.String() {
+			t.Errorf("token type %s describes itself by its internal name", typ)
+		}
+	}
+}
+
+func TestTokenTypeDescribeUnknown(t *testing.T) {
+	unknown := tokenType(999)
+	if got := unknown.describe(); got != "an unrecognized token" {
+		t.Errorf("describe() = %q, want %q", got, "an unrecognized token")
+	}
+}
