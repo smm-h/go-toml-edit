@@ -22,7 +22,8 @@
   "en/scripts.md": {
     "content": "47623575447630cf9020f4ed84e74e7f200b8d64fe528a759d8e1e093290f909",
     "description": "df3f134d47512178652fdc13acafee8b00d0f12bd8da430524643d1f361a83b0",
-    "seed_hash": "df3f134d47512178652fdc13acafee8b00d0f12bd8da430524643d1f361a83b0"
+    "seed_hash": "df3f134d47512178652fdc13acafee8b00d0f12bd8da430524643d1f361a83b0",
+    "source_docstring": "71941bd01427cd94f683932c99444a3eaec5cf167570a6755a5c1df59b5003d2"
   },
   "en/usage-guide.md": {
     "content": "089010295cd38dcd19e834e9d9676b0f0ddcb941512c287de268b8cb7fae2d9e",
