@@ -58,31 +58,6 @@ const StringBasic StringStyle = 0
 const StringLiteral StringStyle = 1
 const StringMultiLineBasic StringStyle = 2
 const StringMultiLineLiteral StringStyle = 3
-const TokenBareKey TokenType = 0
-const TokenBasicString TokenType = 1
-const TokenBoolean TokenType = 7
-const TokenComma TokenType = 14
-const TokenComment TokenType = 21
-const TokenDot TokenType = 13
-const TokenDoubleLeftBracket TokenType = 17
-const TokenDoubleRightBracket TokenType = 18
-const TokenEOF TokenType = 24
-const TokenEquals TokenType = 12
-const TokenFloat TokenType = 6
-const TokenInteger TokenType = 5
-const TokenLeftBrace TokenType = 19
-const TokenLeftBracket TokenType = 15
-const TokenLiteralString TokenType = 2
-const TokenLocalDate TokenType = 10
-const TokenLocalDateTime TokenType = 9
-const TokenLocalTime TokenType = 11
-const TokenMultiLineBasicString TokenType = 3
-const TokenMultiLineLiteralString TokenType = 4
-const TokenNewline TokenType = 23
-const TokenOffsetDateTime TokenType = 8
-const TokenRightBrace TokenType = 20
-const TokenRightBracket TokenType = 16
-const TokenWhitespace TokenType = 22
 const WalkAll WalkMode = 1
 const WalkLeaves WalkMode = 0
 
@@ -507,22 +482,6 @@ type TableNode struct
 	method (*TableNode) Raw() []byte
 	method (*TableNode) Span() Span
 	method (*TableNode) Type() NodeType
-
-type Token struct
-	field Type TokenType
-	field Raw []byte
-	field Line int
-	field Column int
-	field Offset int
-
-type TokenType int
-	method (TokenType) String() string
-
-type Trivia struct
-	field LeadingWhitespace []byte
-	field LeadingComments [][]byte
-	field InlineComment []byte
-	field TrailingNewline []byte
 
 type Unmarshaler interface
 	method UnmarshalTOML(node Node) error

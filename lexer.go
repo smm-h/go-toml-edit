@@ -27,7 +27,7 @@ type lexer struct {
 	pos    int // current byte offset
 	line   int // current line (1-based)
 	col    int // current column (1-based)
-	tokens []Token
+	tokens []token
 	ctx    lexContext
 
 	// bracket depth tracking to distinguish table headers from array values
@@ -42,7 +42,7 @@ type lexer struct {
 }
 
 // lex tokenizes the given TOML source bytes into a slice of tokens.
-func lex(src []byte) ([]Token, error) {
+func lex(src []byte) ([]token, error) {
 	l := &lexer{
 		src:          src,
 		line:         1,
@@ -62,7 +62,7 @@ func (l *lexer) run() error {
 			return err
 		}
 	}
-	l.emitAt(TokenEOF, l.pos, l.pos, l.line, l.col)
+	l.emitAt(tokenEOF, l.pos, l.pos, l.line, l.col)
 	return nil
 }
 
@@ -74,8 +74,8 @@ func (l *lexer) peekAt(offset int) byte {
 	return 0
 }
 
-func (l *lexer) emitAt(typ TokenType, start, end, line, col int) {
-	l.tokens = append(l.tokens, Token{
+func (l *lexer) emitAt(typ tokenType, start, end, line, col int) {
+	l.tokens = append(l.tokens, token{
 		Type:   typ,
 		Raw:    l.src[start:end],
 		Line:   line,
@@ -127,7 +127,7 @@ func (l *lexer) next() error {
 
 	// Equals
 	if ch == '=' {
-		l.emitAt(TokenEquals, l.pos, l.pos+1, l.line, l.col)
+		l.emitAt(tokenEquals, l.pos, l.pos+1, l.line, l.col)
 		l.advance(1)
 		l.ctx = ctxValue
 		l.afterNewline = false
@@ -136,7 +136,7 @@ func (l *lexer) next() error {
 
 	// Dot (key separator)
 	if ch == '.' && l.ctx == ctxKey {
-		l.emitAt(TokenDot, l.pos, l.pos+1, l.line, l.col)
+		l.emitAt(tokenDot, l.pos, l.pos+1, l.line, l.col)
 		l.advance(1)
 		l.afterNewline = false
 		return nil
@@ -144,7 +144,7 @@ func (l *lexer) next() error {
 
 	// Comma
 	if ch == ',' {
-		l.emitAt(TokenComma, l.pos, l.pos+1, l.line, l.col)
+		l.emitAt(tokenComma, l.pos, l.pos+1, l.line, l.col)
 		l.advance(1)
 		l.afterNewline = false
 		// Determine context based on innermost scope
@@ -171,7 +171,7 @@ func (l *lexer) next() error {
 
 	// Left brace
 	if ch == '{' {
-		l.emitAt(TokenLeftBrace, l.pos, l.pos+1, l.line, l.col)
+		l.emitAt(tokenLeftBrace, l.pos, l.pos+1, l.line, l.col)
 		l.advance(1)
 		l.inlineTableDepth++
 		l.scopeStack = append(l.scopeStack, scopeInlineTable)
@@ -182,7 +182,7 @@ func (l *lexer) next() error {
 
 	// Right brace
 	if ch == '}' {
-		l.emitAt(TokenRightBrace, l.pos, l.pos+1, l.line, l.col)
+		l.emitAt(tokenRightBrace, l.pos, l.pos+1, l.line, l.col)
 		l.advance(1)
 		if l.inlineTableDepth > 0 {
 			l.inlineTableDepth--
@@ -236,7 +236,7 @@ func (l *lexer) lexNewline() error {
 	} else {
 		l.advance(1)
 	}
-	l.emitAt(TokenNewline, start, l.pos, line, col)
+	l.emitAt(tokenNewline, start, l.pos, line, col)
 	l.afterNewline = true
 	// After a newline at root level (not in array/inline table), expect key
 	if l.arrayDepth == 0 && l.inlineTableDepth == 0 {
@@ -252,7 +252,7 @@ func (l *lexer) lexWhitespace() error {
 	for l.pos < len(l.src) && (l.src[l.pos] == ' ' || l.src[l.pos] == '\t') {
 		l.advance(1)
 	}
-	l.emitAt(TokenWhitespace, start, l.pos, line, col)
+	l.emitAt(tokenWhitespace, start, l.pos, line, col)
 	return nil
 }
 
@@ -278,14 +278,14 @@ func (l *lexer) lexComment() error {
 			l.advance(1)
 		}
 	}
-	l.emitAt(TokenComment, start, l.pos, line, col)
+	l.emitAt(tokenComment, start, l.pos, line, col)
 	return nil
 }
 
 func (l *lexer) lexLeftBracket() error {
 	if l.ctx == ctxValue {
 		// In value context, [ starts an array. Each [ is separate.
-		l.emitAt(TokenLeftBracket, l.pos, l.pos+1, l.line, l.col)
+		l.emitAt(tokenLeftBracket, l.pos, l.pos+1, l.line, l.col)
 		l.advance(1)
 		l.arrayDepth++
 		l.scopeStack = append(l.scopeStack, scopeArray)
@@ -297,13 +297,13 @@ func (l *lexer) lexLeftBracket() error {
 	// In key context: could be [ for table or [[ for array table
 	// [[ only at start of line (after optional whitespace after newline)
 	if l.afterNewline && l.peekAt(1) == '[' {
-		l.emitAt(TokenDoubleLeftBracket, l.pos, l.pos+2, l.line, l.col)
+		l.emitAt(tokenDoubleLeftBracket, l.pos, l.pos+2, l.line, l.col)
 		l.advance(2)
 		l.afterNewline = false
 		return nil
 	}
 
-	l.emitAt(TokenLeftBracket, l.pos, l.pos+1, l.line, l.col)
+	l.emitAt(tokenLeftBracket, l.pos, l.pos+1, l.line, l.col)
 	l.advance(1)
 	l.afterNewline = false
 	return nil
@@ -312,7 +312,7 @@ func (l *lexer) lexLeftBracket() error {
 func (l *lexer) lexRightBracket() error {
 	if l.arrayDepth > 0 {
 		// In an array value context, ] closes the array
-		l.emitAt(TokenRightBracket, l.pos, l.pos+1, l.line, l.col)
+		l.emitAt(tokenRightBracket, l.pos, l.pos+1, l.line, l.col)
 		l.advance(1)
 		l.arrayDepth--
 		if len(l.scopeStack) > 0 {
@@ -324,14 +324,14 @@ func (l *lexer) lexRightBracket() error {
 
 	// In key context (table header): could be ]] for array table
 	if l.peekAt(1) == ']' {
-		l.emitAt(TokenDoubleRightBracket, l.pos, l.pos+2, l.line, l.col)
+		l.emitAt(tokenDoubleRightBracket, l.pos, l.pos+2, l.line, l.col)
 		l.advance(2)
 		l.afterNewline = false
 		l.ctx = ctxKey // after table header, expect key on next line
 		return nil
 	}
 
-	l.emitAt(TokenRightBracket, l.pos, l.pos+1, l.line, l.col)
+	l.emitAt(tokenRightBracket, l.pos, l.pos+1, l.line, l.col)
 	l.advance(1)
 	l.afterNewline = false
 	l.ctx = ctxKey // after table header close, expect key
@@ -356,7 +356,7 @@ func (l *lexer) lexBasicString() error {
 		ch := l.src[l.pos]
 		if ch == '"' {
 			l.advance(1) // skip closing "
-			l.emitAt(TokenBasicString, start, l.pos, line, col)
+			l.emitAt(tokenBasicString, start, l.pos, line, col)
 			l.afterNewline = false
 			return nil
 		}
@@ -436,7 +436,7 @@ func (l *lexer) lexMultiLineBasicString() error {
 			for i := 0; i < 2 && l.pos < len(l.src) && l.src[l.pos] == '"'; i++ {
 				l.advance(1)
 			}
-			l.emitAt(TokenMultiLineBasicString, start, l.pos, line, col)
+			l.emitAt(tokenMultiLineBasicString, start, l.pos, line, col)
 			l.afterNewline = false
 			return nil
 		}
@@ -519,7 +519,7 @@ func (l *lexer) lexLiteralString() error {
 		ch := l.src[l.pos]
 		if ch == '\'' {
 			l.advance(1) // skip closing '
-			l.emitAt(TokenLiteralString, start, l.pos, line, col)
+			l.emitAt(tokenLiteralString, start, l.pos, line, col)
 			l.afterNewline = false
 			return nil
 		}
@@ -557,7 +557,7 @@ func (l *lexer) lexMultiLineLiteralString() error {
 			for i := 0; i < 2 && l.pos < len(l.src) && l.src[l.pos] == '\''; i++ {
 				l.advance(1)
 			}
-			l.emitAt(TokenMultiLineLiteralString, start, l.pos, line, col)
+			l.emitAt(tokenMultiLineLiteralString, start, l.pos, line, col)
 			l.afterNewline = false
 			return nil
 		}
@@ -585,7 +585,7 @@ func (l *lexer) lexBareKey() error {
 	for l.pos < len(l.src) && isBareKeyChar(l.src[l.pos]) {
 		l.advance(1)
 	}
-	l.emitAt(TokenBareKey, start, l.pos, line, col)
+	l.emitAt(tokenBareKey, start, l.pos, line, col)
 	l.afterNewline = false
 	return nil
 }
@@ -610,7 +610,7 @@ func (l *lexer) lexValue() error {
 		line := l.line
 		col := l.col
 		l.advance(4)
-		l.emitAt(TokenBoolean, start, l.pos, line, col)
+		l.emitAt(tokenBoolean, start, l.pos, line, col)
 		l.afterNewline = false
 		return nil
 	}
@@ -619,7 +619,7 @@ func (l *lexer) lexValue() error {
 		line := l.line
 		col := l.col
 		l.advance(5)
-		l.emitAt(TokenBoolean, start, l.pos, line, col)
+		l.emitAt(tokenBoolean, start, l.pos, line, col)
 		l.afterNewline = false
 		return nil
 	}
@@ -686,13 +686,13 @@ func (l *lexer) lexSpecialFloat() error {
 
 	if l.src[l.pos] == 'i' && l.matchWordAt(l.pos, "inf") {
 		l.advance(3)
-		l.emitAt(TokenFloat, start, l.pos, line, col)
+		l.emitAt(tokenFloat, start, l.pos, line, col)
 		l.afterNewline = false
 		return nil
 	}
 	if l.src[l.pos] == 'n' && l.matchWordAt(l.pos, "nan") {
 		l.advance(3)
-		l.emitAt(TokenFloat, start, l.pos, line, col)
+		l.emitAt(tokenFloat, start, l.pos, line, col)
 		l.afterNewline = false
 		return nil
 	}
@@ -799,7 +799,7 @@ func (l *lexer) lexHexInteger(start, line, col int) error {
 			break
 		}
 	}
-	l.emitAt(TokenInteger, start, l.pos, line, col)
+	l.emitAt(tokenInteger, start, l.pos, line, col)
 	l.afterNewline = false
 	return nil
 }
@@ -823,7 +823,7 @@ func (l *lexer) lexOctInteger(start, line, col int) error {
 			break
 		}
 	}
-	l.emitAt(TokenInteger, start, l.pos, line, col)
+	l.emitAt(tokenInteger, start, l.pos, line, col)
 	l.afterNewline = false
 	return nil
 }
@@ -847,7 +847,7 @@ func (l *lexer) lexBinInteger(start, line, col int) error {
 			break
 		}
 	}
-	l.emitAt(TokenInteger, start, l.pos, line, col)
+	l.emitAt(tokenInteger, start, l.pos, line, col)
 	l.afterNewline = false
 	return nil
 }
@@ -933,9 +933,9 @@ func (l *lexer) lexDecimalNumber(start, line, col int, hasSign bool) error {
 	}
 
 	if isFloat {
-		l.emitAt(TokenFloat, start, l.pos, line, col)
+		l.emitAt(tokenFloat, start, l.pos, line, col)
 	} else {
-		l.emitAt(TokenInteger, start, l.pos, line, col)
+		l.emitAt(tokenInteger, start, l.pos, line, col)
 	}
 	l.afterNewline = false
 	return nil
@@ -969,7 +969,7 @@ func (l *lexer) lexDateOrDateTime(start, line, col int) error {
 				return l.lexTimePart(start, line, col, true)
 			}
 			// Just a local date
-			l.emitAt(TokenLocalDate, start, l.pos, line, col)
+			l.emitAt(tokenLocalDate, start, l.pos, line, col)
 			l.afterNewline = false
 			return nil
 		}
@@ -979,7 +979,7 @@ func (l *lexer) lexDateOrDateTime(start, line, col int) error {
 	}
 
 	// Just a local date
-	l.emitAt(TokenLocalDate, start, l.pos, line, col)
+	l.emitAt(tokenLocalDate, start, l.pos, line, col)
 	l.afterNewline = false
 	return nil
 }
@@ -1016,7 +1016,7 @@ func (l *lexer) lexTimePart(start, line, col int, canHaveOffset bool) error {
 	}
 
 	if !canHaveOffset {
-		l.emitAt(TokenLocalTime, start, l.pos, line, col)
+		l.emitAt(tokenLocalTime, start, l.pos, line, col)
 		l.afterNewline = false
 		return nil
 	}
@@ -1026,7 +1026,7 @@ func (l *lexer) lexTimePart(start, line, col int, canHaveOffset bool) error {
 		ch := l.src[l.pos]
 		if ch == 'Z' || ch == 'z' {
 			l.advance(1)
-			l.emitAt(TokenOffsetDateTime, start, l.pos, line, col)
+			l.emitAt(tokenOffsetDateTime, start, l.pos, line, col)
 			l.afterNewline = false
 			return nil
 		}
@@ -1042,14 +1042,14 @@ func (l *lexer) lexTimePart(start, line, col int, canHaveOffset bool) error {
 			if !l.consumeNDigits(2) {
 				return l.errorfAt(line, col, start, "invalid time offset: expected 2-digit minute")
 			}
-			l.emitAt(TokenOffsetDateTime, start, l.pos, line, col)
+			l.emitAt(tokenOffsetDateTime, start, l.pos, line, col)
 			l.afterNewline = false
 			return nil
 		}
 	}
 
 	// No offset: local date-time
-	l.emitAt(TokenLocalDateTime, start, l.pos, line, col)
+	l.emitAt(tokenLocalDateTime, start, l.pos, line, col)
 	l.afterNewline = false
 	return nil
 }

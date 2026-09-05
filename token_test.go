@@ -5,42 +5,42 @@ import "testing"
 func TestTokenTypes(t *testing.T) {
 	tests := []struct {
 		name    string
-		typ     TokenType
+		typ     tokenType
 		raw     string
 		line    int
 		col     int
 		wantStr string
 	}{
-		{"BareKey", TokenBareKey, "name", 1, 1, "BareKey"},
-		{"BasicString", TokenBasicString, `"hello"`, 1, 5, "BasicString"},
-		{"LiteralString", TokenLiteralString, `'hello'`, 2, 1, "LiteralString"},
-		{"MultiLineBasicString", TokenMultiLineBasicString, `"""hello"""`, 3, 1, "MultiLineBasicString"},
-		{"MultiLineLiteralString", TokenMultiLineLiteralString, `'''hello'''`, 4, 1, "MultiLineLiteralString"},
-		{"Integer", TokenInteger, "42", 1, 8, "Integer"},
-		{"Float", TokenFloat, "3.14", 1, 8, "Float"},
-		{"Boolean", TokenBoolean, "true", 1, 8, "Boolean"},
-		{"OffsetDateTime", TokenOffsetDateTime, "1979-05-27T07:32:00Z", 1, 8, "OffsetDateTime"},
-		{"LocalDateTime", TokenLocalDateTime, "1979-05-27T07:32:00", 1, 8, "LocalDateTime"},
-		{"LocalDate", TokenLocalDate, "1979-05-27", 1, 8, "LocalDate"},
-		{"LocalTime", TokenLocalTime, "07:32:00", 1, 8, "LocalTime"},
-		{"Equals", TokenEquals, "=", 1, 5, "Equals"},
-		{"Dot", TokenDot, ".", 1, 6, "Dot"},
-		{"Comma", TokenComma, ",", 1, 10, "Comma"},
-		{"LeftBracket", TokenLeftBracket, "[", 1, 1, "LeftBracket"},
-		{"RightBracket", TokenRightBracket, "]", 1, 8, "RightBracket"},
-		{"DoubleLeftBracket", TokenDoubleLeftBracket, "[[", 1, 1, "DoubleLeftBracket"},
-		{"DoubleRightBracket", TokenDoubleRightBracket, "]]", 1, 8, "DoubleRightBracket"},
-		{"LeftBrace", TokenLeftBrace, "{", 1, 8, "LeftBrace"},
-		{"RightBrace", TokenRightBrace, "}", 1, 15, "RightBrace"},
-		{"Comment", TokenComment, "# a comment", 1, 1, "Comment"},
-		{"Whitespace", TokenWhitespace, "  ", 1, 1, "Whitespace"},
-		{"Newline", TokenNewline, "\n", 1, 12, "Newline"},
-		{"EOF", TokenEOF, "", 5, 1, "EOF"},
+		{"BareKey", tokenBareKey, "name", 1, 1, "BareKey"},
+		{"BasicString", tokenBasicString, `"hello"`, 1, 5, "BasicString"},
+		{"LiteralString", tokenLiteralString, `'hello'`, 2, 1, "LiteralString"},
+		{"MultiLineBasicString", tokenMultiLineBasicString, `"""hello"""`, 3, 1, "MultiLineBasicString"},
+		{"MultiLineLiteralString", tokenMultiLineLiteralString, `'''hello'''`, 4, 1, "MultiLineLiteralString"},
+		{"Integer", tokenInteger, "42", 1, 8, "Integer"},
+		{"Float", tokenFloat, "3.14", 1, 8, "Float"},
+		{"Boolean", tokenBoolean, "true", 1, 8, "Boolean"},
+		{"OffsetDateTime", tokenOffsetDateTime, "1979-05-27T07:32:00Z", 1, 8, "OffsetDateTime"},
+		{"LocalDateTime", tokenLocalDateTime, "1979-05-27T07:32:00", 1, 8, "LocalDateTime"},
+		{"LocalDate", tokenLocalDate, "1979-05-27", 1, 8, "LocalDate"},
+		{"LocalTime", tokenLocalTime, "07:32:00", 1, 8, "LocalTime"},
+		{"Equals", tokenEquals, "=", 1, 5, "Equals"},
+		{"Dot", tokenDot, ".", 1, 6, "Dot"},
+		{"Comma", tokenComma, ",", 1, 10, "Comma"},
+		{"LeftBracket", tokenLeftBracket, "[", 1, 1, "LeftBracket"},
+		{"RightBracket", tokenRightBracket, "]", 1, 8, "RightBracket"},
+		{"DoubleLeftBracket", tokenDoubleLeftBracket, "[[", 1, 1, "DoubleLeftBracket"},
+		{"DoubleRightBracket", tokenDoubleRightBracket, "]]", 1, 8, "DoubleRightBracket"},
+		{"LeftBrace", tokenLeftBrace, "{", 1, 8, "LeftBrace"},
+		{"RightBrace", tokenRightBrace, "}", 1, 15, "RightBrace"},
+		{"Comment", tokenComment, "# a comment", 1, 1, "Comment"},
+		{"Whitespace", tokenWhitespace, "  ", 1, 1, "Whitespace"},
+		{"Newline", tokenNewline, "\n", 1, 12, "Newline"},
+		{"EOF", tokenEOF, "", 5, 1, "EOF"},
 	}
 
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
-			tok := Token{
+			tok := token{
 				Type:   tt.typ,
 				Raw:    []byte(tt.raw),
 				Line:   tt.line,
@@ -93,13 +93,13 @@ func TestTokenOffsets(t *testing.T) {
 		t.Errorf("tokens cover %d bytes, want %d", prevEnd, len(src))
 	}
 	last := tokens[len(tokens)-1]
-	if last.Type != TokenEOF || last.Offset != len(src) {
+	if last.Type != tokenEOF || last.Offset != len(src) {
 		t.Errorf("last token = %s at offset %d, want EOF at %d", last.Type, last.Offset, len(src))
 	}
 }
 
 func TestTokenTypeStringUnknown(t *testing.T) {
-	unknown := TokenType(999)
+	unknown := tokenType(999)
 	if got := unknown.String(); got != "Unknown" {
 		t.Errorf("String() = %q, want %q", got, "Unknown")
 	}

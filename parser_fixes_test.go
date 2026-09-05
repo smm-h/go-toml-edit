@@ -110,7 +110,7 @@ func TestLexEOFTokenPosition(t *testing.T) {
 		t.Fatalf("lex error: %v", err)
 	}
 	eof := tokens[len(tokens)-1]
-	if eof.Type != TokenEOF {
+	if eof.Type != tokenEOF {
 		t.Fatalf("last token is %s, not EOF", eof.Type)
 	}
 	if eof.Line != 2 || eof.Column != 6 {

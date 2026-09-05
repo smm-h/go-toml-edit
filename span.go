@@ -49,12 +49,12 @@ func advancePos(p Position, raw []byte) Position {
 }
 
 // tokenStart returns the start position of a token.
-func tokenStart(tok Token) Position {
+func tokenStart(tok token) Position {
 	return Position{Line: tok.Line, Column: tok.Column, Offset: tok.Offset}
 }
 
 // spanFromToken returns the span covering exactly one token.
-func spanFromToken(tok Token) Span {
+func spanFromToken(tok token) Span {
 	start := tokenStart(tok)
 	return Span{Start: start, End: advancePos(start, tok.Raw)}
 }

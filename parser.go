@@ -62,25 +62,25 @@ func parseSource(src []byte, file string) (*Document, error) {
 
 // parser is the internal recursive-descent parser.
 type parser struct {
-	tokens []Token
+	tokens []token
 	pos    int
 	src    []byte
 }
 
 // --- token helpers ---
 
-func (p *parser) peek() Token {
+func (p *parser) peek() token {
 	if p.pos < len(p.tokens) {
 		return p.tokens[p.pos]
 	}
-	return Token{Type: TokenEOF}
+	return token{Type: tokenEOF}
 }
 
-func (p *parser) peekType() TokenType {
+func (p *parser) peekType() tokenType {
 	return p.peek().Type
 }
 
-func (p *parser) advance() Token {
+func (p *parser) advance() token {
 	tok := p.peek()
 	if p.pos < len(p.tokens) {
 		p.pos++
@@ -88,7 +88,7 @@ func (p *parser) advance() Token {
 	return tok
 }
 
-func (p *parser) expect(typ TokenType) (Token, error) {
+func (p *parser) expect(typ tokenType) (token, error) {
 	tok := p.advance()
 	if tok.Type != typ {
 		return tok, p.errorfAt(tok, "expected %s, got %s", typ, tok.Type)
@@ -98,7 +98,7 @@ func (p *parser) expect(typ TokenType) (Token, error) {
 
 // errorfAt reports a parse failure at tok, carrying tok's position, the span
 // of tok itself, and the source line it sits on.
-func (p *parser) errorfAt(tok Token, format string, args ...any) *Error {
+func (p *parser) errorfAt(tok token, format string, args ...any) *Error {
 	return syntaxErrorAt(p.src, tokenStart(tok), format, args...).within(spanFromToken(tok))
 }
 
@@ -110,7 +110,7 @@ func (p *parser) errorf(format string, args ...any) *Error {
 
 // errorFrom reports err -- a failure from one of the value or string decoding
 // helpers, which know no positions -- as a parse-stage diagnostic at tok.
-func (p *parser) errorFrom(tok Token, err error) *Error {
+func (p *parser) errorFrom(tok token, err error) *Error {
 	return p.errorfAt(tok, "%s", err.Error()).wrapping(err)
 }
 
@@ -150,7 +150,7 @@ func (lt leadingTrivia) blankSpan(i int) Span {
 }
 
 // applyTo copies the parts a node keeps in its own trivia.
-func (lt leadingTrivia) applyTo(t *Trivia) {
+func (lt leadingTrivia) applyTo(t *trivia) {
 	t.LeadingWhitespace = lt.whitespace
 	t.LeadingComments = lt.comments
 	t.blankRuns = lt.blankRuns
@@ -169,7 +169,7 @@ func (p *parser) collectLeadingTrivia() leadingTrivia {
 
 	// track records the span of every consumed trivia token so orphan
 	// CommentNodes (emitted at end of input) can carry positions.
-	track := func(tok Token) {
+	track := func(tok token) {
 		sp := spanFromToken(tok)
 		if !lt.orphan.span.IsValid() {
 			lt.orphan.span.Start = sp.Start
@@ -191,13 +191,13 @@ func (p *parser) collectLeadingTrivia() leadingTrivia {
 	for {
 		tt := p.peekType()
 		switch tt {
-		case TokenWhitespace:
+		case tokenWhitespace:
 			tok := p.advance()
 			track(tok)
 			pendingWS = append(pendingWS, tok.Raw...)
 			continue
 
-		case TokenNewline:
+		case tokenNewline:
 			tok := p.advance()
 			track(tok)
 			// The pending whitespace + this newline is a blank line.
@@ -209,7 +209,7 @@ func (p *parser) collectLeadingTrivia() leadingTrivia {
 			addBlank(blank, spanFromToken(tok))
 			continue
 
-		case TokenComment:
+		case tokenComment:
 			tok := p.advance()
 			track(tok)
 			// A comment line: pendingWS is its leading whitespace
@@ -220,7 +220,7 @@ func (p *parser) collectLeadingTrivia() leadingTrivia {
 			lt.orphan.commentSpans = append(lt.orphan.commentSpans, spanFromToken(tok))
 
 			// Consume the newline after the comment if present
-			if p.peekType() == TokenNewline {
+			if p.peekType() == tokenNewline {
 				nl := p.advance()
 				track(nl)
 				commentLine = append(commentLine, nl.Raw...)
@@ -252,11 +252,11 @@ type orphanTrivia struct {
 // consumeInlineTrivia consumes optional whitespace + comment on the same line
 // after a value (before newline/EOF).
 func (p *parser) consumeInlineTrivia() (ws []byte, comment []byte) {
-	if p.peekType() == TokenWhitespace {
+	if p.peekType() == tokenWhitespace {
 		tok := p.advance()
 		ws = tok.Raw
 	}
-	if p.peekType() == TokenComment {
+	if p.peekType() == tokenComment {
 		tok := p.advance()
 		comment = tok.Raw
 	}
@@ -265,7 +265,7 @@ func (p *parser) consumeInlineTrivia() (ws []byte, comment []byte) {
 
 // consumeTrailingNewline consumes a newline or checks for EOF.
 func (p *parser) consumeTrailingNewline() []byte {
-	if p.peekType() == TokenNewline {
+	if p.peekType() == tokenNewline {
 		tok := p.advance()
 		return tok.Raw
 	}
@@ -278,23 +278,23 @@ func (p *parser) parseDocument() (*Document, error) {
 	doc := &Document{}
 	tracker := newDefinitionTracker(p.src)
 
-	for p.peekType() != TokenEOF {
+	for p.peekType() != tokenEOF {
 		lt := p.collectLeadingTrivia()
 
 		tt := p.peekType()
 		switch {
-		case tt == TokenEOF:
+		case tt == tokenEOF:
 			// Any remaining trivia becomes orphan comment nodes
 			p.emitOrphanTrivia(doc, lt)
 
-		case tt == TokenLeftBracket:
+		case tt == tokenLeftBracket:
 			tbl, err := p.parseTable(lt, tracker)
 			if err != nil {
 				return nil, err
 			}
 			buildAppend(doc, tbl)
 
-		case tt == TokenDoubleLeftBracket:
+		case tt == tokenDoubleLeftBracket:
 			atbl, err := p.parseArrayTable(lt, tracker)
 			if err != nil {
 				return nil, err
@@ -379,8 +379,8 @@ func (n *Document) addChild(c Node)       { buildAppend(n, c) }
 func (n *TableNode) addChild(c Node)      { buildAppend(n, c) }
 func (n *ArrayTableNode) addChild(c Node) { buildAppend(n, c) }
 
-func isKeyToken(tt TokenType) bool {
-	return tt == TokenBareKey || tt == TokenBasicString || tt == TokenLiteralString
+func isKeyToken(tt tokenType) bool {
+	return tt == tokenBareKey || tt == tokenBasicString || tt == tokenLiteralString
 }
 
 // --- table parsing ---
@@ -389,7 +389,7 @@ func (p *parser) parseTable(lt leadingTrivia, tracker *definitionTracker) (*Tabl
 	startPos := p.pos
 
 	// consume [
-	openTok, err := p.expect(TokenLeftBracket)
+	openTok, err := p.expect(tokenLeftBracket)
 	if err != nil {
 		return nil, err
 	}
@@ -407,7 +407,7 @@ func (p *parser) parseTable(lt leadingTrivia, tracker *definitionTracker) (*Tabl
 	p.skipWhitespace()
 
 	// consume ]
-	closeTok, err := p.expect(TokenRightBracket)
+	closeTok, err := p.expect(tokenRightBracket)
 	if err != nil {
 		return nil, err
 	}
@@ -419,7 +419,7 @@ func (p *parser) parseTable(lt leadingTrivia, tracker *definitionTracker) (*Tabl
 	inlineGap, inlineComment := p.consumeInlineTrivia()
 
 	// After the table header, only a newline or EOF is allowed
-	if tt := p.peekType(); tt != TokenNewline && tt != TokenEOF {
+	if tt := p.peekType(); tt != tokenNewline && tt != tokenEOF {
 		return nil, p.errorf("unexpected content after table header")
 	}
 
@@ -461,7 +461,7 @@ func (p *parser) parseArrayTable(lt leadingTrivia, tracker *definitionTracker) (
 	startPos := p.pos
 
 	// consume [[
-	openTok, err := p.expect(TokenDoubleLeftBracket)
+	openTok, err := p.expect(tokenDoubleLeftBracket)
 	if err != nil {
 		return nil, err
 	}
@@ -478,7 +478,7 @@ func (p *parser) parseArrayTable(lt leadingTrivia, tracker *definitionTracker) (
 	p.skipWhitespace()
 
 	// consume ]]
-	closeTok, err := p.expect(TokenDoubleRightBracket)
+	closeTok, err := p.expect(tokenDoubleRightBracket)
 	if err != nil {
 		return nil, err
 	}
@@ -488,7 +488,7 @@ func (p *parser) parseArrayTable(lt leadingTrivia, tracker *definitionTracker) (
 	inlineGap, inlineComment := p.consumeInlineTrivia()
 
 	// After the array table header, only a newline or EOF is allowed
-	if tt := p.peekType(); tt != TokenNewline && tt != TokenEOF {
+	if tt := p.peekType(); tt != tokenNewline && tt != tokenEOF {
 		return nil, p.errorf("unexpected content after array table header")
 	}
 
@@ -534,11 +534,11 @@ func (p *parser) parseTableChildren(parent childAdder, childTracker *definitionT
 
 		tt := p.peekType()
 		switch {
-		case tt == TokenEOF:
+		case tt == tokenEOF:
 			p.emitOrphanTrivia(parent, lt)
 			return nil
 
-		case tt == TokenLeftBracket || tt == TokenDoubleLeftBracket:
+		case tt == tokenLeftBracket || tt == tokenDoubleLeftBracket:
 			// End of this table's children. Restore position so the outer loop handles it.
 			p.pos = savedPos
 			return nil
@@ -573,7 +573,7 @@ func (p *parser) parseKeyValue(lt leadingTrivia, tracker *definitionTracker, par
 	p.skipWhitespace()
 
 	// Expect =
-	_, err = p.expect(TokenEquals)
+	_, err = p.expect(tokenEquals)
 	if err != nil {
 		return nil, err
 	}
@@ -652,7 +652,7 @@ func (p *parser) parseKey() (*KeyNode, Position, int, error) {
 	for {
 		// Optional whitespace before dot
 		p.skipWhitespace()
-		if p.peekType() != TokenDot {
+		if p.peekType() != tokenDot {
 			break
 		}
 		p.advance() // consume dot
@@ -677,17 +677,17 @@ func (p *parser) parseKey() (*KeyNode, Position, int, error) {
 func (p *parser) parseSimpleKey() (decoded string, raw []byte, style StringStyle, err error) {
 	tok := p.peek()
 	switch tok.Type {
-	case TokenBareKey:
+	case tokenBareKey:
 		p.advance()
 		return string(tok.Raw), tok.Raw, StringBasic, nil
-	case TokenBasicString:
+	case tokenBasicString:
 		p.advance()
 		decoded, err = decodeBasicString(tok.Raw)
 		if err != nil {
 			return "", nil, 0, p.errorFrom(tok, err)
 		}
 		return decoded, tok.Raw, StringBasic, nil
-	case TokenLiteralString:
+	case tokenLiteralString:
 		p.advance()
 		decoded = decodeLiteralString(tok.Raw)
 		return decoded, tok.Raw, StringLiteral, nil
@@ -716,7 +716,7 @@ func (p *parser) parseKeyPath(mark int) ([]string, keyFragments, []Span, Positio
 
 	for {
 		p.skipWhitespace()
-		if p.peekType() != TokenDot {
+		if p.peekType() != tokenDot {
 			break
 		}
 		p.advance() // consume dot
@@ -741,31 +741,31 @@ func (p *parser) parseKeyPath(mark int) ([]string, keyFragments, []Span, Positio
 func (p *parser) parseValue() (Node, error) {
 	tok := p.peek()
 	switch tok.Type {
-	case TokenBasicString:
+	case tokenBasicString:
 		return p.parseStringValue()
-	case TokenLiteralString:
+	case tokenLiteralString:
 		return p.parseLiteralStringValue()
-	case TokenMultiLineBasicString:
+	case tokenMultiLineBasicString:
 		return p.parseMultiLineBasicStringValue()
-	case TokenMultiLineLiteralString:
+	case tokenMultiLineLiteralString:
 		return p.parseMultiLineLiteralStringValue()
-	case TokenInteger:
+	case tokenInteger:
 		return p.parseIntegerValue()
-	case TokenFloat:
+	case tokenFloat:
 		return p.parseFloatValue()
-	case TokenBoolean:
+	case tokenBoolean:
 		return p.parseBooleanValue()
-	case TokenOffsetDateTime:
+	case tokenOffsetDateTime:
 		return p.parseDateTimeValue()
-	case TokenLocalDateTime:
+	case tokenLocalDateTime:
 		return p.parseLocalDateTimeValue()
-	case TokenLocalDate:
+	case tokenLocalDate:
 		return p.parseLocalDateValue()
-	case TokenLocalTime:
+	case tokenLocalTime:
 		return p.parseLocalTimeValue()
-	case TokenLeftBracket:
+	case tokenLeftBracket:
 		return p.parseArrayValue()
-	case TokenLeftBrace:
+	case tokenLeftBrace:
 		return p.parseInlineTableValue()
 	default:
 		return nil, p.errorf("expected value, got %s", tok.Type)
@@ -901,7 +901,7 @@ func (p *parser) parseArrayValue() (Node, error) {
 		// next element or closing bracket.
 		leadingWS, leadingComments := p.collectArrayTrivia()
 
-		if p.peekType() == TokenRightBracket {
+		if p.peekType() == tokenRightBracket {
 			// Comments collected here belong after the last element (or are the
 			// only content in an empty array). Store them as trailing comments.
 			arr.buildTrailingComments(leadingComments)
@@ -939,7 +939,7 @@ func (p *parser) parseArrayValue() (Node, error) {
 		p.skipArrayWhitespace()
 
 		switch p.peekType() {
-		case TokenComma:
+		case tokenComma:
 			p.advance() // consume comma
 			// Inline comment after the comma on the same line.
 			_, inlineComment := p.collectArrayInlineTrivia()
@@ -948,7 +948,7 @@ func (p *parser) parseArrayValue() (Node, error) {
 			}
 			continue
 
-		case TokenComment:
+		case tokenComment:
 			// Inline comment without a preceding comma (e.g., `2#,9\n,`).
 			_, inlineComment := p.collectArrayInlineTrivia()
 			if len(inlineComment) > 0 {
@@ -956,16 +956,16 @@ func (p *parser) parseArrayValue() (Node, error) {
 			}
 			// After the comment, skip whitespace/newlines and look for comma or ].
 			p.skipArrayTrivia()
-			if p.peekType() == TokenComma {
+			if p.peekType() == tokenComma {
 				p.advance()
 				continue
 			}
-			if p.peekType() == TokenRightBracket {
+			if p.peekType() == tokenRightBracket {
 				continue // will be consumed at top of loop
 			}
 			return nil, p.errorf("expected ',' or ']' in array, got %s", p.peekType())
 
-		case TokenRightBracket:
+		case tokenRightBracket:
 			continue // will be consumed at top of loop
 
 		default:
@@ -989,7 +989,7 @@ func (p *parser) parseInlineTableValue() (Node, error) {
 
 	p.skipWhitespace()
 
-	if p.peekType() == TokenRightBrace {
+	if p.peekType() == tokenRightBrace {
 		closeTok := p.advance() // consume }
 		buildGaps(tbl, [][]byte{p.rawFromTokenRange(mark, p.pos)})
 		tbl.setRaw(p.rawFromTokenRange(startPos, p.pos))
@@ -1008,7 +1008,7 @@ func (p *parser) parseInlineTableValue() (Node, error) {
 
 		p.skipWhitespace()
 
-		_, err = p.expect(TokenEquals)
+		_, err = p.expect(tokenEquals)
 		if err != nil {
 			return nil, err
 		}
@@ -1036,7 +1036,7 @@ func (p *parser) parseInlineTableValue() (Node, error) {
 
 		p.skipWhitespace()
 
-		if p.peekType() == TokenComma {
+		if p.peekType() == tokenComma {
 			p.advance()
 			continue
 		}
@@ -1046,7 +1046,7 @@ func (p *parser) parseInlineTableValue() (Node, error) {
 
 	p.skipWhitespace()
 
-	closeTok, err := p.expect(TokenRightBrace)
+	closeTok, err := p.expect(tokenRightBrace)
 	if err != nil {
 		return nil, err
 	}
@@ -1061,7 +1061,7 @@ func (p *parser) parseInlineTableValue() (Node, error) {
 // --- helpers ---
 
 func (p *parser) skipWhitespace() {
-	for p.peekType() == TokenWhitespace {
+	for p.peekType() == tokenWhitespace {
 		p.advance()
 	}
 }
@@ -1069,7 +1069,7 @@ func (p *parser) skipWhitespace() {
 func (p *parser) skipArrayTrivia() {
 	for {
 		tt := p.peekType()
-		if tt == TokenWhitespace || tt == TokenNewline || tt == TokenComment {
+		if tt == tokenWhitespace || tt == tokenNewline || tt == tokenComment {
 			p.advance()
 			continue
 		}
@@ -1082,7 +1082,7 @@ func (p *parser) skipArrayTrivia() {
 func (p *parser) skipArrayWhitespace() {
 	for {
 		tt := p.peekType()
-		if tt == TokenWhitespace || tt == TokenNewline {
+		if tt == tokenWhitespace || tt == tokenNewline {
 			p.advance()
 			continue
 		}
@@ -1099,12 +1099,12 @@ func (p *parser) collectArrayTrivia() (leadingWS []byte, leadingComments [][]byt
 	for {
 		tt := p.peekType()
 		switch tt {
-		case TokenWhitespace:
+		case tokenWhitespace:
 			tok := p.advance()
 			pendingWS = append(pendingWS, tok.Raw...)
 			continue
 
-		case TokenNewline:
+		case tokenNewline:
 			tok := p.advance()
 			// Pending whitespace + newline is just a blank line; discard
 			// the whitespace (it's not comment content).
@@ -1112,7 +1112,7 @@ func (p *parser) collectArrayTrivia() (leadingWS []byte, leadingComments [][]byt
 			pendingWS = nil
 			continue
 
-		case TokenComment:
+		case tokenComment:
 			tok := p.advance()
 			// Build a comment line: indentation + comment text
 			commentLine := make([]byte, 0, len(pendingWS)+len(tok.Raw))
@@ -1121,7 +1121,7 @@ func (p *parser) collectArrayTrivia() (leadingWS []byte, leadingComments [][]byt
 			pendingWS = nil
 
 			// Consume the newline after the comment if present.
-			if p.peekType() == TokenNewline {
+			if p.peekType() == tokenNewline {
 				nl := p.advance()
 				commentLine = append(commentLine, nl.Raw...)
 			}
@@ -1140,11 +1140,11 @@ func (p *parser) collectArrayTrivia() (leadingWS []byte, leadingComments [][]byt
 // collectArrayInlineTrivia collects optional whitespace and a comment on the
 // same line after an array element value (before a comma or newline).
 func (p *parser) collectArrayInlineTrivia() (ws []byte, comment []byte) {
-	if p.peekType() == TokenWhitespace {
+	if p.peekType() == tokenWhitespace {
 		tok := p.advance()
 		ws = tok.Raw
 	}
-	if p.peekType() == TokenComment {
+	if p.peekType() == tokenComment {
 		tok := p.advance()
 		comment = tok.Raw
 	}

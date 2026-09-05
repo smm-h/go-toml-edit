@@ -54,8 +54,8 @@ func (n NodeType) String() string {
 	return "Unknown"
 }
 
-// Trivia holds formatting and comment data attached to a node.
-type Trivia struct {
+// trivia holds formatting and comment data attached to a node.
+type trivia struct {
 	LeadingWhitespace []byte
 	LeadingComments   [][]byte // each is a full "# ...\n" line
 	InlineComment     []byte   // "# ..." after value on same line
@@ -82,7 +82,7 @@ type Trivia struct {
 }
 
 // blankRun returns the bytes of blank-line run i, or nil when there is none.
-func (t *Trivia) blankRun(i int) []byte {
+func (t *trivia) blankRun(i int) []byte {
 	if i < 0 || i >= len(t.blankRuns) {
 		return nil
 	}
@@ -129,7 +129,7 @@ type Node interface {
 	markDirty()
 	parentNode() Node
 	setParent(Node)
-	trivia() *Trivia
+	trivia() *trivia
 }
 
 // Scalar is the sub-interface of Node the value-carrying node kinds implement:
@@ -210,7 +210,7 @@ type nodeBase struct {
 	// it.
 	parent Node
 
-	nodeTrivia Trivia
+	nodeTrivia trivia
 	span       Span
 }
 
@@ -266,7 +266,7 @@ func probeDirtyRead() {
 	}
 }
 
-func (n *nodeBase) trivia() *Trivia {
+func (n *nodeBase) trivia() *trivia {
 	return &n.nodeTrivia
 }
 
