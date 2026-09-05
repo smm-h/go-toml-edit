@@ -19,7 +19,7 @@ Hybrid AST with byte ranges. Every node records its span in the original source.
 
 ### Source files
 
-:-: list-modules path="."
+Everything is one package at the repository root; `scripts/` holds one-off migration tools that are not part of the library. File names name their subject: the lexer, the parser, the read-layer fold, path resolution, the edit surface, the fragment renderer, the formatter, the decode engine and the diagnostics each have a file of their own.
 
 ### Key design decisions
 
