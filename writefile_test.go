@@ -5,6 +5,7 @@ import (
 	"io/fs"
 	"os"
 	"path/filepath"
+	"strings"
 	"testing"
 )
 
@@ -134,6 +135,12 @@ func TestWriteFile_RefusesRenderedBytesThatDoNotParse(t *testing.T) {
 	}
 	if diag.File != path {
 		t.Errorf("the diagnostic names file %q, want the destination %q", diag.File, path)
+	}
+	if diag.Path != "" {
+		t.Errorf("the diagnostic carries Path %q, but Path is a document path and this failure names no document position", diag.Path)
+	}
+	if rendered := diag.Error(); strings.Count(rendered, path) != 1 {
+		t.Errorf("the rendered diagnostic names the file %d times, want once: %q", strings.Count(rendered, path), rendered)
 	}
 	if names := dirEntries(t, dir); len(names) != 0 {
 		t.Errorf("the directory holds %v, want nothing written", names)
