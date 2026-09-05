@@ -1,5 +1,5 @@
 {
-  "version": "0.3.0",
+  "version": "0.4.0",
   "base_url": "https://go-toml-edit.smmh.dev",
   "source": [
     {
@@ -16,7 +16,7 @@
   "output": "docs/_build/",
   "versions": [
     {
-      "version": "0.3.0"
+      "version": "0.4.0"
     }
   ],
   "locales": [
