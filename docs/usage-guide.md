@@ -450,7 +450,11 @@ err := doc.MergeDefaults("", map[string]any{
 
 ### Merge
 
-Merge all values from another parsed `*Document` into the current document, using the same recursive semantics as `MergeDefaults` where only missing keys are set and existing values are never overwritten. Comments from the source document are also carried over: leading comments are appended to the target's existing comments, and inline comments fill in where the target has none.
+Merge all values from another parsed `*Document` into the current document: only missing keys are set, and existing values are never overwritten.
+
+Comments come along at the level of the line that binds a key. For a key that is new in the target, the comments written above it and the one written after it on the same line travel with it; comments written *inside* a container value do not, because a new container is written from its values, so a comment between an array's elements is dropped. For a key the target already has, the source's leading comments are appended to the target's and its inline comment fills in only where the target has none -- so merging one source twice doubles its leading comments.
+
+Merging a nested table also writes the tables above it: a source whose only content is `[deep.nest]` leaves an empty `[deep]` header in the target above it, since every intermediate table a path names is spelled as a header of its own.
 
 ```go
 base, _ := tomledit.Parse([]byte(`[server]

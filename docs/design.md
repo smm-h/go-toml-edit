@@ -131,7 +131,7 @@ Comments are preserved at three levels in the AST, ensuring that every comment i
 
 The `SetComment` and `SetLeadingComments` methods on `Document` allow programmatic modification of comments at any path. They resolve to the appropriate node (the `KeyValueNode` for key-value paths, the `TableNode` for table paths) and update its trivia. Setting comments inside inline tables is rejected because the TOML specification does not allow comments within inline tables.
 
-During `Merge`, comments from the source document are preserved: for new keys, comments are copied along with the value; for existing keys, source leading comments are appended to the target's leading comments, and source inline comments fill in only where the target has none.
+During `Merge`, what travels is the comments of the line that binds a key. For a new key, that is the comments written above it and the one written after it on the same line; comments written *inside* a container value do not travel, because a container that is new in the target is written from its values, so a comment between an array's elements is dropped. For an existing key, source leading comments are appended to the target's leading comments and source inline comments fill in only where the target has none -- which means merging one source twice doubles its leading comments.
 
 ## Round-trip guarantee
 
