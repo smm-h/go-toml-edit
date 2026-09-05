@@ -8,98 +8,6 @@
   "base_url": "https://go-toml-edit.smmh.dev",
   "pages": [
     {
-      "path": "design-record.md",
-      "title": "Design record: the strictness-and-fidelity redesign",
-      "type": "doc",
-      "headings": [
-        {
-          "level": 1,
-          "text": "Design record: the strictness-and-fidelity redesign",
-          "anchor": "design-record-the-strictness-and-fidelity-redesign"
-        },
-        {
-          "level": 2,
-          "text": "1. Identity and constraints",
-          "anchor": "1-identity-and-constraints"
-        },
-        {
-          "level": 2,
-          "text": "2. Strict decoding: one engine",
-          "anchor": "2-strict-decoding-one-engine"
-        },
-        {
-          "level": 2,
-          "text": "3. Decode error reporting",
-          "anchor": "3-decode-error-reporting"
-        },
-        {
-          "level": 2,
-          "text": "4. The unified diagnostic contract",
-          "anchor": "4-the-unified-diagnostic-contract"
-        },
-        {
-          "level": 2,
-          "text": "5. The logical read-layer",
-          "anchor": "5-the-logical-read-layer"
-        },
-        {
-          "level": 2,
-          "text": "6. The node model",
-          "anchor": "6-the-node-model"
-        },
-        {
-          "level": 2,
-          "text": "7. Fidelity and rendering",
-          "anchor": "7-fidelity-and-rendering"
-        },
-        {
-          "level": 2,
-          "text": "8. The Set-equality contract",
-          "anchor": "8-the-set-equality-contract"
-        },
-        {
-          "level": 2,
-          "text": "9. The write path",
-          "anchor": "9-the-write-path"
-        },
-        {
-          "level": 2,
-          "text": "10. Typed accessors",
-          "anchor": "10-typed-accessors"
-        },
-        {
-          "level": 2,
-          "text": "11. Public surface end-states",
-          "anchor": "11-public-surface-end-states"
-        },
-        {
-          "level": 2,
-          "text": "12. Consumer end-states and sweep constraints",
-          "anchor": "12-consumer-end-states-and-sweep-constraints"
-        },
-        {
-          "level": 2,
-          "text": "13. Release and process",
-          "anchor": "13-release-and-process"
-        },
-        {
-          "level": 2,
-          "text": "14. Deferred and rejected",
-          "anchor": "14-deferred-and-rejected"
-        },
-        {
-          "level": 2,
-          "text": "15. Settled names",
-          "anchor": "15-settled-names"
-        },
-        {
-          "level": 2,
-          "text": "16. API contracts",
-          "anchor": "16-api-contracts"
-        }
-      ]
-    },
-    {
       "path": "design.md",
       "title": "Design Guide",
       "type": "doc",
@@ -895,11 +803,6 @@
         },
         {
           "level": 3,
-          "text": "`WithTableBlankLine`",
-          "anchor": "withtableblankline"
-        },
-        {
-          "level": 3,
           "text": "`Parse`",
           "anchor": "parse"
         },
@@ -1047,6 +950,16 @@
           "level": 3,
           "text": "`Document.SetLeadingComments`",
           "anchor": "documentsetleadingcomments"
+        },
+        {
+          "level": 3,
+          "text": "`Document.GetComment`",
+          "anchor": "documentgetcomment"
+        },
+        {
+          "level": 3,
+          "text": "`Document.GetLeadingComments`",
+          "anchor": "documentgetleadingcomments"
         },
         {
           "level": 3,
@@ -2487,11 +2400,6 @@
         },
         {
           "level": 3,
-          "text": "`WithTableBlankLine`",
-          "anchor": "withtableblankline"
-        },
-        {
-          "level": 3,
           "text": "`Parse`",
           "anchor": "parse"
         },
@@ -2639,6 +2547,16 @@
           "level": 3,
           "text": "`Document.SetLeadingComments`",
           "anchor": "documentsetleadingcomments"
+        },
+        {
+          "level": 3,
+          "text": "`Document.GetComment`",
+          "anchor": "documentgetcomment"
+        },
+        {
+          "level": 3,
+          "text": "`Document.GetLeadingComments`",
+          "anchor": "documentgetleadingcomments"
         },
         {
           "level": 3,
@@ -3448,98 +3366,6 @@
       ]
     },
     {
-      "path": "plan.md",
-      "title": "Implementation plan: the strictness-and-fidelity redesign",
-      "type": "doc",
-      "headings": [
-        {
-          "level": 1,
-          "text": "Implementation plan: the strictness-and-fidelity redesign",
-          "anchor": "implementation-plan-the-strictness-and-fidelity-redesign"
-        },
-        {
-          "level": 2,
-          "text": "Phase 0 \u2014 Foundations (COMPLETE)",
-          "anchor": "phase-0-foundations-complete"
-        },
-        {
-          "level": 2,
-          "text": "Phase 1 \u2014 API-snapshot baseline",
-          "anchor": "phase-1-api-snapshot-baseline"
-        },
-        {
-          "level": 2,
-          "text": "Phase 2 \u2014 Mechanical rename pass",
-          "anchor": "phase-2-mechanical-rename-pass"
-        },
-        {
-          "level": 2,
-          "text": "Phase 3 \u2014 Diagnostic contract",
-          "anchor": "phase-3-diagnostic-contract"
-        },
-        {
-          "level": 2,
-          "text": "Phase 4 \u2014 The read-layer and path re-basing",
-          "anchor": "phase-4-the-read-layer-and-path-re-basing"
-        },
-        {
-          "level": 2,
-          "text": "Phase 5 \u2014 The decode engine and descriptor",
-          "anchor": "phase-5-the-decode-engine-and-descriptor"
-        },
-        {
-          "level": 2,
-          "text": "Phase 6 \u2014 Structural operations and the write surface",
-          "anchor": "phase-6-structural-operations-and-the-write-surface"
-        },
-        {
-          "level": 2,
-          "text": "Phase 7 \u2014 Node model",
-          "anchor": "phase-7-node-model"
-        },
-        {
-          "level": 2,
-          "text": "Phase 8 \u2014 Rendering, Set-equality, canonicalization",
-          "anchor": "phase-8-rendering-set-equality-canonicalization"
-        },
-        {
-          "level": 2,
-          "text": "Phase 9 \u2014 Formatter",
-          "anchor": "phase-9-formatter"
-        },
-        {
-          "level": 2,
-          "text": "Phase 10 \u2014 Accessors",
-          "anchor": "phase-10-accessors"
-        },
-        {
-          "level": 2,
-          "text": "Phase 11 \u2014 Ports, deletions, final sweep",
-          "anchor": "phase-11-ports-deletions-final-sweep"
-        },
-        {
-          "level": 2,
-          "text": "Phase 12 \u2014 Documentation truth",
-          "anchor": "phase-12-documentation-truth"
-        },
-        {
-          "level": 2,
-          "text": "Phase 13 \u2014 Pre-release consumer check",
-          "anchor": "phase-13-pre-release-consumer-check"
-        },
-        {
-          "level": 2,
-          "text": "Phase 14 \u2014 Release",
-          "anchor": "phase-14-release"
-        },
-        {
-          "level": 2,
-          "text": "Phase 15 \u2014 Consumer sweep (separate go; after the release)",
-          "anchor": "phase-15-consumer-sweep-separate-go-after-the-release"
-        }
-      ]
-    },
-    {
       "path": "usage-guide.md",
       "title": "Usage Guide",
       "type": "doc",
@@ -3788,6 +3614,6 @@
     }
   ],
   "posts": [],
-  "last_gen": "2026-09-05T01:40:33.486440+00:00",
+  "last_gen": "2026-09-05T10:58:20.534221+00:00",
   "theme": "minimal"
 }

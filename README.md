@@ -166,7 +166,17 @@ doc.SetLeadingComments("server", []string{
 	"Server configuration",
 	"See docs for all options",
 })
+
+inline, err := doc.GetComment("server.port")           // "default: 8080"
+leading, err := doc.GetLeadingComments("server")       // the two lines above
 ```
+
+The getters resolve a path to the same node the setters write to, so what one
+writes the other reads back, and they refuse the same paths with the same error
+kinds. Both answer normalized text -- the content without the `#` and the
+whitespace around it -- which is exactly what the setters take. A node with no
+inline comment answers the empty string, one with no leading comments answers
+`nil`, and neither is an error.
 
 ### Fluent Cursor
 
@@ -226,10 +236,12 @@ formatted := doc.Format(tomledit.WithIndentWidth(2))
 
 `Format` re-renders everything in canonical spellings. It preserves the writer's
 blank-line grouping at document and table-body level -- a run of blank lines
-becomes one. One gap it opens itself: `WithTableBlankLine` is **on by default**,
-so a plain `Format()` inserts a blank line before every table header that has
-none. Pass `WithTableBlankLine(false)` and the formatter opens no gap the writer
-did not leave.
+becomes one. One gap it opens itself, unconditionally: a table header written
+flush against what precedes it always gets a blank line above it. What the
+library preserves is content -- the comments -- while whitespace is formatting,
+and `Format` is where the library is strict about output looking good, so the
+separation is not a caller's option. The insertion never removes a blank line
+and never doubles one already there.
 
 ### Walk
 
