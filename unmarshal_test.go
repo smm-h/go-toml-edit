@@ -1,9 +1,7 @@
 package tomledit
 
 import (
-	"encoding"
 	"errors"
-	"fmt"
 	"reflect"
 	"strings"
 	"testing"
@@ -20,36 +18,6 @@ func mustParse(t *testing.T, input string) *Document {
 	}
 	return doc
 }
-
-// --- custom types for testing ---
-
-// customUnmarshaler implements Unmarshaler.
-type customUnmarshaler struct {
-	Data string
-}
-
-func (c *customUnmarshaler) UnmarshalTOML(node Node) error {
-	if node.Type() == NodeString {
-		c.Data = "custom:" + node.(*StringNode).val.get()
-		return nil
-	}
-	return fmt.Errorf("customUnmarshaler: expected string, got %s", node.Type())
-}
-
-// Verify interface compliance.
-var _ Unmarshaler = (*customUnmarshaler)(nil)
-
-// textUnmarshalerType implements encoding.TextUnmarshaler.
-type textUnmarshalerType struct {
-	Value string
-}
-
-func (t *textUnmarshalerType) UnmarshalText(text []byte) error {
-	t.Value = "text:" + string(text)
-	return nil
-}
-
-var _ encoding.TextUnmarshaler = (*textUnmarshalerType)(nil)
 
 // --- 1. Basic types ---
 
@@ -727,38 +695,6 @@ func TestUnmarshal_CaseDifferingKeyIsUnknown(t *testing.T) {
 	}
 	if cfg != nil {
 		t.Errorf("a refused decode returned %+v, want no value at all", cfg)
-	}
-}
-
-// --- 12. Custom Unmarshaler ---
-
-func TestUnmarshal_CustomUnmarshaler(t *testing.T) {
-	input := `val = "world"`
-	type Config struct {
-		Val customUnmarshaler `toml:"val"`
-	}
-	cfg, err := Unmarshal[Config]([]byte(input))
-	if err != nil {
-		t.Fatalf("Unmarshal failed: %v", err)
-	}
-	if cfg.Val.Data != "custom:world" {
-		t.Errorf("Val.Data = %q, want %q", cfg.Val.Data, "custom:world")
-	}
-}
-
-// --- 13. TextUnmarshaler ---
-
-func TestUnmarshal_TextUnmarshaler(t *testing.T) {
-	input := `val = "hello"`
-	type Config struct {
-		Val textUnmarshalerType `toml:"val"`
-	}
-	cfg, err := Unmarshal[Config]([]byte(input))
-	if err != nil {
-		t.Fatalf("Unmarshal failed: %v", err)
-	}
-	if cfg.Val.Value != "text:hello" {
-		t.Errorf("Val.Value = %q, want %q", cfg.Val.Value, "text:hello")
 	}
 }
 

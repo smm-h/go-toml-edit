@@ -1,9 +1,7 @@
 package tomledit
 
 import (
-	"encoding"
 	"errors"
-	"reflect"
 	"testing"
 	"time"
 )
@@ -304,11 +302,9 @@ type accessorFamily struct {
 	cursor func(*Cursor) (any, error)
 }
 
-// decodeSide is the decode front end for one Go target type: the read itself,
-// and the pointer type the front end would look for hooks on.
+// decodeSide is the decode front end for one Go target type.
 type decodeSide struct {
-	read   func(Node) (any, error)
-	target reflect.Type
+	read func(Node) (any, error)
 }
 
 // decodeAs builds the decode side for the target type T.
@@ -321,7 +317,6 @@ func decodeAs[T any]() decodeSide {
 			}
 			return *v, nil
 		},
-		target: reflect.TypeOf(new(T)),
 	}
 }
 
@@ -380,22 +375,15 @@ func accessorFamilies() []accessorFamily {
 	}
 }
 
-// textHookType is the hook interface the decode front end applies to a
-// string value before the conversion table sees it.
-var textHookType = reflect.TypeOf((*encoding.TextUnmarshaler)(nil)).Elem()
-
 // Fails if an accessor family stops answering what a decode target of the same
 // Go type answers, for the same document value. The comparison is the whole
 // assertion: the decode targets are already pinned to the conversion table by
 // TestConversionTable_BothConsumers, so agreeing with them is agreeing with the
 // table -- and no row of it is restated here.
 //
-// One pairing is excluded, and it is a difference between the surfaces rather
-// than between their tables: the decode front end runs a consumer hook --
-// encoding.TextUnmarshaler on a string value -- before the table is consulted,
-// and time.Time implements it. An accessor has no such hook to run: its target
-// is fixed by the method rather than declared by the caller, so a string read
-// as a time.Time is the table's answer, a type mismatch.
+// Nothing is excluded. Both surfaces read the one conversion table and no
+// target decodes itself, so every pairing agrees -- a string read as a
+// time.Time is a type mismatch on either surface.
 func TestConversionTable_AccessorFamilies(t *testing.T) {
 	for _, tc := range conversionCases() {
 		for _, family := range accessorFamilies() {
@@ -409,9 +397,6 @@ func TestConversionTable_AccessorFamilies(t *testing.T) {
 					t.Fatalf("Resolve: %v", err)
 				}
 
-				if _, isString := node.(*StringNode); isString && family.decode.target.Implements(textHookType) {
-					t.Skip("the decode front end runs the target's own text hook here; an accessor has none")
-				}
 				want, wantErr := family.decode.read(node)
 				var wantKind ErrorKind
 				if wantErr != nil {

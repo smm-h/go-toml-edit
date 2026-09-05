@@ -170,16 +170,10 @@ type Scalar interface {
 	// a local date-time or local date read as UTC, because a time.Time target
 	// declares that intent. A local time carries no date and is refused.
 	//
-	// A STRING is refused too, with KindTypeMismatch -- and this is the one
-	// place an accessor and a decode target answer differently, so it is worth
-	// stating rather than discovering. A struct field of type time.Time DOES
-	// accept an RFC 3339 string, because time.Time implements
-	// encoding.TextUnmarshaler and the decode engine runs a string's text hook
-	// before it consults the conversion table. The difference is between the
-	// surfaces, not between their tables: a decode target is declared by the
-	// caller and may bring its own decoder, while an accessor's target is fixed
-	// by the method and has no hook to run. To read a string as a time, read it
-	// with AsString and parse it.
+	// A STRING is refused too, with KindTypeMismatch, even one spelling a valid
+	// RFC 3339 timestamp. A struct field of type time.Time answers the same
+	// way: both surfaces read the one conversion table, and no target decodes
+	// itself. To read a string as a time, read it with AsString and parse it.
 	AsTime() (time.Time, error)
 
 	// AsLocalDateTime reads the node as a LocalDateTime. Only a local

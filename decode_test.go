@@ -2,7 +2,6 @@ package tomledit
 
 import (
 	"errors"
-	"fmt"
 	"reflect"
 	"strings"
 	"testing"
@@ -244,133 +243,72 @@ func TestEngine_AggregateRendersItsFirstDiagnostic(t *testing.T) {
 	}
 }
 
-// Fails if a custom decoder on a table that no single node stands for -- one
-// implied by a longer header or a dotted key -- is silently skipped instead of
-// refused. A hook that cannot run is not a hook that did nothing.
-func TestEngine_CustomDecoderNeedsANodeToDecode(t *testing.T) {
-	type Config struct {
-		Implied dualUnmarshaler `toml:"implied"`
-	}
-	doc, err := Parse([]byte("implied.inner = 1\n"))
-	if err != nil {
-		t.Fatalf("parse error: %v", err)
-	}
-	cfg, err := Decode[Config](doc)
-	if err == nil {
-		t.Fatalf("Decode ran a custom decoder with no node to hand it: %+v", cfg)
-	}
-	if !errors.Is(err, ErrWrongContainer) {
-		t.Fatalf("err = %v, want a wrong-container diagnostic", err)
-	}
+// selfDecoding declares the two method sets a decoder elsewhere would honour --
+// an UnmarshalTOML handed the node, and an UnmarshalText handed a string's
+// bytes -- and records whether either ever ran. This package's engine is the
+// only decode path, so neither may.
+type selfDecoding struct {
+	Ran   string `toml:"-"`
+	Inner int    `toml:"inner"`
 }
 
-// errConsumerRefused is a consumer's own sentinel: a caller matches it through
-// whatever the package wraps its decoder's error in, so the wrapping has to be
-// transparent to errors.Is.
-var errConsumerRefused = errors.New("the consumer's decoder refused")
-
-// refusingTOMLHook is a target whose UnmarshalTOML always fails.
-type refusingTOMLHook struct{}
-
-func (h *refusingTOMLHook) UnmarshalTOML(node Node) error {
-	return fmt.Errorf("refusing a %s node: %w", node.Type(), errConsumerRefused)
+func (s *selfDecoding) UnmarshalTOML(node Node) error {
+	s.Ran = "UnmarshalTOML"
+	return nil
 }
 
-// refusingTextHook is a target whose UnmarshalText always fails.
-type refusingTextHook struct{}
-
-func (h *refusingTextHook) UnmarshalText(text []byte) error {
-	return fmt.Errorf("refusing %q: %w", string(text), errConsumerRefused)
+func (s *selfDecoding) UnmarshalText(text []byte) error {
+	s.Ran = "UnmarshalText"
+	return nil
 }
 
-// hookDoc carries an independent violation before the hooked key and another
-// after it: a type mismatch, then the key whose target's own decoder fails,
-// then an unknown key.
-const hookDoc = `before = "not a number"
-hooked = "x"
-after = true
-`
+// Fails if a target's own UnmarshalTOML or UnmarshalText runs during a decode.
+// No consumer code runs inside the walk: a type declaring those methods is
+// decoded through the conversion table like any other, so its table shape is
+// what the document must match and a string is refused because the table
+// refuses it -- not deferred to the target's own parsing.
+func TestEngine_ATargetNeverDecodesItself(t *testing.T) {
+	t.Run("a table decodes through the table's own fields", func(t *testing.T) {
+		doc := mustParse(t, "[val]\ninner = 1\n")
+		cfg, err := Decode[struct {
+			Val selfDecoding `toml:"val"`
+		}](doc)
+		if err != nil {
+			t.Fatalf("Decode failed: %v", err)
+		}
+		if cfg.Val.Ran != "" {
+			t.Errorf("the target's own %s ran", cfg.Val.Ran)
+		}
+		if cfg.Val.Inner != 1 {
+			t.Errorf("Inner = %d, want the field the engine wrote (1)", cfg.Val.Inner)
+		}
+	})
 
-// Fails if a consumer decoder's error stops being collected like any other
-// violation: it is one diagnostic among the document's own, in document order,
-// carrying KindHookError and still matching the consumer's own sentinel -- not
-// a single error that discards everything the walk had already found.
-func TestEngine_HookErrorIsCollectedAndTheWalkContinues(t *testing.T) {
-	tests := []struct {
-		name string
-		// decode reads the document as this case's target type, which is a
-		// compile-time argument and so is spelled per case.
-		decode func(*Document) error
-	}{
-		{
-			name: "UnmarshalTOML",
-			decode: func(d *Document) error {
-				_, err := Decode[struct {
-					Before int              `toml:"before"`
-					Hooked refusingTOMLHook `toml:"hooked"`
-				}](d)
-				return err
-			},
-		},
-		{
-			name: "UnmarshalText",
-			decode: func(d *Document) error {
-				_, err := Decode[struct {
-					Before int              `toml:"before"`
-					Hooked refusingTextHook `toml:"hooked"`
-				}](d)
-				return err
-			},
-		},
-	}
+	t.Run("a string is a type mismatch, not the target's to parse", func(t *testing.T) {
+		doc := mustParse(t, "val = \"x\"\n")
+		cfg, err := Decode[struct {
+			Val selfDecoding `toml:"val"`
+		}](doc)
+		if err == nil {
+			t.Fatalf("Decode let the target parse a string itself: %+v", cfg)
+		}
+		if !errors.Is(err, ErrTypeMismatch) {
+			t.Errorf("err = %v, want a type-mismatch diagnostic", err)
+		}
+	})
 
-	for _, tt := range tests {
-		t.Run(tt.name, func(t *testing.T) {
-			doc, err := Parse([]byte(hookDoc))
-			if err != nil {
-				t.Fatalf("parse error: %v", err)
-			}
-			err = tt.decode(doc)
-			if err == nil {
-				t.Fatal("Decode accepted a document whose target's own decoder failed")
-			}
-
-			want := []struct {
-				kind ErrorKind
-				path string
-				line int
-			}{
-				{KindTypeMismatch, "before", 1},
-				{KindHookError, "hooked", 2},
-				{KindUnknownKey, "after", 3},
-			}
-			diags := diagnosticsOf(t, err)
-			if len(diags) != len(want) {
-				for _, d := range diags {
-					t.Logf("diagnostic: %s at %q (line %d): %v", d.Kind, d.Path, d.Pos.Line, d)
-				}
-				t.Fatalf("got %d diagnostics, want %d", len(diags), len(want))
-			}
-			for i, w := range want {
-				d := diags[i]
-				if d.Kind != w.kind || d.Path != w.path {
-					t.Errorf("diagnostic %d = %s at %q, want %s at %q", i, d.Kind, d.Path, w.kind, w.path)
-				}
-				if d.Pos.Line != w.line {
-					t.Errorf("diagnostic %d (%s) is at line %d, want line %d", i, d.Path, d.Pos.Line, w.line)
-				}
-			}
-			if !errors.Is(err, ErrHookError) {
-				t.Error("the aggregate does not match ErrHookError")
-			}
-			if !errors.Is(err, errConsumerRefused) {
-				t.Error("the aggregate no longer matches the consumer's own sentinel through the diagnostic")
-			}
-			if !diags[1].Span.IsValid() {
-				t.Error("the hook diagnostic carries no span")
-			}
-		})
-	}
+	t.Run("a time.Time refuses an RFC 3339 string, as the accessors do", func(t *testing.T) {
+		doc := mustParse(t, "when = \"1979-05-27T07:32:00Z\"\n")
+		cfg, err := Decode[struct {
+			When time.Time `toml:"when"`
+		}](doc)
+		if err == nil {
+			t.Fatalf("Decode read a string as a time.Time: %+v", cfg)
+		}
+		if !errors.Is(err, ErrTypeMismatch) {
+			t.Errorf("err = %v, want a type-mismatch diagnostic", err)
+		}
+	})
 }
 
 // Fails if DecodeNode stops decoding one construct at a time, or starts
@@ -882,17 +820,16 @@ func TestDecodeOver_ANilFactoryIsRefused(t *testing.T) {
 	}
 }
 
-// Fails if a value the target decodes ITSELF stops counting as one written
-// path: a hook is handed the whole construct, so the paths inside it were never
-// written on their own account.
+// Fails if a value written WHOLE stops counting as one written path: an
+// any-typed table and an array are each replaced entire, so the paths inside
+// them were never written on their own account.
 func TestDecodeOver_AValueWrittenWholeIsOnePath(t *testing.T) {
 	type Config struct {
-		Hooked dualUnmarshaler   `toml:"hooked"`
+		Ports  []int             `toml:"ports"`
 		Native any               `toml:"native"`
 		Tags   map[string]string `toml:"tags"`
 	}
-	doc := mustParse(t, `[hooked]
-inner = 1
+	doc := mustParse(t, `ports = [1, 2]
 
 [native]
 a = 1
@@ -906,9 +843,9 @@ y = "2"
 	if err != nil {
 		t.Fatalf("DecodeOver failed: %v", err)
 	}
-	// The hook and the any-typed table are one path each; the map is written
+	// The array and the any-typed table are one path each; the map is written
 	// key by key, because each key is a value of its own.
-	want := []string{"hooked", "native", "tags.x", "tags.y"}
+	want := []string{"ports", "native", "tags.x", "tags.y"}
 	if !reflect.DeepEqual(written, want) {
 		t.Errorf("written = %v, want %v", written, want)
 	}

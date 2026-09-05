@@ -753,9 +753,9 @@ written = "1979-05-27T07:32:00Z"
 	}
 	fmt.Println(stamp.Format(time.RFC3339))
 
-	// A string is not a date-time to an accessor, even one spelling a valid
-	// timestamp -- a time.Time DECODE target accepts it, through
-	// encoding.TextUnmarshaler.
+	// A string is not a date-time, even one spelling a valid timestamp. A
+	// time.Time DECODE target answers the same way: both surfaces read the one
+	// conversion table.
 	_, err = doc.GetTime("written")
 	fmt.Println(errors.Is(err, tomledit.ErrTypeMismatch))
 
@@ -763,15 +763,12 @@ written = "1979-05-27T07:32:00Z"
 		Written time.Time `toml:"written"`
 		Stamp   time.Time `toml:"stamp"`
 	}
-	cfg, err := tomledit.Decode[Config](doc)
-	if err != nil {
-		panic(err)
-	}
-	fmt.Println(cfg.Written.Format(time.RFC3339))
+	_, err = tomledit.Decode[Config](doc)
+	fmt.Println(errors.Is(err, tomledit.ErrTypeMismatch))
 	// Output:
 	// 1979-05-27T07:32:00Z
 	// true
-	// 1979-05-27T07:32:00Z
+	// true
 }
 
 func ExampleUnmarshal_intoAMap() {

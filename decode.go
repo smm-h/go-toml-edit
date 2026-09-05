@@ -1,7 +1,6 @@
 package tomledit
 
 import (
-	"encoding"
 	"fmt"
 	"reflect"
 	"sort"
@@ -28,28 +27,13 @@ import (
 // keys and elements but never descends below the construct it refused, so a
 // document reports every independent problem it has and none of the noise a
 // broken construct's interior would produce.
-
-// Unmarshaler is implemented by types that decode themselves from a node of
-// the syntax tree. UnmarshalTOML is handed the node the key binds -- a
-// StringNode, a TableNode, an ArrayNode -- before any rule of the conversion
-// table applies, so a type that implements it decides its own decoding
-// entirely.
 //
-// An error UnmarshalTOML returns is a violation like any other: it is
-// collected as one diagnostic of kind KindHookError, positioned at the
-// construct the decoder was handed, and the walk continues across that
-// construct's siblings. The diagnostic wraps the returned error, so a caller
-// still matches the implementation's own sentinels through it. An error
-// returned by an encoding.TextUnmarshaler the target implements is reported
-// the same way.
-type Unmarshaler interface {
-	UnmarshalTOML(node Node) error
-}
-
-var (
-	unmarshalerIface     = reflect.TypeOf((*Unmarshaler)(nil)).Elem()
-	textUnmarshalerIface = reflect.TypeOf((*encoding.TextUnmarshaler)(nil)).Elem()
-)
+// The engine is the ONLY decode path. No consumer code runs inside the walk:
+// there is no interface a target implements to take its own decoding over, and
+// no self-parsing of a string value, so every value a decode produces went
+// through the conversion table and every refusal is the table's own. A type
+// needing a representation the table does not carry decodes the plain value and
+// converts it itself.
 
 // noValue is the destination of a walk that only validates: an invalid
 // reflect.Value, which every write below skips.
@@ -90,10 +74,7 @@ func Unmarshal[T any](data []byte) (*T, error) {
 //
 // Decode writes to no memory the caller can observe. It allocates the value it
 // returns, and on any failure it returns (nil, err): there is no partially
-// written target, and nothing to inspect after an error. A target that decodes
-// itself through Unmarshaler or encoding.TextUnmarshaler is handed nodes during
-// the walk, so side effects that implementation has OUTSIDE the value being
-// decoded are its own and outside this guarantee.
+// written target, and nothing to inspect after an error.
 //
 // Struct fields are matched by their "toml" tag, or, with no tag, by their
 // exact field name. Matching is exact: a document key that differs only in
@@ -103,16 +84,14 @@ func Unmarshal[T any](data []byte) (*T, error) {
 // one is as unknown as any other. The only tag option the package reads is
 // "required" (`toml:"port,required"`), which makes the key's absence an error;
 // any other option is refused, because an option nothing reads is a silent
-// no-op. Embedded structs promote their fields, pointer fields are allocated
-// as they are reached, and a type implementing Unmarshaler or
-// encoding.TextUnmarshaler decodes itself.
+// no-op. Embedded structs promote their fields and pointer fields are allocated
+// as they are reached.
 //
-// A hook runs BEFORE the conversion table is consulted, which is why a field of
-// type time.Time accepts an RFC 3339 STRING as well as an offset date-time:
-// time.Time implements encoding.TextUnmarshaler. The typed accessors have no
-// hook to run, so Scalar.AsTime and Document.GetTime refuse a string with
-// KindTypeMismatch. That pairing is the one place the two surfaces answer
-// differently; see Scalar.AsTime.
+// Every value goes through the conversion table: no target decodes itself, so a
+// field of type time.Time accepts the date-time kinds the table lists for it and
+// refuses a string with KindTypeMismatch, exactly as Scalar.AsTime and
+// Document.GetTime do. To read a string as a time, decode it as a string and
+// parse it.
 //
 // Decoding is strict and strictness is the only mode: an unknown key, an
 // unknown table, a value of a refused kind, a value the target cannot hold
@@ -147,8 +126,7 @@ func Decode[T any](d *Document) (*T, error) {
 // The second result names the paths the decode wrote, in document order and in
 // the library's path syntax, so a caller can tell a value the document supplied
 // from one the seed left behind. A value written whole -- an array, an
-// any-typed table, a target that decodes itself -- is one path, not one per
-// element inside it.
+// any-typed table -- is one path, not one per element inside it.
 //
 // The rules are Decode's, including strictness and the unobservability of a
 // failure: on any failure DecodeOver returns (nil, nil, err) and the seed it
@@ -253,14 +231,6 @@ func decodeNode(n Node, dst reflect.Value) error {
 // Both front ends compile into these types, so the engine has one shape to
 // walk: a Spec compiles through spec.go, a Go type through descForType below.
 
-// hookKind names the custom decoder a target carries, if any.
-type hookKind int
-
-const (
-	hookNone hookKind = iota
-	hookTOML          // the target implements Unmarshaler
-)
-
 // containerKind names what a table descriptor writes into.
 type containerKind int
 
@@ -277,15 +247,7 @@ type desc struct {
 	elem  *desc       // the elements of an array
 	table *tableDesc  // the keys of a table
 
-	rt   reflect.Type // the Go target type; nil for a hand-built descriptor
-	hook hookKind     // the custom decoder the target carries
-
-	// text is set when the target implements encoding.TextUnmarshaler. Unlike
-	// hookTOML, which takes the target's decoding over entirely, it applies to
-	// STRING values only: everything else the target takes still reads the
-	// conversion table, which is what lets time.Time accept both a date-time
-	// and an RFC 3339 string.
-	text bool
+	rt reflect.Type // the Go target type; nil for a hand-built descriptor
 }
 
 // expects names what this target accepts, for a diagnostic.
@@ -351,8 +313,8 @@ type engine struct {
 }
 
 // wrote records that a value was written at path. A value written whole -- an
-// array, an any-typed table, a target that decodes itself -- is one path: the
-// elements inside it were replaced together, not each on their own account.
+// array, an any-typed table -- is one path: the elements inside it were
+// replaced together, not each on their own account.
 func (en *engine) wrote(path string) {
 	if en.track && en.whole == 0 {
 		en.written = append(en.written, path)
@@ -393,8 +355,7 @@ func (en *engine) slotDesc(slot *fieldSlot) (*desc, error) {
 	return d, nil
 }
 
-// decodeRecord decodes a record into a Go value, giving a custom decoder on
-// the value itself precedence over every key it holds.
+// decodeRecord decodes a record into a Go value.
 func (en *engine) decodeRecord(rec *Record, node Node, dst reflect.Value, path string) {
 	d, err := en.descForType(dst.Type())
 	if err != nil {
@@ -480,15 +441,6 @@ func (en *engine) walkEntry(e Entry, d *desc, dst reflect.Value, path string) bo
 // its descriptor.
 func (en *engine) walkTable(rec *Record, d *desc, dst reflect.Value, path string, keySpan Span) bool {
 	pos, span := diagPlace(keySpan, rec.span)
-	if d.hook == hookTOML {
-		if rec.node == nil {
-			en.add(newError(KindWrongContainer,
-				"the custom decoder for %s needs the table's own node, and this table has none: it is implied by a longer header or a dotted key",
-				d.expects()).at(pos).within(span).atPath(path))
-			return false
-		}
-		return en.hookTOML(dst, rec.node, path, pos, span)
-	}
 	if !d.class.accepts(valTable) {
 		en.mismatch(d, valTable, path, pos, span)
 		return false
@@ -504,12 +456,6 @@ func (en *engine) walkTable(rec *Record, d *desc, dst reflect.Value, path string
 // walkCollection checks an array-of-tables against its descriptor.
 func (en *engine) walkCollection(e Entry, d *desc, dst reflect.Value, path string) bool {
 	pos, span := diagPlace(e.keySpan, e.recordsSpan)
-	if d.hook == hookTOML {
-		en.add(newError(KindWrongContainer,
-			"the custom decoder for %s needs one node, and an array-of-tables is not one", d.expects()).
-			at(pos).within(span).atPath(path))
-		return false
-	}
 	if !d.class.accepts(valArrayOfTables) {
 		en.mismatch(d, valArrayOfTables, path, pos, span)
 		return false
@@ -527,19 +473,11 @@ func (en *engine) walkCollection(e Entry, d *desc, dst reflect.Value, path strin
 // diagnostic about a node that carries no source range of its own.
 func (en *engine) walkValue(n Node, d *desc, dst reflect.Value, path string, keySpan Span) bool {
 	pos, span := diagPlace(keySpan, n.Span())
-	if d.hook == hookTOML {
-		return en.hookTOML(dst, n, path, pos, span)
-	}
 	kind, ok := valueKindOf(n)
 	if !ok {
 		en.add(newError(KindTypeMismatch, "a %s node carries no value", n.Type()).
 			at(pos).within(span).atPath(path))
 		return false
-	}
-	if d.text && kind == valString {
-		// The text decoder takes the string rows; the table still governs
-		// every other value this target accepts.
-		return en.hookText(dst, n.(*StringNode).val.get(), path, pos, span)
 	}
 	if !d.class.accepts(kind) {
 		en.mismatch(d, kind, path, pos, span)
@@ -629,46 +567,6 @@ func (en *engine) setNative(dst reflect.Value, native func() (any, *Error), path
 	return true
 }
 
-// hookTOML hands a node to the target's own decoder. An error the decoder
-// returns is one violation like any other: it is collected, positioned at the
-// construct the decoder was handed, and the walk continues across the siblings
-// of that construct.
-func (en *engine) hookTOML(dst reflect.Value, n Node, path string, pos Position, span Span) bool {
-	if !dst.IsValid() {
-		return false
-	}
-	u, ok := tomlDecoderOf(dst)
-	if !ok {
-		en.fatal = fmt.Errorf("tomledit: %s implements Unmarshaler but the value at %s cannot be addressed", dst.Type(), pathLabel(path))
-		return false
-	}
-	if err := u.UnmarshalTOML(n); err != nil {
-		en.add(hookFailure(err, path, pos, span))
-		return false
-	}
-	en.wrote(path)
-	return true
-}
-
-// hookText hands a string to the target's own text decoder, collecting an
-// error it returns on hookTOML's terms.
-func (en *engine) hookText(dst reflect.Value, text string, path string, pos Position, span Span) bool {
-	if !dst.IsValid() {
-		return false
-	}
-	tu, ok := textDecoderOf(dst)
-	if !ok {
-		en.fatal = fmt.Errorf("tomledit: %s implements encoding.TextUnmarshaler but the value at %s cannot be addressed", dst.Type(), pathLabel(path))
-		return false
-	}
-	if err := tu.UnmarshalText([]byte(text)); err != nil {
-		en.add(hookFailure(err, path, pos, span))
-		return false
-	}
-	en.wrote(path)
-	return true
-}
-
 // --- diagnostics ---
 
 // unknown reports a key the descriptor does not carry. A table reports one
@@ -740,14 +638,6 @@ func recordKeyList(rec *Record) []string {
 	return keys
 }
 
-// pathLabel names a path for a message, or the document itself.
-func pathLabel(path string) string {
-	if path == "" {
-		return "the document root"
-	}
-	return path
-}
-
 // --- the reflection front end ---
 //
 // A Go type IS a descriptor: this derives the same compiled form a Spec
@@ -776,15 +666,9 @@ func (en *engine) descForType(rt reflect.Type) (*desc, error) {
 	return d, nil
 }
 
-// fillDesc derives one type's expectations: its custom decoder if it has one,
-// otherwise its row of the conversion table and whatever it contains.
+// fillDesc derives one type's expectations: its row of the conversion table and
+// whatever it contains.
 func (en *engine) fillDesc(d *desc, rt reflect.Type) error {
-	if implementsHook(rt, unmarshalerIface) {
-		d.hook = hookTOML
-		d.class = targetAny
-		return nil
-	}
-	text := implementsHook(rt, textUnmarshalerIface)
 	if rt.Kind() == reflect.Pointer {
 		// A pointer decodes as what it points to; the pointer itself is
 		// allocated when the value is written.
@@ -795,7 +679,6 @@ func (en *engine) fillDesc(d *desc, rt reflect.Type) error {
 		label := d.label
 		*d = *inner
 		d.rt, d.label = rt, label
-		d.text = d.text || text
 		return nil
 	}
 	class, ok := targetClassOf(rt)
@@ -803,7 +686,6 @@ func (en *engine) fillDesc(d *desc, rt reflect.Type) error {
 		return fmt.Errorf("tomledit: cannot decode into %s", rt)
 	}
 	d.class = class
-	d.text = text
 	switch class {
 	case targetArray:
 		elem, err := en.descForType(rt.Elem())
@@ -834,10 +716,8 @@ func (en *engine) fillDesc(d *desc, rt reflect.Type) error {
 // follows only the type constructors decoding itself follows (a pointer, the
 // element of a slice, an array or a map, and the fields a struct's mapping
 // binds), and derives a struct's key set to surface what collectFields refuses.
-//
-// A type that decodes itself through Unmarshaler ends the walk: the engine
-// hands it the node whole and maps none of its fields, so its tags are not
-// field mappings at all.
+// The walk is uniform: every struct a target can reach has its fields mapped,
+// so no type escapes the tag rules.
 //
 // The visited set is what makes a recursive type terminate; it is dropped
 // again on failure so a later derivation of the same type reports the same
@@ -856,9 +736,6 @@ func (en *engine) checkTags(rt reflect.Type) error {
 
 // walkTags is checkTags without the memoization, which its caller owns.
 func (en *engine) walkTags(rt reflect.Type) error {
-	if implementsHook(rt, unmarshalerIface) {
-		return nil
-	}
 	switch rt.Kind() {
 	case reflect.Pointer, reflect.Slice, reflect.Array, reflect.Map:
 		return en.checkTags(rt.Elem())
@@ -976,55 +853,6 @@ func parseFieldTag(tag string, rt reflect.Type, field string) (name string, requ
 }
 
 // --- reflection helpers ---
-
-// implementsHook reports whether rt, or a pointer to it, implements iface. A
-// method set declared on the pointer receiver still counts: every value the
-// engine writes into is addressable.
-func implementsHook(rt reflect.Type, iface reflect.Type) bool {
-	return rt.Implements(iface) || reflect.PointerTo(rt).Implements(iface)
-}
-
-// tomlDecoderOf returns the target's own decoder.
-func tomlDecoderOf(rv reflect.Value) (Unmarshaler, bool) {
-	if v, ok := hookValue(rv, unmarshalerIface); ok {
-		u, ok := v.(Unmarshaler)
-		return u, ok
-	}
-	return nil, false
-}
-
-// textDecoderOf returns the target's own text decoder.
-func textDecoderOf(rv reflect.Value) (encoding.TextUnmarshaler, bool) {
-	if v, ok := hookValue(rv, textUnmarshalerIface); ok {
-		tu, ok := v.(encoding.TextUnmarshaler)
-		return tu, ok
-	}
-	return nil, false
-}
-
-// hookValue returns the interface value a target's custom decoder is reached
-// through, allocating a nil pointer target on the way.
-func hookValue(rv reflect.Value, iface reflect.Type) (any, bool) {
-	if !rv.IsValid() {
-		return nil, false
-	}
-	if rv.Kind() == reflect.Pointer && rv.Type().Implements(iface) {
-		if rv.IsNil() {
-			if !rv.CanSet() {
-				return nil, false
-			}
-			rv.Set(reflect.New(rv.Type().Elem()))
-		}
-		return rv.Interface(), true
-	}
-	if rv.CanAddr() && reflect.PointerTo(rv.Type()).Implements(iface) {
-		return rv.Addr().Interface(), true
-	}
-	if rv.Type().Implements(iface) && rv.CanInterface() {
-		return rv.Interface(), true
-	}
-	return nil, false
-}
 
 // indirectValue follows pointers to the value they address, allocating the nil
 // ones on the way, so a pointer target decodes like the value it points to.

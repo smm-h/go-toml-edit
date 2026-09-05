@@ -24,7 +24,6 @@ const IntegerOctal IntegerBase = 2
 const KindBadInput ErrorKind = 9
 const KindBadPath ErrorKind = 7
 const KindConflict ErrorKind = 10
-const KindHookError ErrorKind = 12
 const KindInexact ErrorKind = 5
 const KindMissingKey ErrorKind = 3
 const KindNotFound ErrorKind = 6
@@ -64,7 +63,6 @@ const WalkLeaves WalkMode = 0
 var ErrBadInput error
 var ErrBadPath error
 var ErrConflict error
-var ErrHookError error
 var ErrInexact error
 var ErrMissingKey error
 var ErrNotFound error
@@ -482,8 +480,5 @@ type TableNode struct
 	method (*TableNode) Raw() []byte
 	method (*TableNode) Span() Span
 	method (*TableNode) Type() NodeType
-
-type Unmarshaler interface
-	method UnmarshalTOML(node Node) error
 
 type WalkMode int

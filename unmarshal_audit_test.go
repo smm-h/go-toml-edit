@@ -880,46 +880,6 @@ func TestAudit_IntegerToFloat32(t *testing.T) {
 }
 
 // ==========================================================================
-// Additional: Unmarshaler takes precedence over default
-// ==========================================================================
-
-func TestAudit_UnmarshalerPrecedenceOverTextUnmarshaler(t *testing.T) {
-	// A type that implements both Unmarshaler and TextUnmarshaler.
-	// Unmarshaler should take precedence.
-	input := `val = "hello"`
-	type Config struct {
-		Val dualUnmarshaler `toml:"val"`
-	}
-	cfg, err := Unmarshal[Config]([]byte(input))
-	if err != nil {
-		t.Fatalf("Unmarshal failed: %v", err)
-	}
-	if cfg.Val.Via != "toml" {
-		t.Errorf("expected Unmarshaler (toml) to take precedence, got Via=%q", cfg.Val.Via)
-	}
-}
-
-// dualUnmarshaler implements both Unmarshaler and encoding.TextUnmarshaler.
-type dualUnmarshaler struct {
-	Via   string
-	Value string
-}
-
-func (d *dualUnmarshaler) UnmarshalTOML(node Node) error {
-	d.Via = "toml"
-	if node.Type() == NodeString {
-		d.Value = node.(*StringNode).val.get()
-	}
-	return nil
-}
-
-func (d *dualUnmarshaler) UnmarshalText(text []byte) error {
-	d.Via = "text"
-	d.Value = string(text)
-	return nil
-}
-
-// ==========================================================================
 // Additional: local types -> time.Time conversion
 // ==========================================================================
 
