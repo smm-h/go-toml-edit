@@ -93,7 +93,7 @@ ts, err := doc.GetTime("server.started_at")      // (time.Time, error)
 
 The error distinguishes the failures a boolean cannot: `KindBadPath` for a path that does not parse, `KindNotFound` for one naming nothing, `KindWrongContainer` for a step that does not apply to what it addresses, `KindTypeMismatch` for a value of the wrong kind, and `KindInexact` for a value the target cannot hold exactly.
 
-`GetFloat` accepts an integer the target holds exactly; `GetInt` never accepts a float, however whole it is written. `GetTime` reads an offset date-time verbatim and a local date-time or local date as UTC, and refuses a string -- even one spelling a valid RFC 3339 timestamp. A `time.Time` *decode* target does accept such a string, because `time.Time` implements `encoding.TextUnmarshaler` and a decode runs a string's text hook before consulting the conversion table; the accessors have no hook to run. That pairing is the one place the two surfaces answer differently.
+`GetFloat` accepts an integer the target holds exactly; `GetInt` never accepts a float, however whole it is written. `GetTime` reads an offset date-time verbatim and a local date-time or local date as UTC, and refuses a string -- even one spelling a valid RFC 3339 timestamp. A `time.Time` *decode* target refuses one too: both surfaces read the one conversion table, and no target decodes itself. To read a string as a time, read it as a string and parse it.
 
 Path syntax:
 
@@ -595,7 +595,8 @@ Decoding is strict, and strictness is the only mode. An unknown key, an unknown 
 - A `toml:"-"` tag, and an unexported field, exclude a name from the document's universe entirely -- a document key naming one is as unknown as any other.
 - The only tag option read is `required` (`toml:"port,required"`), which makes the key's absence an error. Any other option is refused at construction, because an option nothing reads is a silent no-op.
 - A map-typed or `any`-typed target matches every key by construction, so it reports no unknown keys. That is totality, not leniency.
-- Embedded structs promote their fields, pointer fields are allocated as they are reached, and a type implementing `tomledit.Unmarshaler` or `encoding.TextUnmarshaler` decodes itself.
+- Embedded structs promote their fields and pointer fields are allocated as they are reached.
+- No target decodes itself. There is no interface a type implements to take its own decoding over, and a string value is never handed to the target to parse: the engine is the only decode path, so every value went through the conversion table and every refusal is the table's own. A type needing a representation the table does not carry decodes the plain value and converts it itself.
 
 Every independent violation is collected and reported together, in document order: validation continues across sibling keys and tables but never descends below a construct it has already refused.
 
@@ -638,7 +639,7 @@ fmt.Println(cfg.Server.Port)
 doc.Set("server.port", cfg.Server.Port+1)
 ```
 
-On any failure each of these returns a nil result. There is no partially written value and nothing to inspect after an error. (A target that decodes itself through a hook is handed nodes during the walk, so side effects that implementation has *outside* the value being decoded are its own.)
+On any failure each of these returns a nil result. There is no partially written value and nothing to inspect after an error -- and no consumer code runs during the walk, so a failed decode has no side effects anywhere.
 
 ### Overlaying a document on defaults
 
@@ -673,7 +674,7 @@ All value conversion -- the decode engine, the struct front end and every access
 
 | TOML value | Go targets accepted | Rule |
 |---|---|---|
-| string | `string`; `encoding.TextUnmarshaler` | verbatim |
+| string | `string` | verbatim |
 | integer | `int`, `int8`-`int64`, `uint`-`uint64` | range-checked; overflow and negative-into-unsigned are errors |
 | integer | `float64`, `float32` | only if exactly representable; inexact is an error |
 | float | `float64` | verbatim |
@@ -691,7 +692,7 @@ All value conversion -- the decode engine, the struct front end and every access
 
 Conversion *between* TOML types happens only when provably value-preserving; narrowing into the declared Go target's width is the caller's explicit choice, range-checked, never silent-wrapping.
 
-Custom hooks run before the table is consulted, which is why a `time.Time` field accepts an RFC 3339 string as well as an offset date-time, while `AsTime` and `GetTime` refuse one.
+The table is the whole answer: nothing runs before it, and no target decodes itself. A `time.Time` field therefore refuses an RFC 3339 string exactly as `AsTime` and `GetTime` do.
 
 ## Validating against a descriptor
 
@@ -766,7 +767,6 @@ The kinds and their sentinels:
 | `KindMissingKey` | `ErrMissingKey` | a required key the document does not carry |
 | `KindTypeMismatch` | `ErrTypeMismatch` | a value whose kind the target refuses |
 | `KindInexact` | `ErrInexact` | a value the target cannot hold exactly, including a fixed-array length mismatch |
-| `KindHookError` | `ErrHookError` | a consumer's own decoder returned an error (wrapped) |
 | `KindNotFound` | `ErrNotFound` | a path naming nothing |
 | `KindBadPath` | `ErrBadPath` | a syntactically invalid path |
 | `KindWrongContainer` | `ErrWrongContainer` | a path step, or the operation itself, is structurally inapplicable |
