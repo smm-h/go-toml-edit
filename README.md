@@ -192,10 +192,13 @@ Decoding is strict and strictness is the only mode: an unknown key, an unknown
 table, a value of a refused kind, a value the target cannot hold exactly, and a
 missing `toml:"...,required"` key are all errors. Key matching is exact -- a
 document key differing only in case matches nothing. Every independent violation
-is collected and reported together, in document order.
+is collected and reported together, in document order -- with one placement rule
+source order cannot give: a record's missing required keys are reported after
+that record's own entries, and among themselves in lexicographic key order.
 
-The entry points return the value they build, so a failed decode leaves nothing
-to inspect: `Unmarshal[T](data)`, `Decode[T](doc)`, `DecodeNode[T](node)`, and
+The entry points return the value they build -- a `*T`, pointing at memory they
+allocated -- so a failed decode leaves nothing to inspect:
+`Unmarshal[T](data)`, `Decode[T](doc)`, `DecodeNode[T](node)`, and
 `DecodeOver[T](doc, seed)` -- the last overlaying a document on a seed the
 factory builds, and reporting which paths the document supplied.
 
@@ -223,7 +226,10 @@ formatted := doc.Format(tomledit.WithIndentWidth(2))
 
 `Format` re-renders everything in canonical spellings. It preserves the writer's
 blank-line grouping at document and table-body level -- a run of blank lines
-becomes one, and where the writer left no gap it opens none.
+becomes one. One gap it opens itself: `WithTableBlankLine` is **on by default**,
+so a plain `Format()` inserts a blank line before every table header that has
+none. Pass `WithTableBlankLine(false)` and the formatter opens no gap the writer
+did not leave.
 
 ### Walk
 
