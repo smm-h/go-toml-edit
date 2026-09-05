@@ -31,11 +31,116 @@ func parseIterateTestDoc(t *testing.T) *Document {
 	return doc
 }
 
+// cursorAt walks a path with the Cursor, one segment at a time. The document
+// carries no path-based Items or Len of its own; a caller who wants to iterate
+// what a path names walks to it and asks the position, which is what this does
+// once so the tests below read as they did.
+func cursorAt(t *testing.T, doc *Document, path string) *Cursor {
+	t.Helper()
+	segments, err := ParsePath(path)
+	if err != nil {
+		t.Fatalf("parsing the path %q: %v", path, err)
+	}
+	if len(segments) == 0 {
+		t.Fatalf("the path %q names nothing to walk to", path)
+	}
+	var c *Cursor
+	for i, seg := range segments {
+		switch {
+		case seg.Kind == SegmentIndex && i == 0:
+			t.Fatalf("the path %q starts with an index; a document is not indexable", path)
+		case seg.Kind == SegmentIndex:
+			c = c.At(seg.Index)
+		case i == 0:
+			c = doc.Key(seg.Key)
+		default:
+			c = c.Key(seg.Key)
+		}
+	}
+	return c
+}
+
+// Fails if an array-of-tables stops being countable through the read-layer:
+// the entry holds the records, and how many there are is how long that slice
+// is. This is the replacement for the deleted path-based Len over a collection.
+func TestReadLayer_CollectionLength(t *testing.T) {
+	doc := parseIterateTestDoc(t)
+	entry, ok := doc.Root().Get("products")
+	if !ok {
+		t.Fatal("the root record does not carry \"products\"")
+	}
+	if entry.Kind() != EntryRecords {
+		t.Fatalf("\"products\" is a %v, want an array-of-tables", entry.Kind())
+	}
+	records, ok := entry.Records()
+	if !ok {
+		t.Fatal("the entry did not hand out its records")
+	}
+	if len(records) != 3 {
+		t.Errorf("the collection holds %d entries, want 3", len(records))
+	}
+	for i, rec := range records {
+		node, ok := rec.Node()
+		if !ok {
+			t.Fatalf("entry %d has no concrete node", i)
+		}
+		if node.Type() != NodeArrayTable {
+			t.Errorf("entry %d is a %s, want an ArrayTable", i, node.Type())
+		}
+	}
+}
+
+// Fails if a plain array stops being countable through its own node: the array
+// node hands out its elements, and how many there are is how long that slice
+// is. This is the replacement for the deleted path-based Len over an array.
+func TestReadLayer_ArrayLength(t *testing.T) {
+	doc := parseIterateTestDoc(t)
+	node, ok := doc.Lookup("tags")
+	if !ok {
+		t.Fatal("\"tags\" names no node")
+	}
+	arr, ok := node.(*ArrayNode)
+	if !ok {
+		t.Fatalf("\"tags\" is a %T, want an *ArrayNode", node)
+	}
+	if got := len(arr.Elements()); got != 3 {
+		t.Errorf("the array holds %d elements, want 3", got)
+	}
+}
+
+// Fails if the entries of a table stop being enumerable in first-appearance
+// order through the read-layer. This is the replacement for the deleted
+// path-based Items over a table.
+func TestReadLayer_EntryEnumeration(t *testing.T) {
+	doc := parseIterateTestDoc(t)
+	entry, ok := doc.Root().Get("server")
+	if !ok {
+		t.Fatal("the root record does not carry \"server\"")
+	}
+	rec, ok := entry.Record()
+	if !ok {
+		t.Fatal("\"server\" is not a table")
+	}
+	var keys []string
+	for e := range rec.Entries() {
+		keys = append(keys, e.Key())
+	}
+	want := []string{"host", "port"}
+	if len(keys) != len(want) {
+		t.Fatalf("the table enumerated %v, want %v", keys, want)
+	}
+	for i := range want {
+		if keys[i] != want[i] {
+			t.Fatalf("the table enumerated %v, want %v", keys, want)
+		}
+	}
+}
+
 // Test 1: Items("products") iterates over [[products]] entries
 func TestItems_ArrayOfTables(t *testing.T) {
 	doc := parseIterateTestDoc(t)
 	count := 0
-	for i, node := range doc.Items("products") {
+	for i, node := range cursorAt(t, doc, "products").Items() {
 		if i != count {
 			t.Errorf("expected index %d, got %d", count, i)
 		}
@@ -56,7 +161,7 @@ func TestItems_ArrayOfTables(t *testing.T) {
 func TestItems_InlineArray(t *testing.T) {
 	doc := parseIterateTestDoc(t)
 	count := 0
-	for i, node := range doc.Items("tags") {
+	for i, node := range cursorAt(t, doc, "tags").Items() {
 		if i != count {
 			t.Errorf("expected index %d, got %d", count, i)
 		}
@@ -77,7 +182,7 @@ func TestItems_InlineArray(t *testing.T) {
 func TestItems_Nonexistent(t *testing.T) {
 	doc := parseIterateTestDoc(t)
 	count := 0
-	for range doc.Items("nonexistent") {
+	for range cursorAt(t, doc, "nonexistent").Items() {
 		count++
 	}
 	if count != 0 {
@@ -89,7 +194,7 @@ func TestItems_Nonexistent(t *testing.T) {
 func TestItems_Scalar(t *testing.T) {
 	doc := parseIterateTestDoc(t)
 	count := 0
-	for range doc.Items("server.host") {
+	for range cursorAt(t, doc, "server.host").Items() {
 		count++
 	}
 	if count != 0 {
@@ -100,7 +205,7 @@ func TestItems_Scalar(t *testing.T) {
 // Test 5: Len("products") returns correct count
 func TestLen_ArrayOfTables(t *testing.T) {
 	doc := parseIterateTestDoc(t)
-	n := doc.Len("products")
+	n := cursorAt(t, doc, "products").Len()
 	if n != 3 {
 		t.Errorf("expected Len 3, got %d", n)
 	}
@@ -109,7 +214,7 @@ func TestLen_ArrayOfTables(t *testing.T) {
 // Test 6: Len("tags") returns correct count
 func TestLen_InlineArray(t *testing.T) {
 	doc := parseIterateTestDoc(t)
-	n := doc.Len("tags")
+	n := cursorAt(t, doc, "tags").Len()
 	if n != 3 {
 		t.Errorf("expected Len 3, got %d", n)
 	}
@@ -118,7 +223,7 @@ func TestLen_InlineArray(t *testing.T) {
 // Test 7: Len("nonexistent") returns -1
 func TestLen_Nonexistent(t *testing.T) {
 	doc := parseIterateTestDoc(t)
-	n := doc.Len("nonexistent")
+	n := cursorAt(t, doc, "nonexistent").Len()
 	if n != -1 {
 		t.Errorf("expected Len -1, got %d", n)
 	}
@@ -127,7 +232,7 @@ func TestLen_Nonexistent(t *testing.T) {
 // Test 8: Len("server.host") returns -1
 func TestLen_Scalar(t *testing.T) {
 	doc := parseIterateTestDoc(t)
-	n := doc.Len("server.host")
+	n := cursorAt(t, doc, "server.host").Len()
 	if n != -1 {
 		t.Errorf("expected Len -1, got %d", n)
 	}
@@ -190,7 +295,7 @@ func TestItems_NegativeIndex(t *testing.T) {
 func TestItems_CollectAll(t *testing.T) {
 	doc := parseIterateTestDoc(t)
 	var names []string
-	for _, node := range doc.Items("products") {
+	for _, node := range cursorAt(t, doc, "products").Items() {
 		at, ok := node.(*ArrayTableNode)
 		if !ok {
 			t.Fatalf("expected *ArrayTableNode, got %T", node)

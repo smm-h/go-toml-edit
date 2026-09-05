@@ -3,7 +3,7 @@ package tomledit
 import "testing"
 
 // Audit focus 1: Early break in range-over-func iterator.
-// Verifies that `break` in a `for range doc.Items(...)` loop stops iteration
+// Verifies that `break` in a `for range cursor.Items()` loop stops iteration
 // cleanly without panic or corruption.
 func TestAudit_Items_EarlyBreak(t *testing.T) {
 	input := `tags = [10, 20, 30, 40, 50]`
@@ -13,7 +13,7 @@ func TestAudit_Items_EarlyBreak(t *testing.T) {
 	}
 
 	var collected []int64
-	for _, node := range doc.Items("tags") {
+	for _, node := range cursorAt(t, doc, "tags").Items() {
 		v, ok := node.(*IntegerNode)
 		if !ok {
 			t.Fatalf("expected *IntegerNode, got %T", node)
@@ -32,7 +32,7 @@ func TestAudit_Items_EarlyBreak(t *testing.T) {
 	}
 
 	// Verify the document is still usable after early break.
-	n := doc.Len("tags")
+	n := cursorAt(t, doc, "tags").Len()
 	if n != 5 {
 		t.Errorf("after break, Len should still be 5, got %d", n)
 	}
@@ -55,7 +55,7 @@ name = "gamma"
 	}
 
 	count := 0
-	for range doc.Items("servers") {
+	for range cursorAt(t, doc, "servers").Items() {
 		count++
 		if count == 1 {
 			break
@@ -66,12 +66,12 @@ name = "gamma"
 	}
 
 	// Document still intact.
-	if doc.Len("servers") != 3 {
-		t.Errorf("expected Len=3, got %d", doc.Len("servers"))
+	if cursorAt(t, doc, "servers").Len() != 3 {
+		t.Errorf("expected Len=3, got %d", cursorAt(t, doc, "servers").Len())
 	}
 }
 
-// Audit focus 2: Items on nested arrays -- doc.Items("config.tags")
+// Audit focus 2: Items on nested arrays -- a cursor walked to "config.tags"
 // where tags is an array inside a table.
 func TestAudit_Items_NestedArrayInTable(t *testing.T) {
 	input := `[config]
@@ -83,7 +83,7 @@ tags = ["fast", "reliable", "secure"]
 	}
 
 	var vals []string
-	for i, node := range doc.Items("config.tags") {
+	for i, node := range cursorAt(t, doc, "config.tags").Items() {
 		s, ok := node.(*StringNode)
 		if !ok {
 			t.Fatalf("element %d: expected *StringNode, got %T", i, node)
@@ -101,7 +101,7 @@ tags = ["fast", "reliable", "secure"]
 		}
 	}
 
-	n := doc.Len("config.tags")
+	n := cursorAt(t, doc, "config.tags").Len()
 	if n != 3 {
 		t.Errorf("expected Len=3, got %d", n)
 	}
@@ -119,7 +119,7 @@ ports = [5432, 5433, 5434]
 	}
 
 	count := 0
-	for _, node := range doc.Items("server.database.ports") {
+	for _, node := range cursorAt(t, doc, "server.database.ports").Items() {
 		if node.Type() != NodeInteger {
 			t.Errorf("element %d: expected Integer, got %s", count, node.Type())
 		}
@@ -139,7 +139,7 @@ func TestAudit_Items_ArrayInInlineTable(t *testing.T) {
 	}
 
 	count := 0
-	for range doc.Items("config.tags") {
+	for range cursorAt(t, doc, "config.tags").Items() {
 		count++
 	}
 	if count != 3 {
@@ -157,12 +157,13 @@ func TestAudit_Items_ModifyDuringIteration_NoPanic(t *testing.T) {
 	}
 
 	// Just verify it doesn't panic when we read values during iteration.
-	for _, node := range doc.Items("values") {
+	for _, node := range cursorAt(t, doc, "values").Items() {
 		_ = node.(Scalar).Value()
 	}
 }
 
-// Verify that Cursor.Items and direct Items agree.
+// Verify that a cursor walked segment by segment and one walked by the test
+// helper agree.
 func TestAudit_Items_CursorVsDirect(t *testing.T) {
 	input := `[config]
 tags = ["a", "b", "c"]
@@ -173,7 +174,7 @@ tags = ["a", "b", "c"]
 	}
 
 	var directVals []string
-	for _, node := range doc.Items("config.tags") {
+	for _, node := range cursorAt(t, doc, "config.tags").Items() {
 		s, ok := node.(*StringNode)
 		if !ok {
 			t.Fatalf("expected *StringNode, got %T", node)

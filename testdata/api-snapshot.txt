@@ -218,10 +218,8 @@ type Document struct
 	method (*Document) GetString(path string) (string, error)
 	method (*Document) GetTime(path string) (time.Time, error)
 	method (*Document) Has(path string) bool
-	method (*Document) Items(path string) iter.Seq2[int, Node]
 	method (*Document) Key(name string) *Cursor
 	method (*Document) LeadingComments() []string
-	method (*Document) Len(path string) int
 	method (*Document) Lookup(path string) (Node, bool)
 	method (*Document) Merge(other *Document) error
 	method (*Document) NewArrayTable(path string) error

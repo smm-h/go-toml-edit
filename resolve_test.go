@@ -189,7 +189,7 @@ func TestResolve_EditPathsKeepCollectionAddressing(t *testing.T) {
 	if err := doc.Delete("coll[0]"); err != nil {
 		t.Fatalf("Delete(coll[0]): %v", err)
 	}
-	if n := doc.Len("coll"); n != 1 {
+	if n := cursorAt(t, doc, "coll").Len(); n != 1 {
 		t.Errorf("after deleting an entry the collection holds %d, want 1", n)
 	}
 	if got, err := doc.GetString("coll[0].name"); err != nil || got != "second" {
@@ -197,7 +197,7 @@ func TestResolve_EditPathsKeepCollectionAddressing(t *testing.T) {
 	}
 }
 
-// Fails if the path-level iteration surfaces stop reading a collection through
+// Fails if the Cursor's iteration surfaces stop reading a collection through
 // the layer -- they answer about entries, which the concrete-node surfaces
 // refuse to hand out as one node.
 func TestResolve_ItemsAndLenOverACollection(t *testing.T) {
@@ -205,11 +205,11 @@ func TestResolve_ItemsAndLenOverACollection(t *testing.T) {
 	if err != nil {
 		t.Fatalf("parse error: %v", err)
 	}
-	if n := doc.Len("coll"); n != 2 {
+	if n := cursorAt(t, doc, "coll").Len(); n != 2 {
 		t.Errorf("Len(coll) = %d, want 2", n)
 	}
 	var seen int
-	for i, node := range doc.Items("coll") {
+	for i, node := range cursorAt(t, doc, "coll").Items() {
 		if _, ok := node.(*ArrayTableNode); !ok {
 			t.Errorf("coll[%d] is a %T, want an *ArrayTableNode", i, node)
 		}
@@ -218,7 +218,7 @@ func TestResolve_ItemsAndLenOverACollection(t *testing.T) {
 	if seen != 2 {
 		t.Errorf("Items(coll) yielded %d entries, want 2", seen)
 	}
-	if n := doc.Len("dotted"); n != -1 {
+	if n := cursorAt(t, doc, "dotted").Len(); n != -1 {
 		t.Errorf("Len over a table = %d, want -1", n)
 	}
 }
