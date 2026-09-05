@@ -38,6 +38,10 @@ jobs:
           fi
       - run: go vet ./...
       - name: staticcheck
+        # staticcheck v0.8.1 needs go >= 1.26 to build, so the lint runs on
+        # the stable leg only; the floor leg's job is proving the library
+        # itself builds and tests on the minimum Go.
+        if: matrix.go-version == 'stable'
         run: |
           go install honnef.co/go/tools/cmd/staticcheck@v0.8.1
           staticcheck ./...
