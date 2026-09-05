@@ -29,20 +29,29 @@ a one-line comment, what change would make it fail (auditor-enforced).
 Vocabulary used throughout, defined once:
 
 - **Trivia** — the non-semantic bytes attached to a node: leading whitespace,
-  leading blank lines, leading comments, the inline comment, trailing
-  newline. Blank lines gain an explicit representation in trivia (a run
-  count preserved through re-render) as part of this wave, closing the
+  leading blank lines, leading comments, the gap between the construct and
+  its inline comment, the inline comment, trailing newline. Blank lines gain
+  an explicit representation in trivia as part of this wave, closing the
   pre-existing hole where a re-rendered node lost its blank-line separation.
+  A run of blank lines is stored as its BYTES rather than as a count, so a
+  blank line carrying whitespace of its own survives verbatim — a strict
+  superset of what a count preserves. `[%% trust-adopted for the bytes form]`
 - **Fragments** — the byte ranges a rendered construct decomposes into. For a
   key-value line: leading trivia, key bytes, separator bytes (whitespace and
-  `=`), value bytes, inline comment, trailing newline. For a table header:
+  `=`), value bytes, the gap standing between the value and its inline
+  comment, inline comment, trailing newline. For a table header:
   leading trivia, the per-part key bytes and the bracket/dot bytes around
   them, inline comment, trailing newline. For an array: open bracket,
   per-element fragments (each with its own leading/trailing trivia bytes),
   separator bytes, close bracket. For an inline table: open brace, per-pair
   fragments (key bytes, separator, value bytes), separator bytes, close
   brace. Fragment dirtiness recurses: a clean sub-fragment inside a dirty
-  container still splices its original bytes.
+  container still splices its original bytes. The value-to-inline-comment gap
+  (`inlineGap`) is a fragment of its own, not part of the comment: a line
+  re-rendering for some other reason writes the writer's spacing back
+  exactly, including none at all in `x = 1# note`, while a comment written
+  where there was none gets one space and removing a comment clears the gap,
+  so no whitespace is left pointing at nothing. `[%% trust-adopted]`
 - **Dirty** — a FRAGMENT whose original bytes are no longer valid because the
   corresponding content was mutated. The serializer re-renders dirty
   fragments and splices the original bytes of clean ones. (A node is "dirty"
@@ -209,6 +218,20 @@ Vocabulary used throughout, defined once:
   widening rows; deliberate for the fixed-array exact-length row; derived
   for the rest]`
 
+- **The one place the accessors and a decode target answer differently, and
+  why it is not a table divergence.** The table has no string-to-`time.Time`
+  row, so `AsTime` on a string node is `KindTypeMismatch`. A DECODE target of
+  type `time.Time` nonetheless accepts an RFC 3339 string, because
+  `time.Time` implements `encoding.TextUnmarshaler` and the hook precedence
+  above runs a string value's text hook BEFORE the table is consulted. The
+  difference is between the surfaces, not between their tables: a decode
+  target is declared by the caller and may bring its own decoder, while an
+  accessor's target is fixed by the method and has no hook to run. Mechanism:
+  the accessor/decode agreement test, which excludes exactly this pairing and
+  states the exclusion as this rule. The documentation-truth pass states the
+  divergence explicitly — a reader who finds `AsTime` refusing a string a
+  struct field accepts must be able to read why. `[%% trust-adopted]`
+
 - The criterion for keeping or rejecting an ecosystem convention (the
   `encoding/json` family's habits, and the existing decoder's inheritance of
   them): a convention about MECHANISM is kept — where a hook applies, what a
@@ -245,23 +268,25 @@ Vocabulary used throughout, defined once:
   past a syntax error); parse errors are not wrapped in the aggregate. The
   asymmetry is deliberate and documented. `[approved]`
 - **Failed-decode target state.** Collecting diagnostics means the engine
-  keeps walking after a violation, so a failed `Decode`/`Unmarshal` leaves
-  the caller's target PARTIALLY WRITTEN: the keys that decoded cleanly
-  before, beside, and after the errored ones are already in it. The doc
-  comments of the decode entry points say so plainly — do not use the target
-  after an error — rather than promising an all-or-nothing write the
-  collecting engine cannot deliver. This is the mechanism convention the
-  `encoding/json` family also follows, kept per the criterion in the strict-
-  decoding section. Adopted direction, resolving the same problem
-  structurally: the decode entry points become VALUE-RETURNING, so a failed
-  decode has no target to observe and the partial-write sentence is replaced
-  by an unobservability contract; the descriptor path gains
+  keeps walking after a violation, so a decode that wrote into a
+  caller-supplied target would leave it PARTIALLY WRITTEN: the keys that
+  decoded cleanly before, beside, and after the errored ones would already be
+  in it. The problem is resolved structurally rather than documented away —
+  the decode entry points are VALUE-RETURNING (shapes in the API-contracts
+  section): each allocates the value it returns, and on any failure returns a
+  nil result, so there is no caller-owned target to observe after an error
+  and the partial work is unreachable. The descriptor path is
   `DecodeSpec(spec *Spec) (map[string]any, error)`, atomic with no exception
-  clause; and the aggregate gains written-path reporting (an
-  `Errors.Written()`-style accessor naming the paths the engine did write,
-  exact shape settled at implementation) so a consumer that wants the
-  partial result gets it as data instead of as a damaged target. Scheduled
-  in the plan's accessor phase. `[%% trust-adopted]`
+  clause. Written-path reporting therefore has no failure-side object to hang
+  off: a failed decode has no observable partial result at all, so nothing
+  needs naming there, and an `Errors`-side accessor would answer about a
+  value nobody holds. It lives on the SUCCESS side instead, as the second
+  result of `DecodeOver` — the defaults-overlay form, where the caller's
+  question is which values the document supplied and which the seed left
+  behind. It names the paths the decode wrote, in document order and in the
+  library's path syntax, a value written whole counting as one path; on
+  failure it is nil like the result. Mechanism: a written-path test over a
+  fixture where the document overrides part of a seed. `[%% trust-adopted]`
 
 ## 4. The unified diagnostic contract
 
@@ -298,7 +323,13 @@ Vocabulary used throughout, defined once:
   - `KindHookError` — strict decode: a consumer hook (`UnmarshalTOML`, or
     `encoding.TextUnmarshaler` on a string value) returned an error; wraps
     that error, so `errors.Is`/`errors.As` reach the consumer's own error
-    type through the aggregate.
+    type through the aggregate. Two details of the envelope, `[%%
+    trust-adopted]`: its message is the consumer's own error text VERBATIM,
+    restating nothing — the diagnostic supplies the position, the path and
+    the kind, and a prefix of the library's own would only push the
+    consumer's sentence rightward in every rendering; and the kind renders as
+    "custom decoder error", naming whose failure it reports rather than
+    describing a mechanism the consumer never sees.
   - `KindNotFound` — access/edit: the path names nothing.
   - `KindBadPath` — path syntax error.
   - `KindWrongContainer` — access/edit: a path step, or the operation
@@ -477,8 +508,9 @@ Vocabulary used throughout, defined once:
 ## 6. The node model
 
 - The `Node` interface drops `Value()` and stays the universal handle:
-  `Type()`, `Span()`, `Raw()`, `Comment()`, `LeadingComments()` (and the
-  normalized comment getters of the write-path section). A `Scalar`
+  `Type()`, `Span()`, `Raw()`, `Comment()`, `LeadingComments()` — the last
+  two being the normalized comment getters of the write-path section, not a
+  pair beside them, so this list is the whole interface. A `Scalar`
   sub-interface embeds `Node` and carries `Value()` plus the typed
   accessors. Per-type disposition: string, integer, float, boolean, and the
   four date-time node types implement `Scalar`; document, table,
@@ -503,6 +535,16 @@ Vocabulary used throughout, defined once:
   Mechanism: the API-snapshot test plus a reflection test over all `Node`
   implementers asserting no exported fields. `[approved; the construction
   deletion and Trivia/style dispositions are derived]`
+- Encapsulation extends to what a read HANDS BACK: `Raw()` returns a copy of
+  the node's bytes and `RawParts()` a copy of the key's per-part bytes, as
+  every other slice-returning accessor does. A read accessor that returned
+  the document's own backing array would let a caller edit the document by
+  writing into what it read, outside every mutator, every dirtiness mark and
+  every generation bump — unexported fields would encapsulate nothing.
+  Mechanism: the accessor-copy test (mutate a returned slice, assert the
+  render is unchanged), plus a test per `Raw` and `RawParts` — the latter
+  copying each PART and not only the outer slice, which the accessor-copy
+  test cannot see. `[%% trust-adopted]`
 - Lexeme invalidation is structural: each scalar's payload and lexeme live
   in one unexported struct whose only mutator clears the lexeme and bumps
   the generation counter. The structure mutator is the counterpart for shape
@@ -527,7 +569,7 @@ Vocabulary used throughout, defined once:
   anything. Separator bytes, intra-header whitespace, and key bytes are
   never invalidated by value or trivia writes. `RenameKey` invalidates only
   the renamed key part's bytes — sibling parts and header brackets splice.
-  The blank-line run count in trivia survives trivia re-renders.
+  The blank-line runs in trivia survive trivia re-renders.
   Consequences, covered by the corpus battery: editing a value leaves the
   line's spacing and comment bytes identical; editing a comment leaves the
   value's spelling identical; editing one element of a container leaves
@@ -536,6 +578,28 @@ Vocabulary used throughout, defined once:
   (computed by the parser today and discarded) are wired into both header
   node types; inline-table key rendering prefers raw parts. `[approved; the
   decomposition details are derived]`
+- **What `RenameKey` renames is the BINDING**, whatever constructs spell it
+  out — which is why it works on HEADER paths and not only on key-value
+  ones. A name bound by a value is renamed in the pair that writes it; a
+  name bound by a table is renamed in every header naming that table, the
+  headers of the tables NESTED inside it included, and in every dotted pair
+  written under the name; a name bound by an array-of-tables is renamed in
+  every entry's header. Renaming one spelling and leaving the others would
+  produce a document binding two different names to one table's content.
+  The fidelity half is unchanged: each renamed key PART is the only fragment
+  invalidated, so brackets, sibling parts, interior whitespace and the
+  line's comment all splice. A refused rename changes nothing. Mechanism:
+  rename tests over each binding kind, including a nested-header fixture.
+  `[%% trust-adopted]`
+- **The construct separator is the serializer's, not a fragment's.** The
+  document and each table body write a newline at the join between two
+  constructs when the preceding one did not end in a newline. It belongs to
+  neither construct's fragments: a file ending without a final newline gives
+  its last construct none either, which is right until something is written
+  after it — and then the two would run together into a document that no
+  longer parses. Mechanism: the untouched round-trip pass over the corpus
+  (which contains such files) plus an append-after-a-newline-less-file test.
+  `[%% trust-adopted]`
 - **Canonical rendering** (what constructed and value-mutated scalars, and
   the exported renderers, produce):
   - String: basic (double-quoted) form; escapes limited to the TOML set with
@@ -561,15 +625,37 @@ Vocabulary used throughout, defined once:
   Consumer renderers implementing another project's own documented rule
   (strictcli's cross-language float, strictspec's format-neutral renderer)
   are not replacement targets. `[approved]`
+- The exported renderers are TOTAL, `QuoteString` and `QuoteKey` included:
+  every Go string has an output, and a string that is not valid UTF-8 is
+  rendered with each invalid byte as U+FFFD. Their inverse property — the
+  result parses back to the input — is scoped to valid UTF-8, and that scope
+  costs nothing, because the write paths refuse invalid UTF-8 before it ever
+  reaches a renderer (see the write-refusal ruling in the Set-equality
+  section). A renderer that refused instead would put an error return on the
+  simplest functions in the package for an input the library cannot be
+  handed. Mechanism: totality tests over invalid UTF-8, and the
+  refusal tests that keep documents away from it. `[%% trust-adopted]`
 - All TOML-valid spellings remain valid INPUT and are preserved
   byte-for-byte while untouched. Canonicalization applies only to what the
   library writes. `[deliberate]`
-- `Format()` preserves the user's blank-line grouping: runs collapse to one.
-  The table-blank-line option is insertion-only. This rework also fixes the
+- `Format()` preserves the user's blank-line grouping AT DOCUMENT AND
+  TABLE-BODY LEVEL: runs collapse to one, and where the writer left no gap
+  the formatter opens none. The scope is the whole rule — a multi-line array
+  is RESTRUCTURED wholesale (inline or multi-line from the configured line
+  width), so blank runs between its elements do not survive `Format`;
+  `Bytes` preserves them, which is the difference between the two exits.
+  Two further bounds: the output never opens with a blank line, and trailing
+  blanks collapse to the single final newline, so blank lines at either end
+  of the document are dropped. The table-blank-line option is
+  insertion-only. This rework also fixes the
   formatter's spurious blank line from skipped blank-line nodes (pinned by a
   regression test built from an edit sequence — the defect is unreachable
   from parsing alone). Mechanism: a test iterating every formatting-option
-  combination over a blank-line fixture. `[approved]`
+  combination over a blank-line fixture, plus the grouping cases at document
+  and table-body level and both document edges; the array-level bound
+  follows from wholesale array restructuring and is stated in `Format`'s doc
+  comment rather than pinned by a test of its own.
+  `[approved; the scope statement is %% trust-adopted]`
 - Whole-document canonical form (table style, key order, indentation) is out
   of scope: it belongs to a document-level canonical-form specification
   whose authorship is filed as a deliverable in the strictspec project.
@@ -602,6 +688,26 @@ Vocabulary used throughout, defined once:
 - `Set` refuses sign-bit NaN input (`KindBadInput`); the accepted NaN writes
   `nan`. Infinities need no input rule. Mechanism: input-refusal tests.
   `[deliberate]`
+- **Every write path refuses text that is not valid UTF-8**, with
+  `KindBadInput`: a string value, a string anywhere inside a container value
+  (the containers convert their elements through the same conversion, so the
+  refusal is inherited rather than restated), a map key, a `[]Pair` key, a
+  key the path itself names, a `RenameKey` target, and the keys of a
+  `NewTable`/`NewArrayTable` header. A TOML document is UTF-8: such bytes
+  would be written as replacement characters and read back as something
+  other than what the caller wrote. The rule and the exported renderers'
+  totality are one design, not two — no document can acquire mangled content
+  through the library's writes, which is exactly what lets `QuoteString` and
+  `QuoteKey` stay total instead of growing an error return. Mechanism: a
+  refusal test per write path, each asserting the document is byte-identical
+  afterwards. `[%% trust-adopted]`
+- `SetCreate` is ALL-OR-NOTHING: the value is converted, and every key the
+  path names is checked, BEFORE a single intermediate table is made, so a
+  refused write creates nothing — no headers of the path are left behind
+  standing empty. The tables exist to carry the value; a write that does not
+  happen creates nothing to carry. Mechanism: refusal tests asserting the
+  document is unchanged after a `SetCreate` with a refused value on a path
+  none of whose tables exist. `[%% trust-adopted]`
 - `Set`/`SetCreate` targeting a name bound by a concrete `[header]` table
   REFUSES with `KindWrongContainer`. Value writes touch value fragments;
   structural constructs change only via structural operations or an explicit
@@ -677,9 +783,35 @@ Vocabulary used throughout, defined once:
   and partial-application rules are derived]`
 - The comment API's public spelling is path-based (`SetComment(path, text)`,
   `SetLeadingComments(path, texts)`); per-node setters become unexported.
-  Normalized comment-text getters (content without `#` and surrounding
-  whitespace) are added to the `Node` interface; `Raw()` remains for
-  byte-exact inspection. `[approved]`
+  Normalization is a RE-PURPOSING of the getters the interface already
+  carries, not an addition beside them: `Comment()` and `LeadingComments()`
+  answer the content without the `#` and the whitespace around it, so the
+  `Node` member list stays exactly what the node-model section enumerates and
+  there is no parallel raw-comment pair. `Raw()` is the byte-exact read.
+  `[approved; the re-purposing is %% trust-adopted]`
+- The normalized getters answer in the text the path-based setters take, so
+  content read from one document and written into another is written as it
+  was read. Two inputs do not survive that round trip, both because content
+  and marker stop being separable once the marker is gone: content that
+  itself begins with `#` (`## section` reads as `# section`, and the setter
+  puts its own marker in front, giving `# # section`), and the empty comment
+  (`#` reads as `""`, which is exactly what the setters take to mean
+  removal, so writing it back removes the comment rather than restoring it).
+  A caller needing the bytes exactly reads `Raw()`. Mechanism: an audit test
+  asserting both exceptions. `[%% trust-adopted]`
+- Comment TEXT is refused when a comment cannot carry it: `SetComment` and
+  `SetLeadingComments` report `KindBadInput` for invalid UTF-8, for a
+  newline or carriage return, and for any other control character except a
+  tab — the lexer's own rules for reading a comment, mirrored at the write,
+  so a document cannot be written into a form that no longer parses back
+  into itself. Validation runs BEFORE path resolution and before the first
+  line of a multi-line block is written, so bad text on a missing path
+  reports `KindBadInput` rather than `KindNotFound`, and one refused element
+  refuses the whole call. Mechanism: a refusal test per rejected character
+  class, a whole-block refusal test, and a test that a refused write leaves
+  the comments already there untouched; the resolution ORDER itself is
+  stated in the entry points' doc comments and carries no test of its own.
+  `[%% trust-adopted]`
 - A comment write targeting a key INSIDE AN INLINE TABLE refuses with
   `KindWrongContainer`, not `KindConflict`. TOML gives an inline table no
   place to put a comment, so the container kind structurally cannot host the
@@ -697,6 +829,23 @@ Vocabulary used throughout, defined once:
   created with mode 0o644 before umask. A round-trip failure is
   `KindRoundTrip`. Kernel-level crash injection is out of scope. `[approved;
   details derived]`
+- Further `WriteFile` details, each settled by the implementation within that
+  contract: `KindRoundTrip.Offset` carries the byte at which the two
+  renderings disagree AND, when the rendered bytes do not parse at all, the
+  offset at which they stopped being TOML (with the parse error wrapped, so
+  `errors.Is` still reaches it) — one field, two ways of failing the same
+  round trip. A FILESYSTEM failure is reported as the underlying error, the
+  raw `*fs.PathError`, never wrapped into an `*Error`: nothing about the
+  document is wrong, so there is nothing to diagnose about it — the same
+  stance `ParseFile` takes when a file cannot be read. `WriteFile` does NOT
+  rebind the document's remembered filename — the document remembers where
+  it was READ from, and writing a copy elsewhere would otherwise re-point
+  every later diagnostic at a file the document did not come from; the
+  destination reaches the round-trip diagnostic directly instead. Mode: an
+  existing destination keeps its own mode, applied outright with a chmod
+  because the create that made the temp file applied the umask, while a new
+  file is created 0o644 and takes the umask as an ordinary create would.
+  `[%% trust-adopted]`
 
 ## 10. Typed accessors
 
@@ -726,6 +875,43 @@ Vocabulary used throughout, defined once:
   compare equal (an inline array of inline tables equals an
   array-of-tables). The current implementation already exhibits both, so the
   Diff work is verification-and-pinning. `[approved]`
+- **Diff equality, completed.** The governing property is that A DOCUMENT
+  ALWAYS COMPARES EQUAL TO ITSELF, and two comparisons follow from it rather
+  than from IEEE or from `reflect.DeepEqual`: two not-a-numbers compare
+  equal (IEEE inequality would make every document carrying a `nan` differ
+  from itself), and two offset date-times naming one instant compare equal
+  whatever zone offsets they were written in (the instant is the value; the
+  offset is spelling). The counterweight is that two values of different Go
+  types are never equal, which is what keeps an integer and a float apart —
+  the same one rule stated as int≠float above. Mechanism: the Diff pinning
+  suite, including a self-comparison over documents carrying `nan` and
+  offset date-times. `[%% trust-adopted]`
+- **Merge semantics**, as ruled by the implementation within the "re-based on
+  the layer" heading, `[%% trust-adopted]`:
+  - Merge is LAYER-BASED on both sides: what merges is what the source
+    MEANS, not how it is written, and a key the target spells with a longer
+    header counts as present just as much as one with a header of its own.
+  - The TARGET WINS for every key it already carries; array-of-tables are
+    atomic (anything already at the path keeps what it has, entries and
+    all).
+  - A table NEW in the target and written inline arrives as one construct,
+    through the ordered `[]Pair` form, so the source's key order survives —
+    a map would have been alphabetized by the write path. A dotted key
+    inside such a table folds into nested pairs, which is a change of
+    spelling with identical meaning, since that is what the key already
+    named.
+  - Only the BINDING LINE's comments travel to a new key: the comments above
+    it and the one after it on the same line. Comments written INSIDE a
+    container value do not, because a new container is written from its
+    values. A table merged key by key keeps each key's own comments, every
+    one of them being a binding line.
+  - Merging one source TWICE doubles its leading comments: the second merge
+    finds every key present, and the existing-key rule appends.
+  - A source whose only content is `[deep.nest]` leaves an EMPTY `[deep]`
+    header in the target above it — Merge writes through `SetCreate`, which
+    spells every intermediate table the path names as a header of its own.
+  Each is stated in `Merge`'s doc comment as contract rather than accident,
+  and pinned by the merge suites.
 - Deleted: `Get`; the path-based `Items`/`Len` on the document (entry
   enumeration via `Record.Entries`, array-of-tables length via the entry's
   records, plain array length via the array node's elements accessor; the
@@ -905,7 +1091,10 @@ and freely revisable within their stated shapes.
 Shapes are stated as Go declarations (English paraphrase does not
 type-check); signatures are binding in shape, parameter names free, held by
 the API-snapshot test. The structural-operation signatures are provisional
-until the pgdesign acceptance test of the write-path section passes.
+until the pgdesign acceptance test of the write-path section passes. The
+value-returning shape of the decode entry points, `DecodeOver` and its
+written-path result among them, is `[%% trust-adopted]`, ruled in the
+decode-error-reporting section.
 
 ```go
 // Diagnostics. All diagnostics are *Error; Error/Is/Unwrap use pointer
@@ -981,19 +1170,26 @@ type Field struct {
 }
 func FieldAny() Field // the explicit any-value spelling
 // (d *Document) Validate(*Spec) error          — engine only
-// (d *Document) Decode(v any) error            — struct front end
-// func Unmarshal(data []byte, v any) error     — parse + struct front end
-// func DecodeNode(n Node, v any) error         — node-level decode; accepts
+//
+// The decode entry points RETURN the value they build: each allocates its own
+// result and answers (nil, err) on failure, so there is no caller-owned target
+// to observe after an error (decode-error-reporting section). Go has no
+// parameterized methods, so the document- and node-level forms are package
+// functions taking the document or the node as their first argument.
+// func Unmarshal[T any](data []byte) (*T, error)  — parse + struct front end
+// func Decode[T any](d *Document) (*T, error)     — struct front end
+// func DecodeNode[T any](n Node) (*T, error)      — node-level decode; accepts
 //   container nodes (tables, array-tables, inline tables, arrays) and,
 //   for scalar targets, scalar nodes
+// func DecodeOver[T any](d *Document, seed func() T) (*T, []string, error)
+//   — the defaults-overlay form: the FACTORY builds the seed (so what the
+//   decode fills is never memory the caller still holds), the document
+//   overlays it, and the second result names the paths the decode wrote, in
+//   document order and in the library's path syntax, a value written whole
+//   counting as one path; nil on failure
 // (d *Document) DecodeSpec(spec *Spec) (map[string]any, error) — the
 //   descriptor path's value-returning form; atomic, no partial result on
 //   error (decode-error-reporting section)
-// The three pointer-target entry points above are scheduled to become
-// value-returning generic forms, with a seed-factory form for the
-// defaults-overlay pattern and written-path reporting on the aggregate;
-// spellings are settled at implementation against the decode-error-
-// reporting section, and the snapshot moves with them.
 
 // Structural operations (concrete containers; logical-only paths refuse).
 // (d *Document) PermuteChildren(path string, order []int) error

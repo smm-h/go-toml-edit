@@ -163,9 +163,10 @@ unexporting with the accessor block (returned slices are copies, tested),
 the scalar payload+lexeme struct and the structure mutator as the only
 write paths (source-walk tests), dirtiness propagation via parent
 references (constant-time check, counter-asserted), fragment state per the
-vocabulary (including blank-line run counts in trivia), the comment-API
-respelling (path-based public setters; node-level unexported; normalized
-getters on `Node`), deletion of the pre-built-Node input branch, and the
+vocabulary (including blank-line runs, held as bytes, in trivia), the
+comment-API respelling (path-based public setters; node-level unexported;
+`Comment()`/`LeadingComments()` re-purposed as the normalized getters),
+deletion of the pre-built-Node input branch, and the
 read-layer caching switch (synchronized, generation-keyed; `Parse` alone
 builds nothing, test-asserted; the concurrent-reads race test unchanged
 and green). Once parent references exist, `DecodeNode` diagnostics gain
@@ -220,13 +221,14 @@ its two siblings — exact spellings settled at implementation against the
 record, which holds the shape, not the letter), so a failed decode leaves no
 caller-owned target to observe. Because Go has no parameterized methods, the
 document- and node-level forms become PACKAGE FUNCTIONS taking the document
-or node as their first argument. A seed-factory form (the caller supplies a
-prepared value the decode overlays) covers the defaults-overlay pattern the
-value-returning form otherwise loses. `DecodeSpec` is added on the
-descriptor path — atomic, no partial map on error. The aggregate gains
-written-path reporting (an `Errors.Written()`-style accessor, exact shape
-settled at implementation) so a consumer wanting the partial result reads it
-as data. The doc comments' partial-write sentence ("do not use the target
+or node as their first argument. A seed-factory form (`DecodeOver`: the
+caller supplies a factory building the value the decode overlays) covers the
+defaults-overlay pattern the value-returning form otherwise loses.
+`DecodeSpec` is added on the descriptor path — atomic, no partial map on
+error. Written-path reporting has no failure side to report from once a
+failed decode is unobservable, so it is `DecodeOver`'s second result: the
+paths the decode wrote, in document order, nil on failure. The doc comments'
+partial-write sentence ("do not use the target
 after an error") is REPLACED by the unobservability contract, and the
 consumer break list of Phase 13 grows by every decode call site.
 Verify: per-stage kind tests; the scripted `(T, bool)`-to-`(T, error)`
@@ -234,8 +236,8 @@ call-site sweep (dry run, counts, reviewed diff); WriteFile invariant
 tests incl. injected failures; the reshaped entry points covered by the
 existing decode suites (values asserted, not just error-ness), a
 seed-factory test, a `DecodeSpec` atomicity test (an errored decode returns
-no map), and a written-path test over a fixture with a mid-document
-violation; snapshot regenerated; full suite green.
+no map), and a written-path test over a fixture where the document overrides
+part of a seed; snapshot regenerated; full suite green.
 
 ## Phase 11 — Ports, deletions, final sweep
 
