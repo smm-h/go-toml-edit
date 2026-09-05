@@ -314,9 +314,13 @@ func (n *nodeBase) setComment(comment string) {
 
 // LeadingComments returns the text of each comment line written above the node,
 // in order, each without its "#", its trailing newline and the whitespace
-// around them. Raw carries the bytes as written, for a caller that needs them
-// exactly.
+// around them. A node with no leading comments answers nil, the same spelling
+// the path-based GetLeadingComments uses. Raw carries the bytes as written,
+// for a caller that needs them exactly.
 func (n *nodeBase) LeadingComments() []string {
+	if len(n.nodeTrivia.LeadingComments) == 0 {
+		return nil
+	}
 	result := make([]string, len(n.nodeTrivia.LeadingComments))
 	for i, c := range n.nodeTrivia.LeadingComments {
 		result[i] = normalizeCommentText(c)
