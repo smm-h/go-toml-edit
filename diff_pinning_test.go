@@ -122,6 +122,30 @@ func TestDiffPin_StructuralSpellingsAreNotDifferences(t *testing.T) {
 	}
 }
 
+// Fails if Diff stops calling two not-a-numbers equal ACROSS documents. The
+// self-equality pin below reaches only a value compared with itself; TOML
+// spells a not-a-number three ways, and none of the three names a value that
+// differs from another, so no pair of them is a modification in either
+// direction.
+func TestDiffPin_NaNSpellingsCompareEqualAcrossDocuments(t *testing.T) {
+	cases := []struct {
+		name string
+		a, b string
+	}{
+		{"nan against -nan", "x = nan\n", "x = -nan\n"},
+		{"-nan against nan", "x = -nan\n", "x = nan\n"},
+		{"nan against +nan", "x = nan\n", "x = +nan\n"},
+		{"+nan against -nan", "x = +nan\n", "x = -nan\n"},
+	}
+	for _, tc := range cases {
+		t.Run(tc.name, func(t *testing.T) {
+			if changes := diffDocs(t, tc.a, tc.b); len(changes) != 0 {
+				t.Fatalf("Diff reported %v, want no differences", changes)
+			}
+		})
+	}
+}
+
 // Fails if a document stops comparing equal to itself -- the property every
 // other pin rests on, and the one a value comparison that refuses to call a
 // value equal to itself (a not-a-number, for instance) breaks first.
