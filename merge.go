@@ -165,6 +165,10 @@ func (d *Document) probe(path string) (layerPos, bool) {
 }
 
 // nodeToValue converts an AST node back to a Go value suitable for SetCreate.
+//
+// An inline table becomes the ordered []Pair form, not a map: the write path
+// renders a map with its keys sorted, which would alphabetize a table the
+// source wrote in its own order.
 func nodeToValue(n Node) any {
 	switch v := n.(type) {
 	case *StringNode:
@@ -190,17 +194,52 @@ func nodeToValue(n Node) any {
 		}
 		return items
 	case *InlineTableNode:
-		m := make(map[string]any)
-		for _, child := range v.children {
-			if kv, ok := child.(*KeyValueNode); ok {
-				key := buildPathFromParts("", kv.key.parts)
-				m[key] = nodeToValue(kv.val)
-			}
-		}
-		return m
+		return inlineTableToPairs(v)
 	default:
 		return nil
 	}
+}
+
+// inlineTableToPairs converts an inline table to the ordered []Pair form, in
+// the order its keys were written. A dotted key inside the table names a
+// nested table, so it folds under its first part into a nested []Pair, which
+// is what the read-layer reads it as.
+func inlineTableToPairs(t *InlineTableNode) []Pair {
+	pairs := make([]Pair, 0, len(t.children))
+	for _, child := range t.children {
+		kv, ok := child.(*KeyValueNode)
+		if !ok {
+			continue
+		}
+		pairs = insertOrderedPair(pairs, kv.key.parts, nodeToValue(kv.val))
+	}
+	return pairs
+}
+
+// insertOrderedPair binds a value under a dotted key inside an ordered pair
+// list, descending into the nested list each leading part names and creating
+// one where the part is new. A leading part already bound to something that is
+// not a nested table cannot come from a document that parsed; the binding is
+// appended anyway, so the write path refuses the duplicate key rather than
+// dropping a value in silence.
+func insertOrderedPair(pairs []Pair, parts []string, val any) []Pair {
+	if len(parts) == 0 {
+		return pairs
+	}
+	if len(parts) == 1 {
+		return append(pairs, Pair{Key: parts[0], Value: val})
+	}
+	for i := range pairs {
+		if pairs[i].Key != parts[0] {
+			continue
+		}
+		if nested, ok := pairs[i].Value.([]Pair); ok {
+			pairs[i].Value = insertOrderedPair(nested, parts[1:], val)
+			return pairs
+		}
+		break
+	}
+	return append(pairs, Pair{Key: parts[0], Value: insertOrderedPair(nil, parts[1:], val)})
 }
 
 // copyComments copies the leading and inline comments of a source construct to

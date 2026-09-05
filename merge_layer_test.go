@@ -115,6 +115,72 @@ func TestMergeLayer_SourceSpellingDoesNotChangeWhatMerges(t *testing.T) {
 	}
 }
 
+// Fails if an inline table that is new in the target arrives with its keys
+// reordered: an inline table merges as one construct, and the order the source
+// wrote its keys in comes along with it, at every depth and inside an array.
+func TestMergeLayer_NewInlineTableKeepsSourceKeyOrder(t *testing.T) {
+	cases := []struct {
+		name   string
+		source string
+		want   string
+	}{
+		{
+			"flat",
+			"t = {z = 1, a = 2, m = 3}\n",
+			"name = \"app\"\nt = {z = 1, a = 2, m = 3}\n",
+		},
+		{
+			"nested",
+			"t = {z = 1, inner = {q = 1, b = 2}, a = 3}\n",
+			"name = \"app\"\nt = {z = 1, inner = {q = 1, b = 2}, a = 3}\n",
+		},
+		{
+			"inside an array",
+			"t = [{z = 1, a = 2}, {y = 3, b = 4}]\n",
+			"name = \"app\"\nt = [{z = 1, a = 2}, {y = 3, b = 4}]\n",
+		},
+	}
+	for _, tc := range cases {
+		t.Run(tc.name, func(t *testing.T) {
+			target := mergeInto(t, "name = \"app\"\n", tc.source)
+			if got := string(target.Bytes()); got != tc.want {
+				t.Errorf("merged document is\n%s\nwant\n%s", got, tc.want)
+			}
+		})
+	}
+}
+
+// Fails if a dotted key inside a merged inline table stops naming the table it
+// names: {a.b = 1} binds b inside a, and a merge that turned it into a single
+// key spelled "a.b" would say something the source never said.
+func TestMergeLayer_NewInlineTableKeepsDottedKeyMeaning(t *testing.T) {
+	target := mergeInto(t, "name = \"app\"\n", "t = {a.b = 1, z = 2, a.c = 3}\n")
+
+	for path, want := range map[string]int64{"t.a.b": 1, "t.z": 2, "t.a.c": 3} {
+		got, err := target.GetInt(path)
+		if err != nil || got != want {
+			t.Errorf("%s = %d (%v), want %d", path, got, err, want)
+		}
+	}
+	if _, err := Parse(target.Bytes()); err != nil {
+		t.Fatalf("the merged document does not re-parse: %v\n%s", err, target.Bytes())
+	}
+}
+
+// Fails if a quoted key inside a merged inline table arrives with its quotes
+// baked into the key text: the key "x.y" is one key whose text has a dot in
+// it, not a key whose text has quotation marks in it.
+func TestMergeLayer_NewInlineTableKeepsQuotedKeyText(t *testing.T) {
+	target := mergeInto(t, "name = \"app\"\n", "t = {\"x.y\" = 1}\n")
+
+	if got, err := target.GetInt("t.\"x.y\""); err != nil || got != 1 {
+		t.Errorf("t.\"x.y\" = %d (%v), want 1\n%s", got, err, target.Bytes())
+	}
+	if _, err := Parse(target.Bytes()); err != nil {
+		t.Fatalf("the merged document does not re-parse: %v\n%s", err, target.Bytes())
+	}
+}
+
 // Fails if a sub-table under an array-of-tables entry stops folding into the
 // entry it was written under: the fold addresses the LAST entry, and a merge
 // that walked the raw children by key-path prefix could put it under any.
