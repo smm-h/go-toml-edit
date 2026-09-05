@@ -13,6 +13,10 @@ write it back, the comments are gone. Python has
 go-toml-edit fills this gap with a lossless AST that preserves every comment,
 blank line, and formatting detail through arbitrary edits.
 
+What it preserves is content — comments, values, structure. Whitespace is
+formatting, not content: this library also reformats TOML, and `Format()` is
+strict about how output looks.
+
 ## Before / After
 
 ```go

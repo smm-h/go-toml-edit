@@ -22,6 +22,13 @@ Everything is one package at the repository root; `scripts/` holds one-off migra
 
 ### Key design decisions
 
+- What the library preserves is CONTENT — comments, values, structure.
+  Whitespace is formatting, not content: this library reformats TOML, and
+  `Format()` is strict about how output looks (its table separation is not
+  an option)
+- An API or behavioral asymmetry must name what it protects, or it falls
+  (write-side conservatism protects documents from destruction; read-side
+  withholding protects nothing and is not done)
 - Single package: everything is in `tomledit`, no internal/ subpackages
 - Two read surfaces: the AST answers syntactic questions (what the file contains and how it is written), the read-layer answers logical ones (what the document means). The read-layer is a post-parse fold, built lazily, cached under a generation counter, and invalidated whole by any write
 - Path syntax supports: `server.host`, `array[0]`, `array[-1]`, `"key.with.dots"`; `ParsePath`/`JoinPath` are the exported helpers and `JoinPath` is the single quoting authority for path text
