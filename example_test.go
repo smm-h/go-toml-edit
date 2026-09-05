@@ -744,3 +744,20 @@ written = "1979-05-27T07:32:00Z"
 	// true
 	// 1979-05-27T07:32:00Z
 }
+
+func ExampleUnmarshal_intoAMap() {
+	m, err := tomledit.Unmarshal[map[string]any]([]byte(`title = "My App"
+
+[server]
+port = 443
+`))
+	if err != nil {
+		panic(err)
+	}
+	// The result is a pointer to the value Unmarshal built.
+	fmt.Println((*m)["title"])
+	fmt.Println((*m)["server"].(map[string]any)["port"])
+	// Output:
+	// My App
+	// 443
+}

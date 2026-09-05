@@ -616,11 +616,17 @@ The seed is a factory rather than a value so that what the decode fills is an al
 
 ### Decoding into maps
 
-Decode into `map[string]any` for schema-free access. Nested tables become nested maps, and arrays become slices.
+Decode into `map[string]any` for schema-free access. Nested tables become nested maps, and arrays become slices. As with every type argument, the result is a pointer to the value the decode built:
 
 ```go
 m, err := tomledit.Unmarshal[map[string]any](data)
+if err != nil {
+    log.Fatal(err)
+}
+fmt.Println((*m)["title"])
 ```
+
+A map target matches every key by construction, so it reports no unknown keys.
 
 ### The conversion table
 
