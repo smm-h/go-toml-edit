@@ -515,15 +515,14 @@ A round-trip failure is an `*Error` of kind `KindRoundTrip` whose `Offset` names
 
 ```go
 output := doc.Format(
-    tomledit.WithIndentWidth(2),        // indent values under tables; default 0
-    tomledit.WithLineWidth(100),        // line width before arrays wrap; default 80
-    tomledit.WithTableBlankLine(false), // blank line before tables; default TRUE
+    tomledit.WithIndentWidth(2), // indent values under tables; default 0
+    tomledit.WithLineWidth(100), // line width before arrays wrap; default 80
 )
 ```
 
 The writer's blank-line grouping survives at document and table-body level: a run of blank lines becomes exactly one. The output never begins with a blank line and always ends with exactly one newline, so blank lines at either end of the document are dropped.
 
-The one gap the formatter opens itself is the table-blank-line option, and it is **on by default**: a plain `doc.Format()` inserts a blank line before every table header that has none. Pass `WithTableBlankLine(false)` to stop it, and then the formatter opens no gap the writer did not leave. The option is insertion-only either way -- it never removes a blank line, and never doubles one already there.
+The one gap the formatter opens itself is before a `[table]` or `[[array-table]]` header written flush against what precedes it: `Format` always inserts the missing blank line, and there is no option to stop it. What this library preserves is content -- the comments -- while whitespace is formatting, and `Format` is where the library is strict about output looking good. The insertion adds only: it never removes a blank line, and never doubles one already there.
 
 Arrays are restructured wholesale (inline or multi-line from the configured line width), so blank lines *between array elements* do not survive `Format`. `Bytes` preserves them; that difference is the distance between the two exits.
 

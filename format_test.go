@@ -191,14 +191,11 @@ func TestFormatMultipleBlankLinesCollapsed(t *testing.T) {
 	if err != nil {
 		t.Fatalf("Parse error: %v", err)
 	}
+	// The run collapses to one blank line rather than vanishing, and the
+	// table separation the formatter always inserts does not double it.
 	const want = "[a]\nx = 1\n\n[b]\ny = 2\n"
 	if got := string(doc.Format()); got != want {
 		t.Errorf("Format() = %q, want %q", got, want)
-	}
-	// The option is not what puts the blank line there: with it off the run
-	// still collapses to one rather than vanishing.
-	if got := string(doc.Format(WithTableBlankLine(false))); got != want {
-		t.Errorf("Format(WithTableBlankLine(false)) = %q, want %q", got, want)
 	}
 }
 
@@ -271,31 +268,34 @@ func TestFormatWithLineWidth(t *testing.T) {
 	}
 }
 
-// The option is insertion-only: turning it off stops the formatter from adding
-// a blank line where the writer left none, and does nothing to the blank lines
-// the document already carries.
+// The table separation is unconditional and insertion-only: a table written
+// flush against what precedes it always gets its blank line, and a blank line
+// the document already carries is left standing rather than doubled.
 //
-// Fails if the option ever starts removing blank lines, or stops inserting one
-// before a table written flush against what precedes it.
-func TestFormatWithTableBlankLineFalse(t *testing.T) {
-	// No blank line written: with the option off none is inserted.
+// Fails if the formatter ever stops inserting the separation, or starts
+// removing or doubling the blank lines the document already carries.
+func TestFormatTableBlankLineIsUnconditional(t *testing.T) {
+	// No blank line written: one is inserted.
 	doc, err := Parse([]byte("a = 1\n[server]\nhost = \"localhost\"\n"))
 	if err != nil {
 		t.Fatalf("Parse error: %v", err)
 	}
-	got := string(doc.Format(WithTableBlankLine(false)))
-	if strings.Contains(got, "\n\n") {
-		t.Errorf("with TableBlankLine=false, expected no blank line to be inserted, got:\n%s", got)
+	got := string(doc.Format())
+	if !strings.Contains(got, "a = 1\n\n[server]") {
+		t.Errorf("expected a blank line to be inserted before the table, got:\n%s", got)
 	}
 
-	// A blank line written: the option off leaves it standing.
+	// A blank line written: it stands, and is not doubled.
 	doc, err = Parse([]byte("a = 1\n\n[server]\nhost = \"localhost\"\n"))
 	if err != nil {
 		t.Fatalf("Parse error: %v", err)
 	}
-	got = string(doc.Format(WithTableBlankLine(false)))
+	got = string(doc.Format())
 	if !strings.Contains(got, "a = 1\n\n[server]") {
-		t.Errorf("with TableBlankLine=false, the document's own blank line should survive, got:\n%s", got)
+		t.Errorf("the document's own blank line should survive, got:\n%s", got)
+	}
+	if strings.Contains(got, "a = 1\n\n\n[server]") {
+		t.Errorf("the blank line was doubled, got:\n%s", got)
 	}
 }
 
@@ -338,9 +338,6 @@ func TestFormatDefaultConfigValues(t *testing.T) {
 	}
 	if cfg.LineWidth != 80 {
 		t.Errorf("default LineWidth = %d, want 80", cfg.LineWidth)
-	}
-	if !cfg.TableBlankLine {
-		t.Error("default TableBlankLine should be true")
 	}
 }
 

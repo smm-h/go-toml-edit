@@ -92,7 +92,6 @@ func QuoteString(s string) string
 func Unmarshal[T any](data []byte) (*T, error)
 func WithIndentWidth(n int) FormatOption
 func WithLineWidth(n int) FormatOption
-func WithTableBlankLine(b bool) FormatOption
 
 type ArrayNode struct
 	method (*ArrayNode) Comment() string
@@ -278,7 +277,6 @@ type FloatNode struct
 type FormatConfig struct
 	field IndentWidth int
 	field LineWidth int
-	field TableBlankLine bool
 
 type FormatOption func(*FormatConfig)
 

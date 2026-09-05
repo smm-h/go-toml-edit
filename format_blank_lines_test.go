@@ -34,9 +34,6 @@ func TestFormatNoLeadingBlankLineAfterEditedBlankRun(t *testing.T) {
 	if got := string(doc.Format()); got != want {
 		t.Errorf("Format() = %q, want %q", got, want)
 	}
-	if got := string(doc.Format(WithTableBlankLine(false))); got != want {
-		t.Errorf("Format(WithTableBlankLine(false)) = %q, want %q", got, want)
-	}
 }
 
 // The same defect reached through a document that already carries content:
@@ -58,7 +55,7 @@ func TestFormatBlankRunNodeIsNotContent(t *testing.T) {
 	}
 
 	// The comment is content; the blank run between it and [a] collapses to
-	// one blank line, and the table option inserts nothing on top of it.
+	// one blank line, and the table separation adds nothing on top of it.
 	const want = "# header\n\n[a]\nx = 1\n"
 	if got := string(doc.Format()); got != want {
 		t.Errorf("Format() = %q, want %q", got, want)
@@ -150,68 +147,60 @@ func TestFormatPreservesBlankLineGrouping(t *testing.T) {
 			if err != nil {
 				t.Fatalf("Parse error: %v", err)
 			}
-			got := string(doc.Format(WithTableBlankLine(false)))
+			got := string(doc.Format())
 			if got != tt.want {
-				t.Errorf("Format(WithTableBlankLine(false)) = %q, want %q", got, tt.want)
+				t.Errorf("Format() = %q, want %q", got, tt.want)
 			}
 		})
 	}
 }
 
-// The table-blank-line option only ever ADDS a blank line before a table that
-// has none; it never removes the grouping the document already carries, and it
-// never doubles a blank line that is already there.
+// The table separation the formatter always writes only ever ADDS a blank line
+// before a table that has none; it never removes the grouping the document
+// already carries, and it never doubles a blank line that is already there.
 //
-// Fails if the option starts removing blank lines, or starts inserting a second
-// one where a blank line already stands.
+// Fails if the separation starts removing blank lines, starts inserting a
+// second one where a blank line already stands, or stops being written at all.
 func TestFormatTableBlankLineIsInsertionOnly(t *testing.T) {
 	tests := []struct {
-		name    string
-		input   string
-		wantOn  string
-		wantOff string
+		name  string
+		input string
+		want  string
 	}{
 		{
-			name:    "inserted where missing",
-			input:   "a = 1\n[t]\nx = 1\n",
-			wantOn:  "a = 1\n\n[t]\nx = 1\n",
-			wantOff: "a = 1\n[t]\nx = 1\n",
+			name:  "inserted where missing",
+			input: "a = 1\n[t]\nx = 1\n",
+			want:  "a = 1\n\n[t]\nx = 1\n",
 		},
 		{
-			name:    "not doubled where present",
-			input:   "a = 1\n\n[t]\nx = 1\n",
-			wantOn:  "a = 1\n\n[t]\nx = 1\n",
-			wantOff: "a = 1\n\n[t]\nx = 1\n",
+			name:  "not doubled where present",
+			input: "a = 1\n\n[t]\nx = 1\n",
+			want:  "a = 1\n\n[t]\nx = 1\n",
 		},
 		{
-			name:    "a run before a table still collapses to one",
-			input:   "a = 1\n\n\n\n[t]\nx = 1\n",
-			wantOn:  "a = 1\n\n[t]\nx = 1\n",
-			wantOff: "a = 1\n\n[t]\nx = 1\n",
+			name:  "a run before a table still collapses to one",
+			input: "a = 1\n\n\n\n[t]\nx = 1\n",
+			want:  "a = 1\n\n[t]\nx = 1\n",
 		},
 		{
-			name:    "never inserted before the first construct",
-			input:   "[t]\nx = 1\n",
-			wantOn:  "[t]\nx = 1\n",
-			wantOff: "[t]\nx = 1\n",
+			name:  "never inserted before the first construct",
+			input: "[t]\nx = 1\n",
+			want:  "[t]\nx = 1\n",
 		},
 		{
-			name:    "inserted above the table's leading comments",
-			input:   "a = 1\n# about t\n[t]\nx = 1\n",
-			wantOn:  "a = 1\n\n# about t\n[t]\nx = 1\n",
-			wantOff: "a = 1\n# about t\n[t]\nx = 1\n",
+			name:  "inserted above the table's leading comments",
+			input: "a = 1\n# about t\n[t]\nx = 1\n",
+			want:  "a = 1\n\n# about t\n[t]\nx = 1\n",
 		},
 		{
-			name:    "existing gap between comment and header survives either way",
-			input:   "a = 1\n# about t\n\n[t]\nx = 1\n",
-			wantOn:  "a = 1\n\n# about t\n\n[t]\nx = 1\n",
-			wantOff: "a = 1\n# about t\n\n[t]\nx = 1\n",
+			name:  "existing gap between comment and header survives",
+			input: "a = 1\n# about t\n\n[t]\nx = 1\n",
+			want:  "a = 1\n\n# about t\n\n[t]\nx = 1\n",
 		},
 		{
-			name:    "array tables too",
-			input:   "a = 1\n[[t]]\nx = 1\n",
-			wantOn:  "a = 1\n\n[[t]]\nx = 1\n",
-			wantOff: "a = 1\n[[t]]\nx = 1\n",
+			name:  "array tables too",
+			input: "a = 1\n[[t]]\nx = 1\n",
+			want:  "a = 1\n\n[[t]]\nx = 1\n",
 		},
 	}
 	for _, tt := range tests {
@@ -220,11 +209,8 @@ func TestFormatTableBlankLineIsInsertionOnly(t *testing.T) {
 			if err != nil {
 				t.Fatalf("Parse error: %v", err)
 			}
-			if got := string(doc.Format(WithTableBlankLine(true))); got != tt.wantOn {
-				t.Errorf("Format(WithTableBlankLine(true)) = %q, want %q", got, tt.wantOn)
-			}
-			if got := string(doc.Format(WithTableBlankLine(false))); got != tt.wantOff {
-				t.Errorf("Format(WithTableBlankLine(false)) = %q, want %q", got, tt.wantOff)
+			if got := string(doc.Format()); got != tt.want {
+				t.Errorf("Format() = %q, want %q", got, tt.want)
 			}
 		})
 	}
@@ -268,11 +254,10 @@ func TestFormatOptionCombinationsOverBlankLineFixture(t *testing.T) {
 
 	indents := []int{0, 2}
 	widths := []int{80, 20}
-	tableBlanks := []bool{true, false}
 
 	// want[key] is the exact output for the combination named by the key.
 	want := map[string]string{
-		"indent=0,width=80,tableblank=true": "a = 1\n" +
+		"indent=0,width=80": "a = 1\n" +
 			"\n" +
 			"b = 2\n" +
 			"\n" +
@@ -288,22 +273,7 @@ func TestFormatOptionCombinationsOverBlankLineFixture(t *testing.T) {
 			"# about second\n" +
 			"[second]\n" +
 			"z = 3\n",
-		"indent=0,width=80,tableblank=false": "a = 1\n" +
-			"\n" +
-			"b = 2\n" +
-			"\n" +
-			"# a note\n" +
-			"\n" +
-			"items = [\"alpha\", \"beta\", \"gamma\"]\n" +
-			"[first]\n" +
-			"x = 1\n" +
-			"\n" +
-			"y = 2\n" +
-			"\n" +
-			"# about second\n" +
-			"[second]\n" +
-			"z = 3\n",
-		"indent=0,width=20,tableblank=true": "a = 1\n" +
+		"indent=0,width=20": "a = 1\n" +
 			"\n" +
 			"b = 2\n" +
 			"\n" +
@@ -323,26 +293,7 @@ func TestFormatOptionCombinationsOverBlankLineFixture(t *testing.T) {
 			"# about second\n" +
 			"[second]\n" +
 			"z = 3\n",
-		"indent=0,width=20,tableblank=false": "a = 1\n" +
-			"\n" +
-			"b = 2\n" +
-			"\n" +
-			"# a note\n" +
-			"\n" +
-			"items = [\n" +
-			"\"alpha\",\n" +
-			"\"beta\",\n" +
-			"\"gamma\",\n" +
-			"]\n" +
-			"[first]\n" +
-			"x = 1\n" +
-			"\n" +
-			"y = 2\n" +
-			"\n" +
-			"# about second\n" +
-			"[second]\n" +
-			"z = 3\n",
-		"indent=2,width=80,tableblank=true": "a = 1\n" +
+		"indent=2,width=80": "a = 1\n" +
 			"\n" +
 			"b = 2\n" +
 			"\n" +
@@ -358,22 +309,7 @@ func TestFormatOptionCombinationsOverBlankLineFixture(t *testing.T) {
 			"# about second\n" +
 			"[second]\n" +
 			"  z = 3\n",
-		"indent=2,width=80,tableblank=false": "a = 1\n" +
-			"\n" +
-			"b = 2\n" +
-			"\n" +
-			"# a note\n" +
-			"\n" +
-			"items = [\"alpha\", \"beta\", \"gamma\"]\n" +
-			"[first]\n" +
-			"  x = 1\n" +
-			"\n" +
-			"  y = 2\n" +
-			"\n" +
-			"# about second\n" +
-			"[second]\n" +
-			"  z = 3\n",
-		"indent=2,width=20,tableblank=true": "a = 1\n" +
+		"indent=2,width=20": "a = 1\n" +
 			"\n" +
 			"b = 2\n" +
 			"\n" +
@@ -385,25 +321,6 @@ func TestFormatOptionCombinationsOverBlankLineFixture(t *testing.T) {
 			"  \"gamma\",\n" +
 			"]\n" +
 			"\n" +
-			"[first]\n" +
-			"  x = 1\n" +
-			"\n" +
-			"  y = 2\n" +
-			"\n" +
-			"# about second\n" +
-			"[second]\n" +
-			"  z = 3\n",
-		"indent=2,width=20,tableblank=false": "a = 1\n" +
-			"\n" +
-			"b = 2\n" +
-			"\n" +
-			"# a note\n" +
-			"\n" +
-			"items = [\n" +
-			"  \"alpha\",\n" +
-			"  \"beta\",\n" +
-			"  \"gamma\",\n" +
-			"]\n" +
 			"[first]\n" +
 			"  x = 1\n" +
 			"\n" +
@@ -417,36 +334,32 @@ func TestFormatOptionCombinationsOverBlankLineFixture(t *testing.T) {
 	seen := make(map[string]bool, len(want))
 	for _, indent := range indents {
 		for _, width := range widths {
-			for _, tableBlank := range tableBlanks {
-				key := fmt.Sprintf("indent=%d,width=%d,tableblank=%t", indent, width, tableBlank)
-				seen[key] = true
-				expected, ok := want[key]
-				if !ok {
-					t.Fatalf("no expected output recorded for combination %s", key)
-				}
-				got := string(doc.Format(
-					WithIndentWidth(indent),
-					WithLineWidth(width),
-					WithTableBlankLine(tableBlank),
-				))
-				if got != expected {
-					t.Errorf("combination %s:\n got: %q\nwant: %q", key, got, expected)
-				}
-				// Every combination's output must still parse, and formatting
-				// it again must reproduce it exactly.
-				redoc, err := Parse([]byte(got))
-				if err != nil {
-					t.Errorf("combination %s: output does not parse: %v\n%s", key, err, got)
-					continue
-				}
-				again := string(redoc.Format(
-					WithIndentWidth(indent),
-					WithLineWidth(width),
-					WithTableBlankLine(tableBlank),
-				))
-				if again != got {
-					t.Errorf("combination %s is not idempotent:\n first: %q\nsecond: %q", key, got, again)
-				}
+			key := fmt.Sprintf("indent=%d,width=%d", indent, width)
+			seen[key] = true
+			expected, ok := want[key]
+			if !ok {
+				t.Fatalf("no expected output recorded for combination %s", key)
+			}
+			got := string(doc.Format(
+				WithIndentWidth(indent),
+				WithLineWidth(width),
+			))
+			if got != expected {
+				t.Errorf("combination %s:\n got: %q\nwant: %q", key, got, expected)
+			}
+			// Every combination's output must still parse, and formatting
+			// it again must reproduce it exactly.
+			redoc, err := Parse([]byte(got))
+			if err != nil {
+				t.Errorf("combination %s: output does not parse: %v\n%s", key, err, got)
+				continue
+			}
+			again := string(redoc.Format(
+				WithIndentWidth(indent),
+				WithLineWidth(width),
+			))
+			if again != got {
+				t.Errorf("combination %s is not idempotent:\n first: %q\nsecond: %q", key, got, again)
 			}
 		}
 	}

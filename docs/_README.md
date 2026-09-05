@@ -227,10 +227,12 @@ formatted := doc.Format(tomledit.WithIndentWidth(2))
 
 `Format` re-renders everything in canonical spellings. It preserves the writer's
 blank-line grouping at document and table-body level -- a run of blank lines
-becomes one. One gap it opens itself: `WithTableBlankLine` is **on by default**,
-so a plain `Format()` inserts a blank line before every table header that has
-none. Pass `WithTableBlankLine(false)` and the formatter opens no gap the writer
-did not leave.
+becomes one. One gap it opens itself, unconditionally: a table header written
+flush against what precedes it always gets a blank line above it. What the
+library preserves is content -- the comments -- while whitespace is formatting,
+and `Format` is where the library is strict about output looking good, so the
+separation is not a caller's option. The insertion never removes a blank line
+and never doubles one already there.
 
 ### Walk
 

@@ -6,20 +6,18 @@ import (
 )
 
 // FormatConfig controls how the formatter normalizes TOML output.
-// Use DefaultFormatConfig to get sensible defaults and WithIndentWidth,
-// WithLineWidth, or WithTableBlankLine to override specific settings.
+// Use DefaultFormatConfig to get sensible defaults and WithIndentWidth or
+// WithLineWidth to override specific settings.
 type FormatConfig struct {
-	IndentWidth    int  // spaces per indent level (default: 0, no indentation of values)
-	LineWidth      int  // max line width before arrays go multi-line (default: 80)
-	TableBlankLine bool // insert a blank line before a table that has none (default: true)
+	IndentWidth int // spaces per indent level (default: 0, no indentation of values)
+	LineWidth   int // max line width before arrays go multi-line (default: 80)
 }
 
 // DefaultFormatConfig returns a FormatConfig with sensible defaults.
 func DefaultFormatConfig() FormatConfig {
 	return FormatConfig{
-		IndentWidth:    0,
-		LineWidth:      80,
-		TableBlankLine: true,
+		IndentWidth: 0,
+		LineWidth:   80,
 	}
 }
 
@@ -42,30 +40,27 @@ func WithLineWidth(n int) FormatOption {
 	}
 }
 
-// WithTableBlankLine controls whether a blank line is INSERTED before a table
-// header that has none. It never removes one: blank lines the document already
-// carries are preserved either way (each run collapsing to a single blank
-// line), so turning it off only stops the formatter from adding separation
-// where the writer left none.
-func WithTableBlankLine(b bool) FormatOption {
-	return func(cfg *FormatConfig) {
-		cfg.TableBlankLine = b
-	}
-}
-
 // Format returns normalized TOML bytes. It does NOT mutate the document --
 // it produces a new byte slice by walking the AST and re-rendering every node
 // with consistent formatting, ignoring all raw bytes. This is useful for
 // enforcing a canonical style. Pass zero or more FormatOption values (e.g.
 // WithIndentWidth, WithLineWidth) to customize the output.
 //
-// The writer's blank-line grouping survives at document and table-body
-// level: a run of blank lines becomes exactly one, and where the writer left
-// no gap the formatter opens none. The output never begins with a blank line
-// and always ends with exactly one newline, so blank lines at either end of
-// the document are dropped. Arrays are restructured wholesale (inline or
-// multi-line from the configured line width), so blank lines between array
-// elements do not survive formatting; Bytes preserves them.
+// The writer's blank-line grouping survives at document and table-body level:
+// a run of blank lines becomes exactly one. The output never begins with a
+// blank line and always ends with exactly one newline, so blank lines at
+// either end of the document are dropped. Arrays are restructured wholesale
+// (inline or multi-line from the configured line width), so blank lines
+// between array elements do not survive formatting; Bytes preserves them.
+//
+// The one gap the formatter opens itself is before a [table] or
+// [[array-table]] header written flush against what precedes it: Format
+// always inserts the missing blank line. What this library preserves is
+// CONTENT -- the comments -- while whitespace is formatting, and Format is
+// where the library is strict about output looking good, so the separation is
+// not a caller's option. The insertion never removes anything and never
+// doubles a blank line already there, so a document that separates its own
+// tables is left as it stands.
 func (d *Document) Format(opts ...FormatOption) []byte {
 	cfg := DefaultFormatConfig()
 	for _, opt := range opts {
@@ -103,7 +98,7 @@ func formatChild(buf *bytes.Buffer, child Node, cfg *FormatConfig, indent int) {
 
 // formatTableNode formats a [table] header and its children.
 func formatTableNode(buf *bytes.Buffer, node *TableNode, cfg *FormatConfig, depth int) {
-	formatTableSeparation(buf, node, cfg)
+	formatTableSeparation(buf, node)
 
 	// Table header: [key.path]
 	buf.WriteByte('[')
@@ -124,7 +119,7 @@ func formatTableNode(buf *bytes.Buffer, node *TableNode, cfg *FormatConfig, dept
 
 // formatArrayTableNode formats an [[array-table]] header and its children.
 func formatArrayTableNode(buf *bytes.Buffer, node *ArrayTableNode, cfg *FormatConfig, depth int) {
-	formatTableSeparation(buf, node, cfg)
+	formatTableSeparation(buf, node)
 
 	// Array table header: [[key.path]]
 	buf.WriteString("[[")
@@ -144,14 +139,12 @@ func formatArrayTableNode(buf *bytes.Buffer, node *ArrayTableNode, cfg *FormatCo
 }
 
 // formatTableSeparation writes what stands between the previous construct and
-// a table header: the blank line the option asks for where none is written
-// already, then the node's own leading trivia -- its blank-line runs and its
-// comments. The option is insertion-only, and writeBlankLine collapses, so a
-// document that already separates its tables is not double-spaced by it.
-func formatTableSeparation(buf *bytes.Buffer, node Node, cfg *FormatConfig) {
-	if cfg.TableBlankLine {
-		writeBlankLine(buf)
-	}
+// a table header: the blank line that always separates a table from what
+// stands above it, then the node's own leading trivia -- its blank-line runs
+// and its comments. The insertion adds only, and writeBlankLine collapses, so
+// a document that already separates its tables is not double-spaced by it.
+func formatTableSeparation(buf *bytes.Buffer, node Node) {
+	writeBlankLine(buf)
 	formatLeadingTrivia(buf, node)
 }
 

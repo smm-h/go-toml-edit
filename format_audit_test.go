@@ -453,8 +453,8 @@ func TestAuditFormatDoesNotMutateWithOptions(t *testing.T) {
 	originalBytes := string(doc.Bytes())
 
 	// Call Format with various options
-	_ = doc.Format(WithIndentWidth(4), WithLineWidth(40), WithTableBlankLine(false))
-	_ = doc.Format(WithIndentWidth(0), WithLineWidth(80), WithTableBlankLine(true))
+	_ = doc.Format(WithIndentWidth(4), WithLineWidth(40))
+	_ = doc.Format(WithIndentWidth(0), WithLineWidth(80))
 	_ = doc.Format()
 
 	afterBytes := string(doc.Bytes())
