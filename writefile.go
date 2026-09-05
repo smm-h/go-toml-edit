@@ -49,7 +49,7 @@ var (
 func (d *Document) WriteFile(path string) error {
 	out := renderForWrite(d)
 	if err := verifyRoundTrip(out); err != nil {
-		return err.atPath(path).inFile(path)
+		return err.inFile(path)
 	}
 
 	perm, existed, err := destinationMode(path)
