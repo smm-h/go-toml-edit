@@ -122,14 +122,45 @@ func noteValueWrite(n Node) {
 // field these kinds never read. Each of them records the bytes it was written
 // as in the one place that holds them.
 
-func (n *StringNode) Raw() []byte        { return copyBytes(n.val.raw()) }
-func (n *IntegerNode) Raw() []byte       { return copyBytes(n.val.raw()) }
-func (n *FloatNode) Raw() []byte         { return copyBytes(n.val.raw()) }
-func (n *BooleanNode) Raw() []byte       { return copyBytes(n.val.raw()) }
-func (n *DateTimeNode) Raw() []byte      { return copyBytes(n.val.raw()) }
+// Raw returns a copy of the bytes the value was written as -- its lexeme,
+// with the spelling the document used. A value the library wrote carries the
+// bytes it rendered.
+func (n *StringNode) Raw() []byte { return copyBytes(n.val.raw()) }
+
+// Raw returns a copy of the bytes the value was written as -- its lexeme,
+// with the spelling the document used. A value the library wrote carries the
+// bytes it rendered.
+func (n *IntegerNode) Raw() []byte { return copyBytes(n.val.raw()) }
+
+// Raw returns a copy of the bytes the value was written as -- its lexeme,
+// with the spelling the document used. A value the library wrote carries the
+// bytes it rendered.
+func (n *FloatNode) Raw() []byte { return copyBytes(n.val.raw()) }
+
+// Raw returns a copy of the bytes the value was written as -- its lexeme,
+// with the spelling the document used. A value the library wrote carries the
+// bytes it rendered.
+func (n *BooleanNode) Raw() []byte { return copyBytes(n.val.raw()) }
+
+// Raw returns a copy of the bytes the value was written as -- its lexeme,
+// with the spelling the document used. A value the library wrote carries the
+// bytes it rendered.
+func (n *DateTimeNode) Raw() []byte { return copyBytes(n.val.raw()) }
+
+// Raw returns a copy of the bytes the value was written as -- its lexeme,
+// with the spelling the document used. A value the library wrote carries the
+// bytes it rendered.
 func (n *LocalDateTimeNode) Raw() []byte { return copyBytes(n.val.raw()) }
-func (n *LocalDateNode) Raw() []byte     { return copyBytes(n.val.raw()) }
-func (n *LocalTimeNode) Raw() []byte     { return copyBytes(n.val.raw()) }
+
+// Raw returns a copy of the bytes the value was written as -- its lexeme,
+// with the spelling the document used. A value the library wrote carries the
+// bytes it rendered.
+func (n *LocalDateNode) Raw() []byte { return copyBytes(n.val.raw()) }
+
+// Raw returns a copy of the bytes the value was written as -- its lexeme,
+// with the spelling the document used. A value the library wrote carries the
+// bytes it rendered.
+func (n *LocalTimeNode) Raw() []byte { return copyBytes(n.val.raw()) }
 
 func (n *StringNode) rawBytes() []byte        { return n.val.raw() }
 func (n *IntegerNode) rawBytes() []byte       { return n.val.raw() }

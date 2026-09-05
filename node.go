@@ -240,6 +240,11 @@ func (n *nodeBase) setRaw(b []byte) {
 	n.raw = b
 }
 
+// Span returns the half-open source range the node occupied in the document it
+// was parsed from, each end carrying a 1-based line and column and a 0-based
+// byte offset. Spans reflect the most recent Parse: an edit does not recompute
+// them, and a node the library built rather than parsed carries the zero span,
+// for which Span.IsValid reports false.
 func (n *nodeBase) Span() Span {
 	return n.span
 }
