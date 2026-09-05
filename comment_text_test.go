@@ -1,6 +1,7 @@
 package tomledit
 
 import (
+	"errors"
 	"strings"
 	"testing"
 )
@@ -121,6 +122,33 @@ func TestSetComment_AcceptsWhatACommentMayCarry(t *testing.T) {
 				t.Fatalf("the document no longer parses: %v\n%s", err, out)
 			}
 		})
+	}
+}
+
+// Text validation runs BEFORE the path is resolved, so a call that is wrong in
+// two ways at once reports the input, not the lookup: a caller told the key is
+// missing would go looking for the key and never learn the text could not have
+// been written to any key at all.
+//
+// Fails if comment-text validation ever moves behind path resolution and a bad
+// text on a missing path starts reporting a not-found diagnostic.
+func TestCommentWrites_ValidateTextBeforeResolvingThePath(t *testing.T) {
+	const src = "x = 1\n"
+	const missing = "nope.missing"
+	texts := []string{"bad\nline", "note " + badUTF8, "a\x00b"}
+	for _, text := range texts {
+		t.Run(text, func(t *testing.T) {
+			doc := parseOrFail(t, src)
+			refuseWrite(t, doc, src, "SetComment", doc.SetComment(missing, text))
+			refuseWrite(t, doc, src, "SetLeadingComments", doc.SetLeadingComments(missing, []string{text}))
+		})
+	}
+	// The counterpart: with text a comment can carry, the missing path is what
+	// the caller hears about.
+	doc := parseOrFail(t, src)
+	err := doc.SetComment(missing, "perfectly fine")
+	if !errors.Is(err, ErrNotFound) {
+		t.Errorf("SetComment on a missing path with good text reported %v, want a not-found diagnostic", err)
 	}
 }
 

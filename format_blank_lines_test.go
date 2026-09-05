@@ -488,3 +488,34 @@ func TestBlankLineFixtureCoversTheShapes(t *testing.T) {
 		t.Error("fixture must contain a table with a leading comment")
 	}
 }
+
+// Blank-line grouping is preserved at document and table-body level only. A
+// multi-line array is RESTRUCTURED wholesale by the formatter -- inline or
+// broken from the configured line width -- so a blank run written between its
+// elements does not survive Format, while Bytes reproduces it byte for byte.
+// That difference is the whole distance between the two exits.
+//
+// Fails if Format ever starts preserving blank runs inside an array, or if
+// Bytes ever stops preserving them.
+func TestFormatDropsBlankRunsInsideAnArrayThatBytesKeeps(t *testing.T) {
+	const src = "items = [\n  1,\n\n\n  2,\n\n  3,\n]\n"
+	doc := parseOrFail(t, src)
+
+	if got := string(doc.Bytes()); got != src {
+		t.Errorf("Bytes() did not reproduce the blank runs inside the array: %q, want %q", got, src)
+	}
+
+	// Wide enough to hold the array on one line, and narrow enough to break it:
+	// neither spelling carries a blank line.
+	for _, width := range []int{80, 4} {
+		got := string(doc.Format(WithLineWidth(width)))
+		if strings.Contains(got, "\n\n") {
+			t.Errorf("Format(WithLineWidth(%d)) kept a blank line inside the array: %q", width, got)
+		}
+		if redoc, err := Parse([]byte(got)); err != nil {
+			t.Errorf("Format(WithLineWidth(%d)) produced bytes that do not parse: %v\n%s", width, err, got)
+		} else if n := redoc.Root().Len(); n != 1 {
+			t.Errorf("Format(WithLineWidth(%d)) changed the document's content: %d root entries, want 1", width, n)
+		}
+	}
+}
