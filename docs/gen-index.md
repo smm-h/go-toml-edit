@@ -1,6 +1,6 @@
 ---
 title: API Reference
-description: "API reference index for go-toml-edit covering 1 module"
+description: "API reference index for go-toml-edit covering 2 modules"
 generated: true
 seeded: true
 nav_group: "API Reference"
@@ -12,3 +12,4 @@ order: 90
 # API Reference
 
 - [go-toml-edit](../go-toml-edit/)
+- [scripts](../scripts/)

@@ -111,6 +111,11 @@
         },
         {
           "level": 2,
+          "text": "Two surfaces",
+          "anchor": "two-surfaces"
+        },
+        {
+          "level": 2,
           "text": "Pipeline",
           "anchor": "pipeline"
         },
@@ -136,8 +141,8 @@
         },
         {
           "level": 3,
-          "text": "Node interface",
-          "anchor": "node-interface"
+          "text": "Node and Scalar",
+          "anchor": "node-and-scalar"
         },
         {
           "level": 3,
@@ -146,13 +151,18 @@
         },
         {
           "level": 3,
-          "text": "Virtual node types",
-          "anchor": "virtual-node-types"
+          "text": "The read-layer",
+          "anchor": "the-read-layer"
         },
         {
           "level": 2,
           "text": "Path resolution",
           "anchor": "path-resolution"
+        },
+        {
+          "level": 2,
+          "text": "Diagnostics",
+          "anchor": "diagnostics"
         },
         {
           "level": 2,
@@ -180,6 +190,11 @@
           "anchor": "renamekey"
         },
         {
+          "level": 3,
+          "text": "Structural operations",
+          "anchor": "structural-operations"
+        },
+        {
           "level": 2,
           "text": "Comment preservation",
           "anchor": "comment-preservation"
@@ -188,6 +203,11 @@
           "level": 2,
           "text": "Round-trip guarantee",
           "anchor": "round-trip-guarantee"
+        },
+        {
+          "level": 2,
+          "text": "Canonical rendering",
+          "anchor": "canonical-rendering"
         },
         {
           "level": 2,
@@ -221,13 +241,13 @@
         },
         {
           "level": 3,
-          "text": "Items and Len",
-          "anchor": "items-and-len"
+          "text": "Enumeration",
+          "anchor": "enumeration"
         },
         {
           "level": 3,
-          "text": "Unmarshal and Marshal",
-          "anchor": "unmarshal-and-marshal"
+          "text": "Decoding",
+          "anchor": "decoding"
         },
         {
           "level": 2,
@@ -280,6 +300,71 @@
         },
         {
           "level": 3,
+          "text": "`KindSyntax`",
+          "anchor": "kindsyntax"
+        },
+        {
+          "level": 3,
+          "text": "`KindUnknownKey`",
+          "anchor": "kindunknownkey"
+        },
+        {
+          "level": 3,
+          "text": "`KindUnknownTable`",
+          "anchor": "kindunknowntable"
+        },
+        {
+          "level": 3,
+          "text": "`KindMissingKey`",
+          "anchor": "kindmissingkey"
+        },
+        {
+          "level": 3,
+          "text": "`KindTypeMismatch`",
+          "anchor": "kindtypemismatch"
+        },
+        {
+          "level": 3,
+          "text": "`KindInexact`",
+          "anchor": "kindinexact"
+        },
+        {
+          "level": 3,
+          "text": "`KindNotFound`",
+          "anchor": "kindnotfound"
+        },
+        {
+          "level": 3,
+          "text": "`KindBadPath`",
+          "anchor": "kindbadpath"
+        },
+        {
+          "level": 3,
+          "text": "`KindWrongContainer`",
+          "anchor": "kindwrongcontainer"
+        },
+        {
+          "level": 3,
+          "text": "`KindBadInput`",
+          "anchor": "kindbadinput"
+        },
+        {
+          "level": 3,
+          "text": "`KindConflict`",
+          "anchor": "kindconflict"
+        },
+        {
+          "level": 3,
+          "text": "`KindRoundTrip`",
+          "anchor": "kindroundtrip"
+        },
+        {
+          "level": 3,
+          "text": "`KindHookError`",
+          "anchor": "kindhookerror"
+        },
+        {
+          "level": 3,
           "text": "`NodeDocument`",
           "anchor": "nodedocument"
         },
@@ -400,128 +485,83 @@
         },
         {
           "level": 3,
-          "text": "`TokenBareKey`",
-          "anchor": "tokenbarekey"
+          "text": "`SegmentKey`",
+          "anchor": "segmentkey"
         },
         {
           "level": 3,
-          "text": "`TokenBasicString`",
-          "anchor": "tokenbasicstring"
+          "text": "`SegmentIndex`",
+          "anchor": "segmentindex"
         },
         {
           "level": 3,
-          "text": "`TokenLiteralString`",
-          "anchor": "tokenliteralstring"
+          "text": "`EntryValue`",
+          "anchor": "entryvalue"
         },
         {
           "level": 3,
-          "text": "`TokenMultiLineBasicString`",
-          "anchor": "tokenmultilinebasicstring"
+          "text": "`EntryRecord`",
+          "anchor": "entryrecord"
         },
         {
           "level": 3,
-          "text": "`TokenMultiLineLiteralString`",
-          "anchor": "tokenmultilineliteralstring"
+          "text": "`EntryRecords`",
+          "anchor": "entryrecords"
         },
         {
           "level": 3,
-          "text": "`TokenInteger`",
-          "anchor": "tokeninteger"
+          "text": "`FieldKindString`",
+          "anchor": "fieldkindstring"
         },
         {
           "level": 3,
-          "text": "`TokenFloat`",
-          "anchor": "tokenfloat"
+          "text": "`FieldKindInteger`",
+          "anchor": "fieldkindinteger"
         },
         {
           "level": 3,
-          "text": "`TokenBoolean`",
-          "anchor": "tokenboolean"
+          "text": "`FieldKindFloat`",
+          "anchor": "fieldkindfloat"
         },
         {
           "level": 3,
-          "text": "`TokenOffsetDateTime`",
-          "anchor": "tokenoffsetdatetime"
+          "text": "`FieldKindBoolean`",
+          "anchor": "fieldkindboolean"
         },
         {
           "level": 3,
-          "text": "`TokenLocalDateTime`",
-          "anchor": "tokenlocaldatetime"
+          "text": "`FieldKindOffsetDateTime`",
+          "anchor": "fieldkindoffsetdatetime"
         },
         {
           "level": 3,
-          "text": "`TokenLocalDate`",
-          "anchor": "tokenlocaldate"
+          "text": "`FieldKindLocalDateTime`",
+          "anchor": "fieldkindlocaldatetime"
         },
         {
           "level": 3,
-          "text": "`TokenLocalTime`",
-          "anchor": "tokenlocaltime"
+          "text": "`FieldKindLocalDate`",
+          "anchor": "fieldkindlocaldate"
         },
         {
           "level": 3,
-          "text": "`TokenEquals`",
-          "anchor": "tokenequals"
+          "text": "`FieldKindLocalTime`",
+          "anchor": "fieldkindlocaltime"
         },
         {
           "level": 3,
-          "text": "`TokenDot`",
-          "anchor": "tokendot"
+          "text": "`FieldKindArray`",
+          "anchor": "fieldkindarray"
         },
         {
           "level": 3,
-          "text": "`TokenComma`",
-          "anchor": "tokencomma"
+          "text": "`FieldKindTable`",
+          "anchor": "fieldkindtable"
         },
         {
           "level": 3,
-          "text": "`TokenLeftBracket`",
-          "anchor": "tokenleftbracket"
-        },
-        {
-          "level": 3,
-          "text": "`TokenRightBracket`",
-          "anchor": "tokenrightbracket"
-        },
-        {
-          "level": 3,
-          "text": "`TokenDoubleLeftBracket`",
-          "anchor": "tokendoubleleftbracket"
-        },
-        {
-          "level": 3,
-          "text": "`TokenDoubleRightBracket`",
-          "anchor": "tokendoublerightbracket"
-        },
-        {
-          "level": 3,
-          "text": "`TokenLeftBrace`",
-          "anchor": "tokenleftbrace"
-        },
-        {
-          "level": 3,
-          "text": "`TokenRightBrace`",
-          "anchor": "tokenrightbrace"
-        },
-        {
-          "level": 3,
-          "text": "`TokenComment`",
-          "anchor": "tokencomment"
-        },
-        {
-          "level": 3,
-          "text": "`TokenWhitespace`",
-          "anchor": "tokenwhitespace"
-        },
-        {
-          "level": 3,
-          "text": "`TokenNewline`",
-          "anchor": "tokennewline"
-        },
-        {
-          "level": 3,
-          "text": "`TokenEOF`",
-          "anchor": "tokeneof"
+          "text": "`FieldKindAny`",
+          "anchor": "fieldkindany"
         },
         {
           "level": 3,
@@ -535,6 +575,71 @@
         },
         {
           "level": 3,
+          "text": "`ErrSyntax`",
+          "anchor": "errsyntax"
+        },
+        {
+          "level": 3,
+          "text": "`ErrUnknownKey`",
+          "anchor": "errunknownkey"
+        },
+        {
+          "level": 3,
+          "text": "`ErrUnknownTable`",
+          "anchor": "errunknowntable"
+        },
+        {
+          "level": 3,
+          "text": "`ErrMissingKey`",
+          "anchor": "errmissingkey"
+        },
+        {
+          "level": 3,
+          "text": "`ErrTypeMismatch`",
+          "anchor": "errtypemismatch"
+        },
+        {
+          "level": 3,
+          "text": "`ErrInexact`",
+          "anchor": "errinexact"
+        },
+        {
+          "level": 3,
+          "text": "`ErrNotFound`",
+          "anchor": "errnotfound"
+        },
+        {
+          "level": 3,
+          "text": "`ErrBadPath`",
+          "anchor": "errbadpath"
+        },
+        {
+          "level": 3,
+          "text": "`ErrWrongContainer`",
+          "anchor": "errwrongcontainer"
+        },
+        {
+          "level": 3,
+          "text": "`ErrBadInput`",
+          "anchor": "errbadinput"
+        },
+        {
+          "level": 3,
+          "text": "`ErrConflict`",
+          "anchor": "errconflict"
+        },
+        {
+          "level": 3,
+          "text": "`ErrRoundTrip`",
+          "anchor": "errroundtrip"
+        },
+        {
+          "level": 3,
+          "text": "`ErrHookError`",
+          "anchor": "errhookerror"
+        },
+        {
+          "level": 3,
           "text": "`ErrSkipTable`",
           "anchor": "errskiptable"
         },
@@ -542,6 +647,16 @@
           "level": 3,
           "text": "`Cursor`",
           "anchor": "cursor"
+        },
+        {
+          "level": 3,
+          "text": "`Unmarshaler`",
+          "anchor": "unmarshaler"
+        },
+        {
+          "level": 3,
+          "text": "`Default`",
+          "anchor": "default"
         },
         {
           "level": 3,
@@ -555,8 +670,23 @@
         },
         {
           "level": 3,
-          "text": "`ParseError`",
-          "anchor": "parseerror"
+          "text": "`Pair`",
+          "anchor": "pair"
+        },
+        {
+          "level": 3,
+          "text": "`ErrorKind`",
+          "anchor": "errorkind"
+        },
+        {
+          "level": 3,
+          "text": "`Error`",
+          "anchor": "error"
+        },
+        {
+          "level": 3,
+          "text": "`Errors`",
+          "anchor": "errors"
         },
         {
           "level": 3,
@@ -575,13 +705,13 @@
         },
         {
           "level": 3,
-          "text": "`Trivia`",
-          "anchor": "trivia"
+          "text": "`Node`",
+          "anchor": "node"
         },
         {
           "level": 3,
-          "text": "`Node`",
-          "anchor": "node"
+          "text": "`Scalar`",
+          "anchor": "scalar"
         },
         {
           "level": 3,
@@ -690,6 +820,31 @@
         },
         {
           "level": 3,
+          "text": "`SegmentKind`",
+          "anchor": "segmentkind"
+        },
+        {
+          "level": 3,
+          "text": "`PathSegment`",
+          "anchor": "pathsegment"
+        },
+        {
+          "level": 3,
+          "text": "`EntryKind`",
+          "anchor": "entrykind"
+        },
+        {
+          "level": 3,
+          "text": "`Record`",
+          "anchor": "record"
+        },
+        {
+          "level": 3,
+          "text": "`Entry`",
+          "anchor": "entry"
+        },
+        {
+          "level": 3,
           "text": "`Position`",
           "anchor": "position"
         },
@@ -700,18 +855,18 @@
         },
         {
           "level": 3,
-          "text": "`TokenType`",
-          "anchor": "tokentype"
+          "text": "`FieldKind`",
+          "anchor": "fieldkind"
         },
         {
           "level": 3,
-          "text": "`Token`",
-          "anchor": "token"
+          "text": "`Spec`",
+          "anchor": "spec"
         },
         {
           "level": 3,
-          "text": "`Unmarshaler`",
-          "anchor": "unmarshaler"
+          "text": "`Field`",
+          "anchor": "field"
         },
         {
           "level": 3,
@@ -745,18 +900,143 @@
         },
         {
           "level": 3,
-          "text": "`Marshal`",
-          "anchor": "marshal"
-        },
-        {
-          "level": 3,
           "text": "`Parse`",
           "anchor": "parse"
         },
         {
           "level": 3,
-          "text": "`Unmarshal`",
-          "anchor": "unmarshal"
+          "text": "`ParseFile`",
+          "anchor": "parsefile"
+        },
+        {
+          "level": 3,
+          "text": "`ParsePath`",
+          "anchor": "parsepath"
+        },
+        {
+          "level": 3,
+          "text": "`JoinPath`",
+          "anchor": "joinpath"
+        },
+        {
+          "level": 3,
+          "text": "`QuoteString`",
+          "anchor": "quotestring"
+        },
+        {
+          "level": 3,
+          "text": "`QuoteKey`",
+          "anchor": "quotekey"
+        },
+        {
+          "level": 3,
+          "text": "`FormatFloat`",
+          "anchor": "formatfloat"
+        },
+        {
+          "level": 3,
+          "text": "`FieldAny`",
+          "anchor": "fieldany"
+        },
+        {
+          "level": 3,
+          "text": "`Document.GetString`",
+          "anchor": "documentgetstring"
+        },
+        {
+          "level": 3,
+          "text": "`Document.GetInt`",
+          "anchor": "documentgetint"
+        },
+        {
+          "level": 3,
+          "text": "`Document.GetBool`",
+          "anchor": "documentgetbool"
+        },
+        {
+          "level": 3,
+          "text": "`Document.GetFloat`",
+          "anchor": "documentgetfloat"
+        },
+        {
+          "level": 3,
+          "text": "`Document.GetTime`",
+          "anchor": "documentgettime"
+        },
+        {
+          "level": 3,
+          "text": "`Document.Children`",
+          "anchor": "documentchildren"
+        },
+        {
+          "level": 3,
+          "text": "`TableNode.KeyPath`",
+          "anchor": "tablenodekeypath"
+        },
+        {
+          "level": 3,
+          "text": "`TableNode.Children`",
+          "anchor": "tablenodechildren"
+        },
+        {
+          "level": 3,
+          "text": "`ArrayTableNode.KeyPath`",
+          "anchor": "arraytablenodekeypath"
+        },
+        {
+          "level": 3,
+          "text": "`ArrayTableNode.Children`",
+          "anchor": "arraytablenodechildren"
+        },
+        {
+          "level": 3,
+          "text": "`KeyValueNode.Key`",
+          "anchor": "keyvaluenodekey"
+        },
+        {
+          "level": 3,
+          "text": "`KeyValueNode.Val`",
+          "anchor": "keyvaluenodeval"
+        },
+        {
+          "level": 3,
+          "text": "`KeyNode.Parts`",
+          "anchor": "keynodeparts"
+        },
+        {
+          "level": 3,
+          "text": "`KeyNode.RawParts`",
+          "anchor": "keynoderawparts"
+        },
+        {
+          "level": 3,
+          "text": "`KeyNode.Styles`",
+          "anchor": "keynodestyles"
+        },
+        {
+          "level": 3,
+          "text": "`StringNode.Style`",
+          "anchor": "stringnodestyle"
+        },
+        {
+          "level": 3,
+          "text": "`IntegerNode.Base`",
+          "anchor": "integernodebase"
+        },
+        {
+          "level": 3,
+          "text": "`ArrayNode.Elements`",
+          "anchor": "arraynodeelements"
+        },
+        {
+          "level": 3,
+          "text": "`InlineTableNode.Children`",
+          "anchor": "inlinetablenodechildren"
+        },
+        {
+          "level": 3,
+          "text": "`CommentNode.Text`",
+          "anchor": "commentnodetext"
         },
         {
           "level": 3,
@@ -767,6 +1047,11 @@
           "level": 3,
           "text": "`Document.SetLeadingComments`",
           "anchor": "documentsetleadingcomments"
+        },
+        {
+          "level": 3,
+          "text": "`valueKind.String`",
+          "anchor": "valuekindstring"
         },
         {
           "level": 3,
@@ -820,88 +1105,23 @@
         },
         {
           "level": 3,
+          "text": "`Document.EnsureDefaults`",
+          "anchor": "documentensuredefaults"
+        },
+        {
+          "level": 3,
           "text": "`ChangeKind.String`",
           "anchor": "changekindstring"
         },
         {
           "level": 3,
-          "text": "`dottedKeyView.Type`",
-          "anchor": "dottedkeyviewtype"
-        },
-        {
-          "level": 3,
-          "text": "`dottedKeyView.Value`",
-          "anchor": "dottedkeyviewvalue"
-        },
-        {
-          "level": 3,
-          "text": "`dottedKeyGroup.Type`",
-          "anchor": "dottedkeygrouptype"
-        },
-        {
-          "level": 3,
-          "text": "`dottedKeyGroup.Value`",
-          "anchor": "dottedkeygroupvalue"
-        },
-        {
-          "level": 3,
-          "text": "`compoundTableView.Type`",
-          "anchor": "compoundtableviewtype"
-        },
-        {
-          "level": 3,
-          "text": "`compoundTableView.Value`",
-          "anchor": "compoundtableviewvalue"
-        },
-        {
-          "level": 3,
-          "text": "`arrayTableCollection.Type`",
-          "anchor": "arraytablecollectiontype"
-        },
-        {
-          "level": 3,
-          "text": "`arrayTableCollection.Value`",
-          "anchor": "arraytablecollectionvalue"
-        },
-        {
-          "level": 3,
-          "text": "`Document.Get`",
-          "anchor": "documentget"
-        },
-        {
-          "level": 3,
-          "text": "`Document.Resolve`",
-          "anchor": "documentresolve"
-        },
-        {
-          "level": 3,
-          "text": "`Document.GetString`",
-          "anchor": "documentgetstring"
-        },
-        {
-          "level": 3,
-          "text": "`Document.GetInt`",
-          "anchor": "documentgetint"
-        },
-        {
-          "level": 3,
-          "text": "`Document.GetBool`",
-          "anchor": "documentgetbool"
-        },
-        {
-          "level": 3,
-          "text": "`Document.GetFloat`",
-          "anchor": "documentgetfloat"
-        },
-        {
-          "level": 3,
-          "text": "`Document.GetTime`",
-          "anchor": "documentgettime"
-        },
-        {
-          "level": 3,
           "text": "`Document.Set`",
           "anchor": "documentset"
+        },
+        {
+          "level": 4,
+          "text": "Equality",
+          "anchor": "equality"
         },
         {
           "level": 3,
@@ -930,23 +1150,43 @@
         },
         {
           "level": 3,
-          "text": "`ParseError.Error`",
-          "anchor": "parseerrorerror"
+          "text": "`ErrorKind.String`",
+          "anchor": "errorkindstring"
+        },
+        {
+          "level": 3,
+          "text": "`kindError.Error`",
+          "anchor": "kinderrorerror"
+        },
+        {
+          "level": 3,
+          "text": "`Error.Error`",
+          "anchor": "errorerror"
+        },
+        {
+          "level": 3,
+          "text": "`Error.Unwrap`",
+          "anchor": "errorunwrap"
+        },
+        {
+          "level": 3,
+          "text": "`Error.Is`",
+          "anchor": "erroris"
+        },
+        {
+          "level": 3,
+          "text": "`Errors.Error`",
+          "anchor": "errorserror"
+        },
+        {
+          "level": 3,
+          "text": "`Errors.Unwrap`",
+          "anchor": "errorsunwrap"
         },
         {
           "level": 3,
           "text": "`Document.Format`",
           "anchor": "documentformat"
-        },
-        {
-          "level": 3,
-          "text": "`Document.Items`",
-          "anchor": "documentitems"
-        },
-        {
-          "level": 3,
-          "text": "`Document.Len`",
-          "anchor": "documentlen"
         },
         {
           "level": 3,
@@ -960,13 +1200,48 @@
         },
         {
           "level": 3,
-          "text": "`Document.MergeDefaults`",
-          "anchor": "documentmergedefaults"
+          "text": "`Document.Merge`",
+          "anchor": "documentmerge"
         },
         {
           "level": 3,
-          "text": "`Document.Merge`",
-          "anchor": "documentmerge"
+          "text": "`StringNode.Raw`",
+          "anchor": "stringnoderaw"
+        },
+        {
+          "level": 3,
+          "text": "`IntegerNode.Raw`",
+          "anchor": "integernoderaw"
+        },
+        {
+          "level": 3,
+          "text": "`FloatNode.Raw`",
+          "anchor": "floatnoderaw"
+        },
+        {
+          "level": 3,
+          "text": "`BooleanNode.Raw`",
+          "anchor": "booleannoderaw"
+        },
+        {
+          "level": 3,
+          "text": "`DateTimeNode.Raw`",
+          "anchor": "datetimenoderaw"
+        },
+        {
+          "level": 3,
+          "text": "`LocalDateTimeNode.Raw`",
+          "anchor": "localdatetimenoderaw"
+        },
+        {
+          "level": 3,
+          "text": "`LocalDateNode.Raw`",
+          "anchor": "localdatenoderaw"
+        },
+        {
+          "level": 3,
+          "text": "`LocalTimeNode.Raw`",
+          "anchor": "localtimenoderaw"
         },
         {
           "level": 3,
@@ -990,18 +1265,8 @@
         },
         {
           "level": 3,
-          "text": "`nodeBase.SetComment`",
-          "anchor": "nodebasesetcomment"
-        },
-        {
-          "level": 3,
           "text": "`nodeBase.LeadingComments`",
           "anchor": "nodebaseleadingcomments"
-        },
-        {
-          "level": 3,
-          "text": "`nodeBase.SetLeadingComments`",
-          "anchor": "nodebasesetleadingcomments"
         },
         {
           "level": 3,
@@ -1010,18 +1275,8 @@
         },
         {
           "level": 3,
-          "text": "`Document.Value`",
-          "anchor": "documentvalue"
-        },
-        {
-          "level": 3,
           "text": "`TableNode.Type`",
           "anchor": "tablenodetype"
-        },
-        {
-          "level": 3,
-          "text": "`TableNode.Value`",
-          "anchor": "tablenodevalue"
         },
         {
           "level": 3,
@@ -1030,28 +1285,13 @@
         },
         {
           "level": 3,
-          "text": "`ArrayTableNode.Value`",
-          "anchor": "arraytablenodevalue"
-        },
-        {
-          "level": 3,
           "text": "`KeyValueNode.Type`",
           "anchor": "keyvaluenodetype"
         },
         {
           "level": 3,
-          "text": "`KeyValueNode.Value`",
-          "anchor": "keyvaluenodevalue"
-        },
-        {
-          "level": 3,
           "text": "`KeyNode.Type`",
           "anchor": "keynodetype"
-        },
-        {
-          "level": 3,
-          "text": "`KeyNode.Value`",
-          "anchor": "keynodevalue"
         },
         {
           "level": 3,
@@ -1140,18 +1380,8 @@
         },
         {
           "level": 3,
-          "text": "`ArrayNode.Value`",
-          "anchor": "arraynodevalue"
-        },
-        {
-          "level": 3,
           "text": "`InlineTableNode.Type`",
           "anchor": "inlinetablenodetype"
-        },
-        {
-          "level": 3,
-          "text": "`InlineTableNode.Value`",
-          "anchor": "inlinetablenodevalue"
         },
         {
           "level": 3,
@@ -1160,13 +1390,413 @@
         },
         {
           "level": 3,
-          "text": "`CommentNode.Value`",
-          "anchor": "commentnodevalue"
+          "text": "`EntryKind.String`",
+          "anchor": "entrykindstring"
+        },
+        {
+          "level": 3,
+          "text": "`Document.Root`",
+          "anchor": "documentroot"
+        },
+        {
+          "level": 3,
+          "text": "`Record.Len`",
+          "anchor": "recordlen"
+        },
+        {
+          "level": 3,
+          "text": "`Record.Span`",
+          "anchor": "recordspan"
+        },
+        {
+          "level": 3,
+          "text": "`Record.Node`",
+          "anchor": "recordnode"
+        },
+        {
+          "level": 3,
+          "text": "`Record.Entries`",
+          "anchor": "recordentries"
+        },
+        {
+          "level": 3,
+          "text": "`Record.Get`",
+          "anchor": "recordget"
+        },
+        {
+          "level": 3,
+          "text": "`Entry.Key`",
+          "anchor": "entrykey"
+        },
+        {
+          "level": 3,
+          "text": "`Entry.KeySpan`",
+          "anchor": "entrykeyspan"
+        },
+        {
+          "level": 3,
+          "text": "`Entry.Kind`",
+          "anchor": "entrykind-1"
+        },
+        {
+          "level": 3,
+          "text": "`Entry.Record`",
+          "anchor": "entryrecord-1"
+        },
+        {
+          "level": 3,
+          "text": "`Entry.Records`",
+          "anchor": "entryrecords-1"
+        },
+        {
+          "level": 3,
+          "text": "`Entry.RecordsSpan`",
+          "anchor": "entryrecordsspan"
+        },
+        {
+          "level": 3,
+          "text": "`Entry.Node`",
+          "anchor": "entrynode"
         },
         {
           "level": 3,
           "text": "`Document.Bytes`",
           "anchor": "documentbytes"
+        },
+        {
+          "level": 3,
+          "text": "`Document.Resolve`",
+          "anchor": "documentresolve"
+        },
+        {
+          "level": 3,
+          "text": "`Document.Lookup`",
+          "anchor": "documentlookup"
+        },
+        {
+          "level": 3,
+          "text": "`Document.Has`",
+          "anchor": "documenthas"
+        },
+        {
+          "level": 3,
+          "text": "`StringNode.AsString`",
+          "anchor": "stringnodeasstring"
+        },
+        {
+          "level": 3,
+          "text": "`StringNode.AsInt`",
+          "anchor": "stringnodeasint"
+        },
+        {
+          "level": 3,
+          "text": "`StringNode.AsFloat`",
+          "anchor": "stringnodeasfloat"
+        },
+        {
+          "level": 3,
+          "text": "`StringNode.AsBool`",
+          "anchor": "stringnodeasbool"
+        },
+        {
+          "level": 3,
+          "text": "`StringNode.AsTime`",
+          "anchor": "stringnodeastime"
+        },
+        {
+          "level": 3,
+          "text": "`StringNode.AsLocalDateTime`",
+          "anchor": "stringnodeaslocaldatetime"
+        },
+        {
+          "level": 3,
+          "text": "`StringNode.AsLocalDate`",
+          "anchor": "stringnodeaslocaldate"
+        },
+        {
+          "level": 3,
+          "text": "`StringNode.AsLocalTime`",
+          "anchor": "stringnodeaslocaltime"
+        },
+        {
+          "level": 3,
+          "text": "`IntegerNode.AsString`",
+          "anchor": "integernodeasstring"
+        },
+        {
+          "level": 3,
+          "text": "`IntegerNode.AsInt`",
+          "anchor": "integernodeasint"
+        },
+        {
+          "level": 3,
+          "text": "`IntegerNode.AsFloat`",
+          "anchor": "integernodeasfloat"
+        },
+        {
+          "level": 3,
+          "text": "`IntegerNode.AsBool`",
+          "anchor": "integernodeasbool"
+        },
+        {
+          "level": 3,
+          "text": "`IntegerNode.AsTime`",
+          "anchor": "integernodeastime"
+        },
+        {
+          "level": 3,
+          "text": "`IntegerNode.AsLocalDateTime`",
+          "anchor": "integernodeaslocaldatetime"
+        },
+        {
+          "level": 3,
+          "text": "`IntegerNode.AsLocalDate`",
+          "anchor": "integernodeaslocaldate"
+        },
+        {
+          "level": 3,
+          "text": "`IntegerNode.AsLocalTime`",
+          "anchor": "integernodeaslocaltime"
+        },
+        {
+          "level": 3,
+          "text": "`FloatNode.AsString`",
+          "anchor": "floatnodeasstring"
+        },
+        {
+          "level": 3,
+          "text": "`FloatNode.AsInt`",
+          "anchor": "floatnodeasint"
+        },
+        {
+          "level": 3,
+          "text": "`FloatNode.AsFloat`",
+          "anchor": "floatnodeasfloat"
+        },
+        {
+          "level": 3,
+          "text": "`FloatNode.AsBool`",
+          "anchor": "floatnodeasbool"
+        },
+        {
+          "level": 3,
+          "text": "`FloatNode.AsTime`",
+          "anchor": "floatnodeastime"
+        },
+        {
+          "level": 3,
+          "text": "`FloatNode.AsLocalDateTime`",
+          "anchor": "floatnodeaslocaldatetime"
+        },
+        {
+          "level": 3,
+          "text": "`FloatNode.AsLocalDate`",
+          "anchor": "floatnodeaslocaldate"
+        },
+        {
+          "level": 3,
+          "text": "`FloatNode.AsLocalTime`",
+          "anchor": "floatnodeaslocaltime"
+        },
+        {
+          "level": 3,
+          "text": "`BooleanNode.AsString`",
+          "anchor": "booleannodeasstring"
+        },
+        {
+          "level": 3,
+          "text": "`BooleanNode.AsInt`",
+          "anchor": "booleannodeasint"
+        },
+        {
+          "level": 3,
+          "text": "`BooleanNode.AsFloat`",
+          "anchor": "booleannodeasfloat"
+        },
+        {
+          "level": 3,
+          "text": "`BooleanNode.AsBool`",
+          "anchor": "booleannodeasbool"
+        },
+        {
+          "level": 3,
+          "text": "`BooleanNode.AsTime`",
+          "anchor": "booleannodeastime"
+        },
+        {
+          "level": 3,
+          "text": "`BooleanNode.AsLocalDateTime`",
+          "anchor": "booleannodeaslocaldatetime"
+        },
+        {
+          "level": 3,
+          "text": "`BooleanNode.AsLocalDate`",
+          "anchor": "booleannodeaslocaldate"
+        },
+        {
+          "level": 3,
+          "text": "`BooleanNode.AsLocalTime`",
+          "anchor": "booleannodeaslocaltime"
+        },
+        {
+          "level": 3,
+          "text": "`DateTimeNode.AsString`",
+          "anchor": "datetimenodeasstring"
+        },
+        {
+          "level": 3,
+          "text": "`DateTimeNode.AsInt`",
+          "anchor": "datetimenodeasint"
+        },
+        {
+          "level": 3,
+          "text": "`DateTimeNode.AsFloat`",
+          "anchor": "datetimenodeasfloat"
+        },
+        {
+          "level": 3,
+          "text": "`DateTimeNode.AsBool`",
+          "anchor": "datetimenodeasbool"
+        },
+        {
+          "level": 3,
+          "text": "`DateTimeNode.AsTime`",
+          "anchor": "datetimenodeastime"
+        },
+        {
+          "level": 3,
+          "text": "`DateTimeNode.AsLocalDateTime`",
+          "anchor": "datetimenodeaslocaldatetime"
+        },
+        {
+          "level": 3,
+          "text": "`DateTimeNode.AsLocalDate`",
+          "anchor": "datetimenodeaslocaldate"
+        },
+        {
+          "level": 3,
+          "text": "`DateTimeNode.AsLocalTime`",
+          "anchor": "datetimenodeaslocaltime"
+        },
+        {
+          "level": 3,
+          "text": "`LocalDateTimeNode.AsString`",
+          "anchor": "localdatetimenodeasstring"
+        },
+        {
+          "level": 3,
+          "text": "`LocalDateTimeNode.AsInt`",
+          "anchor": "localdatetimenodeasint"
+        },
+        {
+          "level": 3,
+          "text": "`LocalDateTimeNode.AsFloat`",
+          "anchor": "localdatetimenodeasfloat"
+        },
+        {
+          "level": 3,
+          "text": "`LocalDateTimeNode.AsBool`",
+          "anchor": "localdatetimenodeasbool"
+        },
+        {
+          "level": 3,
+          "text": "`LocalDateTimeNode.AsTime`",
+          "anchor": "localdatetimenodeastime"
+        },
+        {
+          "level": 3,
+          "text": "`LocalDateTimeNode.AsLocalDateTime`",
+          "anchor": "localdatetimenodeaslocaldatetime"
+        },
+        {
+          "level": 3,
+          "text": "`LocalDateTimeNode.AsLocalDate`",
+          "anchor": "localdatetimenodeaslocaldate"
+        },
+        {
+          "level": 3,
+          "text": "`LocalDateTimeNode.AsLocalTime`",
+          "anchor": "localdatetimenodeaslocaltime"
+        },
+        {
+          "level": 3,
+          "text": "`LocalDateNode.AsString`",
+          "anchor": "localdatenodeasstring"
+        },
+        {
+          "level": 3,
+          "text": "`LocalDateNode.AsInt`",
+          "anchor": "localdatenodeasint"
+        },
+        {
+          "level": 3,
+          "text": "`LocalDateNode.AsFloat`",
+          "anchor": "localdatenodeasfloat"
+        },
+        {
+          "level": 3,
+          "text": "`LocalDateNode.AsBool`",
+          "anchor": "localdatenodeasbool"
+        },
+        {
+          "level": 3,
+          "text": "`LocalDateNode.AsTime`",
+          "anchor": "localdatenodeastime"
+        },
+        {
+          "level": 3,
+          "text": "`LocalDateNode.AsLocalDateTime`",
+          "anchor": "localdatenodeaslocaldatetime"
+        },
+        {
+          "level": 3,
+          "text": "`LocalDateNode.AsLocalDate`",
+          "anchor": "localdatenodeaslocaldate"
+        },
+        {
+          "level": 3,
+          "text": "`LocalDateNode.AsLocalTime`",
+          "anchor": "localdatenodeaslocaltime"
+        },
+        {
+          "level": 3,
+          "text": "`LocalTimeNode.AsString`",
+          "anchor": "localtimenodeasstring"
+        },
+        {
+          "level": 3,
+          "text": "`LocalTimeNode.AsInt`",
+          "anchor": "localtimenodeasint"
+        },
+        {
+          "level": 3,
+          "text": "`LocalTimeNode.AsFloat`",
+          "anchor": "localtimenodeasfloat"
+        },
+        {
+          "level": 3,
+          "text": "`LocalTimeNode.AsBool`",
+          "anchor": "localtimenodeasbool"
+        },
+        {
+          "level": 3,
+          "text": "`LocalTimeNode.AsTime`",
+          "anchor": "localtimenodeastime"
+        },
+        {
+          "level": 3,
+          "text": "`LocalTimeNode.AsLocalDateTime`",
+          "anchor": "localtimenodeaslocaldatetime"
+        },
+        {
+          "level": 3,
+          "text": "`LocalTimeNode.AsLocalDate`",
+          "anchor": "localtimenodeaslocaldate"
+        },
+        {
+          "level": 3,
+          "text": "`LocalTimeNode.AsLocalTime`",
+          "anchor": "localtimenodeaslocaltime"
         },
         {
           "level": 3,
@@ -1180,18 +1810,48 @@
         },
         {
           "level": 3,
-          "text": "`TokenType.String`",
-          "anchor": "tokentypestring"
+          "text": "`FieldKind.String`",
+          "anchor": "fieldkindstring-1"
         },
         {
           "level": 3,
-          "text": "`Document.Decode`",
-          "anchor": "documentdecode"
+          "text": "`Document.Validate`",
+          "anchor": "documentvalidate"
+        },
+        {
+          "level": 3,
+          "text": "`Document.DecodeSpec`",
+          "anchor": "documentdecodespec"
+        },
+        {
+          "level": 3,
+          "text": "`Document.PermuteChildren`",
+          "anchor": "documentpermutechildren"
+        },
+        {
+          "level": 3,
+          "text": "`Document.AppendToArray`",
+          "anchor": "documentappendtoarray"
+        },
+        {
+          "level": 3,
+          "text": "`Document.RemoveFromArray`",
+          "anchor": "documentremovefromarray"
+        },
+        {
+          "level": 3,
+          "text": "`tokenType.String`",
+          "anchor": "tokentypestring"
         },
         {
           "level": 3,
           "text": "`Document.Walk`",
           "anchor": "documentwalk"
+        },
+        {
+          "level": 3,
+          "text": "`Document.WriteFile`",
+          "anchor": "documentwritefile"
         }
       ]
     },
@@ -1232,6 +1892,71 @@
         },
         {
           "level": 3,
+          "text": "`KindSyntax`",
+          "anchor": "kindsyntax"
+        },
+        {
+          "level": 3,
+          "text": "`KindUnknownKey`",
+          "anchor": "kindunknownkey"
+        },
+        {
+          "level": 3,
+          "text": "`KindUnknownTable`",
+          "anchor": "kindunknowntable"
+        },
+        {
+          "level": 3,
+          "text": "`KindMissingKey`",
+          "anchor": "kindmissingkey"
+        },
+        {
+          "level": 3,
+          "text": "`KindTypeMismatch`",
+          "anchor": "kindtypemismatch"
+        },
+        {
+          "level": 3,
+          "text": "`KindInexact`",
+          "anchor": "kindinexact"
+        },
+        {
+          "level": 3,
+          "text": "`KindNotFound`",
+          "anchor": "kindnotfound"
+        },
+        {
+          "level": 3,
+          "text": "`KindBadPath`",
+          "anchor": "kindbadpath"
+        },
+        {
+          "level": 3,
+          "text": "`KindWrongContainer`",
+          "anchor": "kindwrongcontainer"
+        },
+        {
+          "level": 3,
+          "text": "`KindBadInput`",
+          "anchor": "kindbadinput"
+        },
+        {
+          "level": 3,
+          "text": "`KindConflict`",
+          "anchor": "kindconflict"
+        },
+        {
+          "level": 3,
+          "text": "`KindRoundTrip`",
+          "anchor": "kindroundtrip"
+        },
+        {
+          "level": 3,
+          "text": "`KindHookError`",
+          "anchor": "kindhookerror"
+        },
+        {
+          "level": 3,
           "text": "`NodeDocument`",
           "anchor": "nodedocument"
         },
@@ -1352,128 +2077,83 @@
         },
         {
           "level": 3,
-          "text": "`TokenBareKey`",
-          "anchor": "tokenbarekey"
+          "text": "`SegmentKey`",
+          "anchor": "segmentkey"
         },
         {
           "level": 3,
-          "text": "`TokenBasicString`",
-          "anchor": "tokenbasicstring"
+          "text": "`SegmentIndex`",
+          "anchor": "segmentindex"
         },
         {
           "level": 3,
-          "text": "`TokenLiteralString`",
-          "anchor": "tokenliteralstring"
+          "text": "`EntryValue`",
+          "anchor": "entryvalue"
         },
         {
           "level": 3,
-          "text": "`TokenMultiLineBasicString`",
-          "anchor": "tokenmultilinebasicstring"
+          "text": "`EntryRecord`",
+          "anchor": "entryrecord"
         },
         {
           "level": 3,
-          "text": "`TokenMultiLineLiteralString`",
-          "anchor": "tokenmultilineliteralstring"
+          "text": "`EntryRecords`",
+          "anchor": "entryrecords"
         },
         {
           "level": 3,
-          "text": "`TokenInteger`",
-          "anchor": "tokeninteger"
+          "text": "`FieldKindString`",
+          "anchor": "fieldkindstring"
         },
         {
           "level": 3,
-          "text": "`TokenFloat`",
-          "anchor": "tokenfloat"
+          "text": "`FieldKindInteger`",
+          "anchor": "fieldkindinteger"
         },
         {
           "level": 3,
-          "text": "`TokenBoolean`",
-          "anchor": "tokenboolean"
+          "text": "`FieldKindFloat`",
+          "anchor": "fieldkindfloat"
         },
         {
           "level": 3,
-          "text": "`TokenOffsetDateTime`",
-          "anchor": "tokenoffsetdatetime"
+          "text": "`FieldKindBoolean`",
+          "anchor": "fieldkindboolean"
         },
         {
           "level": 3,
-          "text": "`TokenLocalDateTime`",
-          "anchor": "tokenlocaldatetime"
+          "text": "`FieldKindOffsetDateTime`",
+          "anchor": "fieldkindoffsetdatetime"
         },
         {
           "level": 3,
-          "text": "`TokenLocalDate`",
-          "anchor": "tokenlocaldate"
+          "text": "`FieldKindLocalDateTime`",
+          "anchor": "fieldkindlocaldatetime"
         },
         {
           "level": 3,
-          "text": "`TokenLocalTime`",
-          "anchor": "tokenlocaltime"
+          "text": "`FieldKindLocalDate`",
+          "anchor": "fieldkindlocaldate"
         },
         {
           "level": 3,
-          "text": "`TokenEquals`",
-          "anchor": "tokenequals"
+          "text": "`FieldKindLocalTime`",
+          "anchor": "fieldkindlocaltime"
         },
         {
           "level": 3,
-          "text": "`TokenDot`",
-          "anchor": "tokendot"
+          "text": "`FieldKindArray`",
+          "anchor": "fieldkindarray"
         },
         {
           "level": 3,
-          "text": "`TokenComma`",
-          "anchor": "tokencomma"
+          "text": "`FieldKindTable`",
+          "anchor": "fieldkindtable"
         },
         {
           "level": 3,
-          "text": "`TokenLeftBracket`",
-          "anchor": "tokenleftbracket"
-        },
-        {
-          "level": 3,
-          "text": "`TokenRightBracket`",
-          "anchor": "tokenrightbracket"
-        },
-        {
-          "level": 3,
-          "text": "`TokenDoubleLeftBracket`",
-          "anchor": "tokendoubleleftbracket"
-        },
-        {
-          "level": 3,
-          "text": "`TokenDoubleRightBracket`",
-          "anchor": "tokendoublerightbracket"
-        },
-        {
-          "level": 3,
-          "text": "`TokenLeftBrace`",
-          "anchor": "tokenleftbrace"
-        },
-        {
-          "level": 3,
-          "text": "`TokenRightBrace`",
-          "anchor": "tokenrightbrace"
-        },
-        {
-          "level": 3,
-          "text": "`TokenComment`",
-          "anchor": "tokencomment"
-        },
-        {
-          "level": 3,
-          "text": "`TokenWhitespace`",
-          "anchor": "tokenwhitespace"
-        },
-        {
-          "level": 3,
-          "text": "`TokenNewline`",
-          "anchor": "tokennewline"
-        },
-        {
-          "level": 3,
-          "text": "`TokenEOF`",
-          "anchor": "tokeneof"
+          "text": "`FieldKindAny`",
+          "anchor": "fieldkindany"
         },
         {
           "level": 3,
@@ -1487,6 +2167,71 @@
         },
         {
           "level": 3,
+          "text": "`ErrSyntax`",
+          "anchor": "errsyntax"
+        },
+        {
+          "level": 3,
+          "text": "`ErrUnknownKey`",
+          "anchor": "errunknownkey"
+        },
+        {
+          "level": 3,
+          "text": "`ErrUnknownTable`",
+          "anchor": "errunknowntable"
+        },
+        {
+          "level": 3,
+          "text": "`ErrMissingKey`",
+          "anchor": "errmissingkey"
+        },
+        {
+          "level": 3,
+          "text": "`ErrTypeMismatch`",
+          "anchor": "errtypemismatch"
+        },
+        {
+          "level": 3,
+          "text": "`ErrInexact`",
+          "anchor": "errinexact"
+        },
+        {
+          "level": 3,
+          "text": "`ErrNotFound`",
+          "anchor": "errnotfound"
+        },
+        {
+          "level": 3,
+          "text": "`ErrBadPath`",
+          "anchor": "errbadpath"
+        },
+        {
+          "level": 3,
+          "text": "`ErrWrongContainer`",
+          "anchor": "errwrongcontainer"
+        },
+        {
+          "level": 3,
+          "text": "`ErrBadInput`",
+          "anchor": "errbadinput"
+        },
+        {
+          "level": 3,
+          "text": "`ErrConflict`",
+          "anchor": "errconflict"
+        },
+        {
+          "level": 3,
+          "text": "`ErrRoundTrip`",
+          "anchor": "errroundtrip"
+        },
+        {
+          "level": 3,
+          "text": "`ErrHookError`",
+          "anchor": "errhookerror"
+        },
+        {
+          "level": 3,
           "text": "`ErrSkipTable`",
           "anchor": "errskiptable"
         },
@@ -1494,6 +2239,16 @@
           "level": 3,
           "text": "`Cursor`",
           "anchor": "cursor"
+        },
+        {
+          "level": 3,
+          "text": "`Unmarshaler`",
+          "anchor": "unmarshaler"
+        },
+        {
+          "level": 3,
+          "text": "`Default`",
+          "anchor": "default"
         },
         {
           "level": 3,
@@ -1507,8 +2262,23 @@
         },
         {
           "level": 3,
-          "text": "`ParseError`",
-          "anchor": "parseerror"
+          "text": "`Pair`",
+          "anchor": "pair"
+        },
+        {
+          "level": 3,
+          "text": "`ErrorKind`",
+          "anchor": "errorkind"
+        },
+        {
+          "level": 3,
+          "text": "`Error`",
+          "anchor": "error"
+        },
+        {
+          "level": 3,
+          "text": "`Errors`",
+          "anchor": "errors"
         },
         {
           "level": 3,
@@ -1527,13 +2297,13 @@
         },
         {
           "level": 3,
-          "text": "`Trivia`",
-          "anchor": "trivia"
+          "text": "`Node`",
+          "anchor": "node"
         },
         {
           "level": 3,
-          "text": "`Node`",
-          "anchor": "node"
+          "text": "`Scalar`",
+          "anchor": "scalar"
         },
         {
           "level": 3,
@@ -1642,6 +2412,31 @@
         },
         {
           "level": 3,
+          "text": "`SegmentKind`",
+          "anchor": "segmentkind"
+        },
+        {
+          "level": 3,
+          "text": "`PathSegment`",
+          "anchor": "pathsegment"
+        },
+        {
+          "level": 3,
+          "text": "`EntryKind`",
+          "anchor": "entrykind"
+        },
+        {
+          "level": 3,
+          "text": "`Record`",
+          "anchor": "record"
+        },
+        {
+          "level": 3,
+          "text": "`Entry`",
+          "anchor": "entry"
+        },
+        {
+          "level": 3,
           "text": "`Position`",
           "anchor": "position"
         },
@@ -1652,18 +2447,18 @@
         },
         {
           "level": 3,
-          "text": "`TokenType`",
-          "anchor": "tokentype"
+          "text": "`FieldKind`",
+          "anchor": "fieldkind"
         },
         {
           "level": 3,
-          "text": "`Token`",
-          "anchor": "token"
+          "text": "`Spec`",
+          "anchor": "spec"
         },
         {
           "level": 3,
-          "text": "`Unmarshaler`",
-          "anchor": "unmarshaler"
+          "text": "`Field`",
+          "anchor": "field"
         },
         {
           "level": 3,
@@ -1697,18 +2492,143 @@
         },
         {
           "level": 3,
-          "text": "`Marshal`",
-          "anchor": "marshal"
-        },
-        {
-          "level": 3,
           "text": "`Parse`",
           "anchor": "parse"
         },
         {
           "level": 3,
-          "text": "`Unmarshal`",
-          "anchor": "unmarshal"
+          "text": "`ParseFile`",
+          "anchor": "parsefile"
+        },
+        {
+          "level": 3,
+          "text": "`ParsePath`",
+          "anchor": "parsepath"
+        },
+        {
+          "level": 3,
+          "text": "`JoinPath`",
+          "anchor": "joinpath"
+        },
+        {
+          "level": 3,
+          "text": "`QuoteString`",
+          "anchor": "quotestring"
+        },
+        {
+          "level": 3,
+          "text": "`QuoteKey`",
+          "anchor": "quotekey"
+        },
+        {
+          "level": 3,
+          "text": "`FormatFloat`",
+          "anchor": "formatfloat"
+        },
+        {
+          "level": 3,
+          "text": "`FieldAny`",
+          "anchor": "fieldany"
+        },
+        {
+          "level": 3,
+          "text": "`Document.GetString`",
+          "anchor": "documentgetstring"
+        },
+        {
+          "level": 3,
+          "text": "`Document.GetInt`",
+          "anchor": "documentgetint"
+        },
+        {
+          "level": 3,
+          "text": "`Document.GetBool`",
+          "anchor": "documentgetbool"
+        },
+        {
+          "level": 3,
+          "text": "`Document.GetFloat`",
+          "anchor": "documentgetfloat"
+        },
+        {
+          "level": 3,
+          "text": "`Document.GetTime`",
+          "anchor": "documentgettime"
+        },
+        {
+          "level": 3,
+          "text": "`Document.Children`",
+          "anchor": "documentchildren"
+        },
+        {
+          "level": 3,
+          "text": "`TableNode.KeyPath`",
+          "anchor": "tablenodekeypath"
+        },
+        {
+          "level": 3,
+          "text": "`TableNode.Children`",
+          "anchor": "tablenodechildren"
+        },
+        {
+          "level": 3,
+          "text": "`ArrayTableNode.KeyPath`",
+          "anchor": "arraytablenodekeypath"
+        },
+        {
+          "level": 3,
+          "text": "`ArrayTableNode.Children`",
+          "anchor": "arraytablenodechildren"
+        },
+        {
+          "level": 3,
+          "text": "`KeyValueNode.Key`",
+          "anchor": "keyvaluenodekey"
+        },
+        {
+          "level": 3,
+          "text": "`KeyValueNode.Val`",
+          "anchor": "keyvaluenodeval"
+        },
+        {
+          "level": 3,
+          "text": "`KeyNode.Parts`",
+          "anchor": "keynodeparts"
+        },
+        {
+          "level": 3,
+          "text": "`KeyNode.RawParts`",
+          "anchor": "keynoderawparts"
+        },
+        {
+          "level": 3,
+          "text": "`KeyNode.Styles`",
+          "anchor": "keynodestyles"
+        },
+        {
+          "level": 3,
+          "text": "`StringNode.Style`",
+          "anchor": "stringnodestyle"
+        },
+        {
+          "level": 3,
+          "text": "`IntegerNode.Base`",
+          "anchor": "integernodebase"
+        },
+        {
+          "level": 3,
+          "text": "`ArrayNode.Elements`",
+          "anchor": "arraynodeelements"
+        },
+        {
+          "level": 3,
+          "text": "`InlineTableNode.Children`",
+          "anchor": "inlinetablenodechildren"
+        },
+        {
+          "level": 3,
+          "text": "`CommentNode.Text`",
+          "anchor": "commentnodetext"
         },
         {
           "level": 3,
@@ -1719,6 +2639,11 @@
           "level": 3,
           "text": "`Document.SetLeadingComments`",
           "anchor": "documentsetleadingcomments"
+        },
+        {
+          "level": 3,
+          "text": "`valueKind.String`",
+          "anchor": "valuekindstring"
         },
         {
           "level": 3,
@@ -1772,88 +2697,23 @@
         },
         {
           "level": 3,
+          "text": "`Document.EnsureDefaults`",
+          "anchor": "documentensuredefaults"
+        },
+        {
+          "level": 3,
           "text": "`ChangeKind.String`",
           "anchor": "changekindstring"
         },
         {
           "level": 3,
-          "text": "`dottedKeyView.Type`",
-          "anchor": "dottedkeyviewtype"
-        },
-        {
-          "level": 3,
-          "text": "`dottedKeyView.Value`",
-          "anchor": "dottedkeyviewvalue"
-        },
-        {
-          "level": 3,
-          "text": "`dottedKeyGroup.Type`",
-          "anchor": "dottedkeygrouptype"
-        },
-        {
-          "level": 3,
-          "text": "`dottedKeyGroup.Value`",
-          "anchor": "dottedkeygroupvalue"
-        },
-        {
-          "level": 3,
-          "text": "`compoundTableView.Type`",
-          "anchor": "compoundtableviewtype"
-        },
-        {
-          "level": 3,
-          "text": "`compoundTableView.Value`",
-          "anchor": "compoundtableviewvalue"
-        },
-        {
-          "level": 3,
-          "text": "`arrayTableCollection.Type`",
-          "anchor": "arraytablecollectiontype"
-        },
-        {
-          "level": 3,
-          "text": "`arrayTableCollection.Value`",
-          "anchor": "arraytablecollectionvalue"
-        },
-        {
-          "level": 3,
-          "text": "`Document.Get`",
-          "anchor": "documentget"
-        },
-        {
-          "level": 3,
-          "text": "`Document.Resolve`",
-          "anchor": "documentresolve"
-        },
-        {
-          "level": 3,
-          "text": "`Document.GetString`",
-          "anchor": "documentgetstring"
-        },
-        {
-          "level": 3,
-          "text": "`Document.GetInt`",
-          "anchor": "documentgetint"
-        },
-        {
-          "level": 3,
-          "text": "`Document.GetBool`",
-          "anchor": "documentgetbool"
-        },
-        {
-          "level": 3,
-          "text": "`Document.GetFloat`",
-          "anchor": "documentgetfloat"
-        },
-        {
-          "level": 3,
-          "text": "`Document.GetTime`",
-          "anchor": "documentgettime"
-        },
-        {
-          "level": 3,
           "text": "`Document.Set`",
           "anchor": "documentset"
+        },
+        {
+          "level": 4,
+          "text": "Equality",
+          "anchor": "equality"
         },
         {
           "level": 3,
@@ -1882,23 +2742,43 @@
         },
         {
           "level": 3,
-          "text": "`ParseError.Error`",
-          "anchor": "parseerrorerror"
+          "text": "`ErrorKind.String`",
+          "anchor": "errorkindstring"
+        },
+        {
+          "level": 3,
+          "text": "`kindError.Error`",
+          "anchor": "kinderrorerror"
+        },
+        {
+          "level": 3,
+          "text": "`Error.Error`",
+          "anchor": "errorerror"
+        },
+        {
+          "level": 3,
+          "text": "`Error.Unwrap`",
+          "anchor": "errorunwrap"
+        },
+        {
+          "level": 3,
+          "text": "`Error.Is`",
+          "anchor": "erroris"
+        },
+        {
+          "level": 3,
+          "text": "`Errors.Error`",
+          "anchor": "errorserror"
+        },
+        {
+          "level": 3,
+          "text": "`Errors.Unwrap`",
+          "anchor": "errorsunwrap"
         },
         {
           "level": 3,
           "text": "`Document.Format`",
           "anchor": "documentformat"
-        },
-        {
-          "level": 3,
-          "text": "`Document.Items`",
-          "anchor": "documentitems"
-        },
-        {
-          "level": 3,
-          "text": "`Document.Len`",
-          "anchor": "documentlen"
         },
         {
           "level": 3,
@@ -1912,13 +2792,48 @@
         },
         {
           "level": 3,
-          "text": "`Document.MergeDefaults`",
-          "anchor": "documentmergedefaults"
+          "text": "`Document.Merge`",
+          "anchor": "documentmerge"
         },
         {
           "level": 3,
-          "text": "`Document.Merge`",
-          "anchor": "documentmerge"
+          "text": "`StringNode.Raw`",
+          "anchor": "stringnoderaw"
+        },
+        {
+          "level": 3,
+          "text": "`IntegerNode.Raw`",
+          "anchor": "integernoderaw"
+        },
+        {
+          "level": 3,
+          "text": "`FloatNode.Raw`",
+          "anchor": "floatnoderaw"
+        },
+        {
+          "level": 3,
+          "text": "`BooleanNode.Raw`",
+          "anchor": "booleannoderaw"
+        },
+        {
+          "level": 3,
+          "text": "`DateTimeNode.Raw`",
+          "anchor": "datetimenoderaw"
+        },
+        {
+          "level": 3,
+          "text": "`LocalDateTimeNode.Raw`",
+          "anchor": "localdatetimenoderaw"
+        },
+        {
+          "level": 3,
+          "text": "`LocalDateNode.Raw`",
+          "anchor": "localdatenoderaw"
+        },
+        {
+          "level": 3,
+          "text": "`LocalTimeNode.Raw`",
+          "anchor": "localtimenoderaw"
         },
         {
           "level": 3,
@@ -1942,18 +2857,8 @@
         },
         {
           "level": 3,
-          "text": "`nodeBase.SetComment`",
-          "anchor": "nodebasesetcomment"
-        },
-        {
-          "level": 3,
           "text": "`nodeBase.LeadingComments`",
           "anchor": "nodebaseleadingcomments"
-        },
-        {
-          "level": 3,
-          "text": "`nodeBase.SetLeadingComments`",
-          "anchor": "nodebasesetleadingcomments"
         },
         {
           "level": 3,
@@ -1962,18 +2867,8 @@
         },
         {
           "level": 3,
-          "text": "`Document.Value`",
-          "anchor": "documentvalue"
-        },
-        {
-          "level": 3,
           "text": "`TableNode.Type`",
           "anchor": "tablenodetype"
-        },
-        {
-          "level": 3,
-          "text": "`TableNode.Value`",
-          "anchor": "tablenodevalue"
         },
         {
           "level": 3,
@@ -1982,28 +2877,13 @@
         },
         {
           "level": 3,
-          "text": "`ArrayTableNode.Value`",
-          "anchor": "arraytablenodevalue"
-        },
-        {
-          "level": 3,
           "text": "`KeyValueNode.Type`",
           "anchor": "keyvaluenodetype"
         },
         {
           "level": 3,
-          "text": "`KeyValueNode.Value`",
-          "anchor": "keyvaluenodevalue"
-        },
-        {
-          "level": 3,
           "text": "`KeyNode.Type`",
           "anchor": "keynodetype"
-        },
-        {
-          "level": 3,
-          "text": "`KeyNode.Value`",
-          "anchor": "keynodevalue"
         },
         {
           "level": 3,
@@ -2092,18 +2972,8 @@
         },
         {
           "level": 3,
-          "text": "`ArrayNode.Value`",
-          "anchor": "arraynodevalue"
-        },
-        {
-          "level": 3,
           "text": "`InlineTableNode.Type`",
           "anchor": "inlinetablenodetype"
-        },
-        {
-          "level": 3,
-          "text": "`InlineTableNode.Value`",
-          "anchor": "inlinetablenodevalue"
         },
         {
           "level": 3,
@@ -2112,13 +2982,413 @@
         },
         {
           "level": 3,
-          "text": "`CommentNode.Value`",
-          "anchor": "commentnodevalue"
+          "text": "`EntryKind.String`",
+          "anchor": "entrykindstring"
+        },
+        {
+          "level": 3,
+          "text": "`Document.Root`",
+          "anchor": "documentroot"
+        },
+        {
+          "level": 3,
+          "text": "`Record.Len`",
+          "anchor": "recordlen"
+        },
+        {
+          "level": 3,
+          "text": "`Record.Span`",
+          "anchor": "recordspan"
+        },
+        {
+          "level": 3,
+          "text": "`Record.Node`",
+          "anchor": "recordnode"
+        },
+        {
+          "level": 3,
+          "text": "`Record.Entries`",
+          "anchor": "recordentries"
+        },
+        {
+          "level": 3,
+          "text": "`Record.Get`",
+          "anchor": "recordget"
+        },
+        {
+          "level": 3,
+          "text": "`Entry.Key`",
+          "anchor": "entrykey"
+        },
+        {
+          "level": 3,
+          "text": "`Entry.KeySpan`",
+          "anchor": "entrykeyspan"
+        },
+        {
+          "level": 3,
+          "text": "`Entry.Kind`",
+          "anchor": "entrykind-1"
+        },
+        {
+          "level": 3,
+          "text": "`Entry.Record`",
+          "anchor": "entryrecord-1"
+        },
+        {
+          "level": 3,
+          "text": "`Entry.Records`",
+          "anchor": "entryrecords-1"
+        },
+        {
+          "level": 3,
+          "text": "`Entry.RecordsSpan`",
+          "anchor": "entryrecordsspan"
+        },
+        {
+          "level": 3,
+          "text": "`Entry.Node`",
+          "anchor": "entrynode"
         },
         {
           "level": 3,
           "text": "`Document.Bytes`",
           "anchor": "documentbytes"
+        },
+        {
+          "level": 3,
+          "text": "`Document.Resolve`",
+          "anchor": "documentresolve"
+        },
+        {
+          "level": 3,
+          "text": "`Document.Lookup`",
+          "anchor": "documentlookup"
+        },
+        {
+          "level": 3,
+          "text": "`Document.Has`",
+          "anchor": "documenthas"
+        },
+        {
+          "level": 3,
+          "text": "`StringNode.AsString`",
+          "anchor": "stringnodeasstring"
+        },
+        {
+          "level": 3,
+          "text": "`StringNode.AsInt`",
+          "anchor": "stringnodeasint"
+        },
+        {
+          "level": 3,
+          "text": "`StringNode.AsFloat`",
+          "anchor": "stringnodeasfloat"
+        },
+        {
+          "level": 3,
+          "text": "`StringNode.AsBool`",
+          "anchor": "stringnodeasbool"
+        },
+        {
+          "level": 3,
+          "text": "`StringNode.AsTime`",
+          "anchor": "stringnodeastime"
+        },
+        {
+          "level": 3,
+          "text": "`StringNode.AsLocalDateTime`",
+          "anchor": "stringnodeaslocaldatetime"
+        },
+        {
+          "level": 3,
+          "text": "`StringNode.AsLocalDate`",
+          "anchor": "stringnodeaslocaldate"
+        },
+        {
+          "level": 3,
+          "text": "`StringNode.AsLocalTime`",
+          "anchor": "stringnodeaslocaltime"
+        },
+        {
+          "level": 3,
+          "text": "`IntegerNode.AsString`",
+          "anchor": "integernodeasstring"
+        },
+        {
+          "level": 3,
+          "text": "`IntegerNode.AsInt`",
+          "anchor": "integernodeasint"
+        },
+        {
+          "level": 3,
+          "text": "`IntegerNode.AsFloat`",
+          "anchor": "integernodeasfloat"
+        },
+        {
+          "level": 3,
+          "text": "`IntegerNode.AsBool`",
+          "anchor": "integernodeasbool"
+        },
+        {
+          "level": 3,
+          "text": "`IntegerNode.AsTime`",
+          "anchor": "integernodeastime"
+        },
+        {
+          "level": 3,
+          "text": "`IntegerNode.AsLocalDateTime`",
+          "anchor": "integernodeaslocaldatetime"
+        },
+        {
+          "level": 3,
+          "text": "`IntegerNode.AsLocalDate`",
+          "anchor": "integernodeaslocaldate"
+        },
+        {
+          "level": 3,
+          "text": "`IntegerNode.AsLocalTime`",
+          "anchor": "integernodeaslocaltime"
+        },
+        {
+          "level": 3,
+          "text": "`FloatNode.AsString`",
+          "anchor": "floatnodeasstring"
+        },
+        {
+          "level": 3,
+          "text": "`FloatNode.AsInt`",
+          "anchor": "floatnodeasint"
+        },
+        {
+          "level": 3,
+          "text": "`FloatNode.AsFloat`",
+          "anchor": "floatnodeasfloat"
+        },
+        {
+          "level": 3,
+          "text": "`FloatNode.AsBool`",
+          "anchor": "floatnodeasbool"
+        },
+        {
+          "level": 3,
+          "text": "`FloatNode.AsTime`",
+          "anchor": "floatnodeastime"
+        },
+        {
+          "level": 3,
+          "text": "`FloatNode.AsLocalDateTime`",
+          "anchor": "floatnodeaslocaldatetime"
+        },
+        {
+          "level": 3,
+          "text": "`FloatNode.AsLocalDate`",
+          "anchor": "floatnodeaslocaldate"
+        },
+        {
+          "level": 3,
+          "text": "`FloatNode.AsLocalTime`",
+          "anchor": "floatnodeaslocaltime"
+        },
+        {
+          "level": 3,
+          "text": "`BooleanNode.AsString`",
+          "anchor": "booleannodeasstring"
+        },
+        {
+          "level": 3,
+          "text": "`BooleanNode.AsInt`",
+          "anchor": "booleannodeasint"
+        },
+        {
+          "level": 3,
+          "text": "`BooleanNode.AsFloat`",
+          "anchor": "booleannodeasfloat"
+        },
+        {
+          "level": 3,
+          "text": "`BooleanNode.AsBool`",
+          "anchor": "booleannodeasbool"
+        },
+        {
+          "level": 3,
+          "text": "`BooleanNode.AsTime`",
+          "anchor": "booleannodeastime"
+        },
+        {
+          "level": 3,
+          "text": "`BooleanNode.AsLocalDateTime`",
+          "anchor": "booleannodeaslocaldatetime"
+        },
+        {
+          "level": 3,
+          "text": "`BooleanNode.AsLocalDate`",
+          "anchor": "booleannodeaslocaldate"
+        },
+        {
+          "level": 3,
+          "text": "`BooleanNode.AsLocalTime`",
+          "anchor": "booleannodeaslocaltime"
+        },
+        {
+          "level": 3,
+          "text": "`DateTimeNode.AsString`",
+          "anchor": "datetimenodeasstring"
+        },
+        {
+          "level": 3,
+          "text": "`DateTimeNode.AsInt`",
+          "anchor": "datetimenodeasint"
+        },
+        {
+          "level": 3,
+          "text": "`DateTimeNode.AsFloat`",
+          "anchor": "datetimenodeasfloat"
+        },
+        {
+          "level": 3,
+          "text": "`DateTimeNode.AsBool`",
+          "anchor": "datetimenodeasbool"
+        },
+        {
+          "level": 3,
+          "text": "`DateTimeNode.AsTime`",
+          "anchor": "datetimenodeastime"
+        },
+        {
+          "level": 3,
+          "text": "`DateTimeNode.AsLocalDateTime`",
+          "anchor": "datetimenodeaslocaldatetime"
+        },
+        {
+          "level": 3,
+          "text": "`DateTimeNode.AsLocalDate`",
+          "anchor": "datetimenodeaslocaldate"
+        },
+        {
+          "level": 3,
+          "text": "`DateTimeNode.AsLocalTime`",
+          "anchor": "datetimenodeaslocaltime"
+        },
+        {
+          "level": 3,
+          "text": "`LocalDateTimeNode.AsString`",
+          "anchor": "localdatetimenodeasstring"
+        },
+        {
+          "level": 3,
+          "text": "`LocalDateTimeNode.AsInt`",
+          "anchor": "localdatetimenodeasint"
+        },
+        {
+          "level": 3,
+          "text": "`LocalDateTimeNode.AsFloat`",
+          "anchor": "localdatetimenodeasfloat"
+        },
+        {
+          "level": 3,
+          "text": "`LocalDateTimeNode.AsBool`",
+          "anchor": "localdatetimenodeasbool"
+        },
+        {
+          "level": 3,
+          "text": "`LocalDateTimeNode.AsTime`",
+          "anchor": "localdatetimenodeastime"
+        },
+        {
+          "level": 3,
+          "text": "`LocalDateTimeNode.AsLocalDateTime`",
+          "anchor": "localdatetimenodeaslocaldatetime"
+        },
+        {
+          "level": 3,
+          "text": "`LocalDateTimeNode.AsLocalDate`",
+          "anchor": "localdatetimenodeaslocaldate"
+        },
+        {
+          "level": 3,
+          "text": "`LocalDateTimeNode.AsLocalTime`",
+          "anchor": "localdatetimenodeaslocaltime"
+        },
+        {
+          "level": 3,
+          "text": "`LocalDateNode.AsString`",
+          "anchor": "localdatenodeasstring"
+        },
+        {
+          "level": 3,
+          "text": "`LocalDateNode.AsInt`",
+          "anchor": "localdatenodeasint"
+        },
+        {
+          "level": 3,
+          "text": "`LocalDateNode.AsFloat`",
+          "anchor": "localdatenodeasfloat"
+        },
+        {
+          "level": 3,
+          "text": "`LocalDateNode.AsBool`",
+          "anchor": "localdatenodeasbool"
+        },
+        {
+          "level": 3,
+          "text": "`LocalDateNode.AsTime`",
+          "anchor": "localdatenodeastime"
+        },
+        {
+          "level": 3,
+          "text": "`LocalDateNode.AsLocalDateTime`",
+          "anchor": "localdatenodeaslocaldatetime"
+        },
+        {
+          "level": 3,
+          "text": "`LocalDateNode.AsLocalDate`",
+          "anchor": "localdatenodeaslocaldate"
+        },
+        {
+          "level": 3,
+          "text": "`LocalDateNode.AsLocalTime`",
+          "anchor": "localdatenodeaslocaltime"
+        },
+        {
+          "level": 3,
+          "text": "`LocalTimeNode.AsString`",
+          "anchor": "localtimenodeasstring"
+        },
+        {
+          "level": 3,
+          "text": "`LocalTimeNode.AsInt`",
+          "anchor": "localtimenodeasint"
+        },
+        {
+          "level": 3,
+          "text": "`LocalTimeNode.AsFloat`",
+          "anchor": "localtimenodeasfloat"
+        },
+        {
+          "level": 3,
+          "text": "`LocalTimeNode.AsBool`",
+          "anchor": "localtimenodeasbool"
+        },
+        {
+          "level": 3,
+          "text": "`LocalTimeNode.AsTime`",
+          "anchor": "localtimenodeastime"
+        },
+        {
+          "level": 3,
+          "text": "`LocalTimeNode.AsLocalDateTime`",
+          "anchor": "localtimenodeaslocaldatetime"
+        },
+        {
+          "level": 3,
+          "text": "`LocalTimeNode.AsLocalDate`",
+          "anchor": "localtimenodeaslocaldate"
+        },
+        {
+          "level": 3,
+          "text": "`LocalTimeNode.AsLocalTime`",
+          "anchor": "localtimenodeaslocaltime"
         },
         {
           "level": 3,
@@ -2132,18 +3402,48 @@
         },
         {
           "level": 3,
-          "text": "`TokenType.String`",
-          "anchor": "tokentypestring"
+          "text": "`FieldKind.String`",
+          "anchor": "fieldkindstring-1"
         },
         {
           "level": 3,
-          "text": "`Document.Decode`",
-          "anchor": "documentdecode"
+          "text": "`Document.Validate`",
+          "anchor": "documentvalidate"
+        },
+        {
+          "level": 3,
+          "text": "`Document.DecodeSpec`",
+          "anchor": "documentdecodespec"
+        },
+        {
+          "level": 3,
+          "text": "`Document.PermuteChildren`",
+          "anchor": "documentpermutechildren"
+        },
+        {
+          "level": 3,
+          "text": "`Document.AppendToArray`",
+          "anchor": "documentappendtoarray"
+        },
+        {
+          "level": 3,
+          "text": "`Document.RemoveFromArray`",
+          "anchor": "documentremovefromarray"
+        },
+        {
+          "level": 3,
+          "text": "`tokenType.String`",
+          "anchor": "tokentypestring"
         },
         {
           "level": 3,
           "text": "`Document.Walk`",
           "anchor": "documentwalk"
+        },
+        {
+          "level": 3,
+          "text": "`Document.WriteFile`",
+          "anchor": "documentwritefile"
         }
       ]
     },
@@ -2240,6 +3540,33 @@
       ]
     },
     {
+      "path": "scripts.md",
+      "title": "scripts",
+      "type": "doc",
+      "headings": [
+        {
+          "level": 1,
+          "text": "scripts",
+          "anchor": "scripts"
+        },
+        {
+          "level": 2,
+          "text": "`scripts`",
+          "anchor": "scripts"
+        },
+        {
+          "level": 3,
+          "text": "`methodList.String`",
+          "anchor": "methodliststring"
+        },
+        {
+          "level": 3,
+          "text": "`methodList.Set`",
+          "anchor": "methodlistset"
+        }
+      ]
+    },
+    {
       "path": "usage-guide.md",
       "title": "Usage Guide",
       "type": "doc",
@@ -2253,6 +3580,11 @@
           "level": 2,
           "text": "Installation",
           "anchor": "installation"
+        },
+        {
+          "level": 2,
+          "text": "Two surfaces, two questions",
+          "anchor": "two-surfaces-two-questions"
         },
         {
           "level": 2,
@@ -2276,28 +3608,23 @@
         },
         {
           "level": 3,
-          "text": "Path-based access with Get",
-          "anchor": "path-based-access-with-get"
-        },
-        {
-          "level": 3,
           "text": "Typed getters",
           "anchor": "typed-getters"
         },
         {
           "level": 3,
-          "text": "Resolve with error details",
-          "anchor": "resolve-with-error-details"
+          "text": "Resolve, Lookup and Has",
+          "anchor": "resolve-lookup-and-has"
+        },
+        {
+          "level": 3,
+          "text": "The read-layer",
+          "anchor": "the-read-layer"
         },
         {
           "level": 3,
           "text": "Cursor API",
           "anchor": "cursor-api"
-        },
-        {
-          "level": 3,
-          "text": "Iterating over arrays",
-          "anchor": "iterating-over-arrays"
         },
         {
           "level": 2,
@@ -2316,13 +3643,13 @@
         },
         {
           "level": 3,
-          "text": "Setting arrays and inline tables",
-          "anchor": "setting-arrays-and-inline-tables"
+          "text": "Arrays and inline tables",
+          "anchor": "arrays-and-inline-tables"
         },
         {
           "level": 3,
-          "text": "Setting array elements by index",
-          "anchor": "setting-array-elements-by-index"
+          "text": "Array elements by index",
+          "anchor": "array-elements-by-index"
         },
         {
           "level": 2,
@@ -2338,6 +3665,11 @@
           "level": 3,
           "text": "NewArrayTable",
           "anchor": "newarraytable"
+        },
+        {
+          "level": 2,
+          "text": "Structural operations",
+          "anchor": "structural-operations"
         },
         {
           "level": 2,
@@ -2376,6 +3708,11 @@
         },
         {
           "level": 3,
+          "text": "What a comment may carry",
+          "anchor": "what-a-comment-may-carry"
+        },
+        {
+          "level": 3,
           "text": "Comments and inline tables",
           "anchor": "comments-and-inline-tables"
         },
@@ -2396,6 +3733,11 @@
         },
         {
           "level": 3,
+          "text": "WriteFile -- atomic, round-trip checked",
+          "anchor": "writefile-atomic-round-trip-checked"
+        },
+        {
+          "level": 3,
           "text": "Format -- canonical style",
           "anchor": "format-canonical-style"
         },
@@ -2410,39 +3752,49 @@
           "anchor": "merging-documents"
         },
         {
-          "level": 3,
-          "text": "MergeDefaults",
-          "anchor": "mergedefaults"
+          "level": 2,
+          "text": "Decoding into Go types",
+          "anchor": "decoding-into-go-types"
         },
         {
           "level": 3,
-          "text": "Merge",
-          "anchor": "merge"
+          "text": "Strictness",
+          "anchor": "strictness"
+        },
+        {
+          "level": 3,
+          "text": "The entry points",
+          "anchor": "the-entry-points"
+        },
+        {
+          "level": 3,
+          "text": "Overlaying a document on defaults",
+          "anchor": "overlaying-a-document-on-defaults"
+        },
+        {
+          "level": 3,
+          "text": "Decoding into maps",
+          "anchor": "decoding-into-maps"
+        },
+        {
+          "level": 3,
+          "text": "The conversion table",
+          "anchor": "the-conversion-table"
         },
         {
           "level": 2,
-          "text": "Unmarshaling into Go types",
-          "anchor": "unmarshaling-into-go-types"
-        },
-        {
-          "level": 3,
-          "text": "Unmarshal",
-          "anchor": "unmarshal"
-        },
-        {
-          "level": 3,
-          "text": "Decode",
-          "anchor": "decode"
-        },
-        {
-          "level": 3,
-          "text": "Unmarshal into maps",
-          "anchor": "unmarshal-into-maps"
+          "text": "Validating against a descriptor",
+          "anchor": "validating-against-a-descriptor"
         },
         {
           "level": 2,
-          "text": "Marshaling from Go types",
-          "anchor": "marshaling-from-go-types"
+          "text": "Diagnostics",
+          "anchor": "diagnostics"
+        },
+        {
+          "level": 2,
+          "text": "Renderers and path helpers",
+          "anchor": "renderers-and-path-helpers"
         },
         {
           "level": 2,
@@ -2463,6 +3815,6 @@
     }
   ],
   "posts": [],
-  "last_gen": "2026-09-03T09:57:27.557868+00:00",
+  "last_gen": "2026-09-05T01:35:32.010076+00:00",
   "theme": "minimal"
 }

@@ -1,13 +1,13 @@
 {
   "_hash_version": 3,
   "en/design.md": {
-    "content": "a129adebbac5dafe502f2f03bc6e496aefa8f266389c65c1508214c3777664e5",
-    "description": "f38ed4a0fa4a593360a2a296f179bbdf3c61433349b2d2cc0e81d50ab187f18c"
+    "content": "14643a703bae7f9da66d434d213571f3d1f3c208885fe25f8444992b7c0ffe6a",
+    "description": "3876fba68e6e15d7efa761b434476b35ad6b18509709b54184a07e5cf62d587f"
   },
   "en/gen-index.md": {
-    "content": "ae9734b2a5ef80efa80010dd9dd77d25d65f2d201b9cfc9675355695e7004e3b",
-    "description": "576e72b5ee8acc176cebe57c20c08cea7cae6c43bfa4424d5c1b052411ec5813",
-    "seed_hash": "576e72b5ee8acc176cebe57c20c08cea7cae6c43bfa4424d5c1b052411ec5813"
+    "content": "02455f5d580378bb3a005642cca3aa07ebe6a223d90173b0751178d8667118fc",
+    "description": "8c031839fa8dddb0f018a21bed584eab65a9647c788224fcaa81cbb5d8c415f0",
+    "seed_hash": "8c031839fa8dddb0f018a21bed584eab65a9647c788224fcaa81cbb5d8c415f0"
   },
   "en/go-toml-edit.md": {
     "content": "9b74a2dc4d47520c618428af8f81752aae71ffb3531d692c039e373b0389824a",
@@ -19,8 +19,13 @@
     "description": "8a9c751e3f50c29fc2da86db5312516b8050e10375b43d18aac6a9cd603e3708",
     "source_docstring": "e585086b6e7d754a297277cedeeaf6bef74e48b31df775957ce206f1b9e86efe"
   },
+  "en/scripts.md": {
+    "content": "47623575447630cf9020f4ed84e74e7f200b8d64fe528a759d8e1e093290f909",
+    "description": "df3f134d47512178652fdc13acafee8b00d0f12bd8da430524643d1f361a83b0",
+    "seed_hash": "df3f134d47512178652fdc13acafee8b00d0f12bd8da430524643d1f361a83b0"
+  },
   "en/usage-guide.md": {
-    "content": "5c41d4305d4e0609dd6158b96d5aa1210bf4b35349e9cd3f6f14351e6db6fb47",
-    "description": "3854bb9de18f4ae0e87bed724e96ee82022371ee8b0968a30ec5c3a7b568d0b9"
+    "content": "089010295cd38dcd19e834e9d9676b0f0ddcb941512c287de268b8cb7fae2d9e",
+    "description": "da59cc21ec1301d56d270ce1d5c42e1747e0b63e6456cc9ab13b4a9c46967666"
   }
 }
