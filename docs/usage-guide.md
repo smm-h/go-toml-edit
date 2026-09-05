@@ -1,6 +1,6 @@
 ---
 title: Usage Guide
-description: "Comprehensive guide to parsing, querying, editing, and serializing TOML documents with go-toml-edit, including comments, the read-layer, strict decoding, merging, and diffing."
+description: "Parsing, querying, editing and writing TOML with go-toml-edit: the read-layer, path and node comment access, strict decoding, merging and diffing."
 nav_group: "Guides"
 nav_order: 1
 ---
@@ -801,7 +801,7 @@ tomledit.FormatFloat(1)           // 1.0
 tomledit.FormatFloat(math.NaN())  // nan
 ```
 
-`FormatFloat` writes the shortest form that reads back as the same `float64`, with a float marker always present, and the non-finite values as `nan`, `inf` and `-inf` -- never `+nan`, `-nan` or `+inf`. A string that is not valid UTF-8 renders each invalid byte as U+FFFD; the write paths refuse such text before it can reach a renderer.
+`FormatFloat` writes the shortest form that reads back as the same `float64`, with a float marker always present, and the non-finite values as `nan`, `inf` and `-inf` -- never `+nan`, `-nan` or `+inf`. A string that is not valid UTF-8 renders each invalid byte as `U+FFFD`; the write paths refuse such text before it can reach a renderer.
 
 The path helpers parse and render the library's own path syntax, with `JoinPath` as the single quoting authority:
 

@@ -1,6 +1,6 @@
 ---
 title: Design Guide
-description: Internal design of go-toml-edit covering the lex-parse-render pipeline, the AST, the logical read-layer, fragment-based dirty tracking, comment preservation, and round-trip guarantees.
+description: "How go-toml-edit works inside: the lex-parse-render pipeline, the sealed AST, the read-layer, fragment dirty tracking, and round-trip fidelity."
 ---
 
 # Design Guide
@@ -197,7 +197,7 @@ What the library writes -- and only that -- is written in canonical form:
 - **Boolean**: `true` / `false`.
 - **Date-times**: RFC 3339 with an uppercase `T`, seconds always present, fractional seconds trimmed of trailing zeros, `Z` for a zero offset and `±HH:MM` otherwise; the local flavors the same minus the offset.
 
-`QuoteString`, `QuoteKey` and `FormatFloat` are exported so a consumer rendering TOML by hand can reuse them. They are **total**: every Go string and every float64 has an output, and a string that is not valid UTF-8 renders each invalid byte as U+FFFD. Their inverse property is scoped to valid UTF-8, which costs nothing, because the write paths refuse invalid UTF-8 before it can reach a renderer.
+`QuoteString`, `QuoteKey` and `FormatFloat` are exported so a consumer rendering TOML by hand can reuse them. They are **total**: every Go string and every float64 has an output, and a string that is not valid UTF-8 renders each invalid byte as `U+FFFD`. Their inverse property is scoped to valid UTF-8, which costs nothing, because the write paths refuse invalid UTF-8 before it can reach a renderer.
 
 All TOML-valid spellings remain valid *input* and are preserved byte-for-byte while untouched. Canonicalization applies only to what the library writes.
 
