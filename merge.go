@@ -15,7 +15,22 @@ package tomledit
 // Comment handling:
 //   - For existing keys: other's leading comments are appended to d's leading
 //     comments; if d has no inline comment and other does, it is copied.
-//   - For new keys: comments from other are brought along with the value.
+//   - For new keys: the comments of the line that binds the key travel with it
+//     -- the comments written above it and the one written after it on the same
+//     line. Comments written INSIDE a container value do not. An array or an
+//     inline table that is new in the target is written from its values, so a
+//     comment between its elements is dropped. A table merged key by key keeps
+//     the comments of every key it brings, since each of those is a binding
+//     line with comments of its own.
+//
+// Two consequences of the rules above, stated so they are read as the contract
+// and not as an accident:
+//   - Merging one source twice doubles its leading comments. The second merge
+//     finds every key already present, and the existing-key rule appends.
+//   - The tables above a new nested table are written as empty headers: a
+//     source whose only content is [deep.nest] leaves an empty [deep] header in
+//     the target above it. Merge writes through SetCreate, which spells every
+//     intermediate table the path names as a header of its own.
 //
 // Array-of-tables are treated atomically: if d already has anything at a given
 // path, all of other's entries for that path are skipped.

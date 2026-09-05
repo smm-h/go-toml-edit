@@ -205,3 +205,60 @@ func TestMergeLayer_SubTableUnderArrayEntryMergesIntoThatEntry(t *testing.T) {
 		t.Fatalf("the merged document does not re-parse: %v\n%s", err, target.Bytes())
 	}
 }
+
+// Fails if Merge's documented reach for comments moves in either direction:
+// the comments of the line that binds a new key travel with it, and the
+// comments written between a container value's elements do not, because the
+// container is written from its values.
+func TestMergeLayer_NewValueBringsOnlyItsBindingLineComments(t *testing.T) {
+	target := mergeInto(t,
+		"name = \"app\"\n",
+		"# above\na = [\n  # between the elements\n  1, # after the element\n  2,\n] # after the array\n")
+
+	out := string(target.Bytes())
+	for _, want := range []string{"# above", "# after the array"} {
+		if !strings.Contains(out, want) {
+			t.Errorf("the binding line's comment %q was dropped:\n%s", want, out)
+		}
+	}
+	for _, unwanted := range []string{"between the elements", "after the element"} {
+		if strings.Contains(out, unwanted) {
+			t.Errorf("a comment interior to the array survived (%q), which the doc says it does not:\n%s",
+				unwanted, out)
+		}
+	}
+	if _, err := Parse(target.Bytes()); err != nil {
+		t.Fatalf("the merged document does not re-parse: %v\n%s", err, out)
+	}
+}
+
+// Fails if merging one source twice stops doubling its leading comments. The
+// second merge finds every key present and the existing-key rule appends, which
+// Merge documents as a consequence rather than leaving it to be discovered.
+func TestMergeLayer_MergingOneSourceTwiceDoublesLeadingComments(t *testing.T) {
+	target := mergeInto(t, "name = \"app\"\n", "# about the key\nk = 1\n")
+	source, err := Parse([]byte("# about the key\nk = 1\n"))
+	if err != nil {
+		t.Fatalf("parsing the source: %v", err)
+	}
+	if err := target.Merge(source); err != nil {
+		t.Fatalf("the second Merge: %v", err)
+	}
+
+	out := string(target.Bytes())
+	if got := strings.Count(out, "# about the key"); got != 2 {
+		t.Errorf("the comment appears %d times after two merges, want 2:\n%s", got, out)
+	}
+}
+
+// Fails if a source whose only content is a nested table stops writing the
+// tables above it as empty headers -- Merge writes through SetCreate, which
+// spells every intermediate table the path names as a header of its own.
+func TestMergeLayer_NestedTableSourceWritesTheHeadersAboveIt(t *testing.T) {
+	target := mergeInto(t, "name = \"app\"\n", "[deep.nest]\nx = 1\n")
+
+	want := "name = \"app\"\n[deep]\n[deep.nest]\nx = 1\n"
+	if got := string(target.Bytes()); got != want {
+		t.Errorf("merged document is\n%s\nwant\n%s", got, want)
+	}
+}
