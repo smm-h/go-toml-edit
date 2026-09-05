@@ -155,6 +155,13 @@ func (d *Document) GetFloat(path string) (float64, error) { return getAs[float64
 // because a time.Time target declares that intent. A local time carries no date
 // and is refused.
 //
+// A STRING is refused with KindTypeMismatch, even one spelling a valid RFC 3339
+// timestamp -- while a struct field of type time.Time accepts exactly that,
+// because time.Time implements encoding.TextUnmarshaler and a decode runs a
+// string's text hook before consulting the conversion table. See Scalar.AsTime
+// for why the two surfaces differ. To read a string as a time, use GetString and
+// parse it.
+//
 // The error is the unified *Error: KindBadPath, KindNotFound or
 // KindWrongContainer from the navigation, and KindTypeMismatch when the value
 // is not one of the three date-time flavors above.

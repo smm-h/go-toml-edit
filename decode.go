@@ -107,6 +107,13 @@ func Unmarshal[T any](data []byte) (*T, error) {
 // as they are reached, and a type implementing Unmarshaler or
 // encoding.TextUnmarshaler decodes itself.
 //
+// A hook runs BEFORE the conversion table is consulted, which is why a field of
+// type time.Time accepts an RFC 3339 STRING as well as an offset date-time:
+// time.Time implements encoding.TextUnmarshaler. The typed accessors have no
+// hook to run, so Scalar.AsTime and Document.GetTime refuse a string with
+// KindTypeMismatch. That pairing is the one place the two surfaces answer
+// differently; see Scalar.AsTime.
+//
 // Decoding is strict and strictness is the only mode: an unknown key, an
 // unknown table, a value of a refused kind, a value the target cannot hold
 // exactly, and a missing required key are all errors. A map-typed or any-typed

@@ -112,5 +112,7 @@ func (c *Cursor) Float() (float64, error) { return cursorAs[float64](c) }
 // verbatim, and a local date-time or local date read as UTC.
 //
 // The error is the navigation failure that ended the chain, or
-// KindTypeMismatch when the value is not one of those three flavors.
+// KindTypeMismatch when the value is not one of those three flavors -- a string
+// among them, even one spelling a valid RFC 3339 timestamp, which a time.Time
+// decode target does accept. See Scalar.AsTime for why the two surfaces differ.
 func (c *Cursor) Time() (time.Time, error) { return cursorAs[time.Time](c) }
