@@ -3540,33 +3540,6 @@
       ]
     },
     {
-      "path": "scripts.md",
-      "title": "scripts",
-      "type": "doc",
-      "headings": [
-        {
-          "level": 1,
-          "text": "scripts",
-          "anchor": "scripts"
-        },
-        {
-          "level": 2,
-          "text": "`scripts`",
-          "anchor": "scripts"
-        },
-        {
-          "level": 3,
-          "text": "`methodList.String`",
-          "anchor": "methodliststring"
-        },
-        {
-          "level": 3,
-          "text": "`methodList.Set`",
-          "anchor": "methodlistset"
-        }
-      ]
-    },
-    {
       "path": "usage-guide.md",
       "title": "Usage Guide",
       "type": "doc",
@@ -3815,6 +3788,6 @@
     }
   ],
   "posts": [],
-  "last_gen": "2026-09-05T01:35:32.010076+00:00",
+  "last_gen": "2026-09-05T01:40:33.486440+00:00",
   "theme": "minimal"
 }
