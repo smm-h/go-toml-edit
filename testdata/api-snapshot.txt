@@ -186,8 +186,10 @@ type Document struct
 	method (*Document) EnsureDefaults(defaults []Default) (added []string, err error)
 	method (*Document) Format(opts ...FormatOption) []byte
 	method (*Document) GetBool(path string) (bool, error)
+	method (*Document) GetComment(path string) (string, error)
 	method (*Document) GetFloat(path string) (float64, error)
 	method (*Document) GetInt(path string) (int64, error)
+	method (*Document) GetLeadingComments(path string) ([]string, error)
 	method (*Document) GetString(path string) (string, error)
 	method (*Document) GetTime(path string) (time.Time, error)
 	method (*Document) Has(path string) bool

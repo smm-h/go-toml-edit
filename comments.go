@@ -64,6 +64,48 @@ func (d *Document) SetLeadingComments(path string, comments []string) error {
 	return nil
 }
 
+// GetComment returns the inline comment on the node at the given path, as
+// text: without the "#" and the whitespace around it, so a line written
+// `x = 1 # note` answers "note". A node with no inline comment answers the
+// empty string.
+//
+// The path resolves to the same node SetComment writes to -- for a key-value
+// path the pair, not the unwrapped value; for a table path the header line --
+// so the two round-trip: what SetComment writes, GetComment reads back. It
+// answers the NORMALIZED text, which is what SetComment takes, and a caller
+// that needs the bytes as written reads Raw on the node instead.
+//
+// The navigation errors are SetComment's: a path naming nothing is
+// KindNotFound, a path naming a member of an inline table is
+// KindWrongContainer (TOML gives an inline table nowhere to put a comment,
+// so nothing there can carry one to read), and a malformed path is
+// KindBadPath.
+func (d *Document) GetComment(path string) (string, error) {
+	node, err := d.resolveCommentTarget(path)
+	if err != nil {
+		return "", d.diag(err, path)
+	}
+	return node.Comment(), nil
+}
+
+// GetLeadingComments returns the comment lines written above the node at the
+// given path, in order, each as text: without its "#", its trailing newline
+// and the whitespace around them. A node with no leading comments answers nil.
+//
+// The path resolves to the same node SetLeadingComments writes to, so the two
+// round-trip, and the navigation errors are the same ones -- see GetComment.
+func (d *Document) GetLeadingComments(path string) ([]string, error) {
+	node, err := d.resolveCommentTarget(path)
+	if err != nil {
+		return nil, d.diag(err, path)
+	}
+	comments := node.LeadingComments()
+	if len(comments) == 0 {
+		return nil, nil
+	}
+	return comments, nil
+}
+
 // checkWritableComment refuses comment text a comment cannot carry. What one
 // may hold is the lexer's rule, mirrored here: valid UTF-8, and no control
 // character other than a tab (U+0000-U+0008, U+000A-U+001F and U+007F are all

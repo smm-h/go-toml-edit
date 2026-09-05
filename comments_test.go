@@ -1,6 +1,8 @@
 package tomledit
 
 import (
+	"errors"
+	"slices"
 	"strings"
 	"testing"
 )
@@ -211,5 +213,215 @@ func TestComments_NodeSettersAreNotExported(t *testing.T) {
 	}
 	if _, exported := any(n).(interface{ SetLeadingComments([]string) }); exported {
 		t.Error("a node exposes SetLeadingComments; the public spelling is (*Document).SetLeadingComments(path, texts)")
+	}
+}
+
+// =============================================================================
+// The path-based comment getters
+// =============================================================================
+
+// What the path-based setters write, the path-based getters read back: the two
+// resolve the same node for the same path, so a comment written through a path
+// is readable through it.
+//
+// Fails if the getters ever resolve a different node than the setters, or stop
+// answering the normalized text the setters take.
+func TestComments_GettersRoundTripThroughTheSetters(t *testing.T) {
+	doc := parseOrFail(t, "[server]\nhost = \"localhost\"\nport = 8080\n\n[[items]]\nname = \"a\"\n")
+
+	cases := []struct {
+		path    string
+		inline  string
+		leading []string
+	}{
+		{path: "server.host", inline: "the hostname", leading: []string{"where to bind", "keep it local"}},
+		{path: "server", inline: "server settings", leading: []string{"the server block"}},
+		{path: "items[0]", inline: "the first item", leading: []string{"one entry"}},
+	}
+	for _, c := range cases {
+		t.Run(c.path, func(t *testing.T) {
+			if err := doc.SetComment(c.path, c.inline); err != nil {
+				t.Fatalf("SetComment(%q): %v", c.path, err)
+			}
+			if err := doc.SetLeadingComments(c.path, c.leading); err != nil {
+				t.Fatalf("SetLeadingComments(%q): %v", c.path, err)
+			}
+
+			got, err := doc.GetComment(c.path)
+			if err != nil {
+				t.Fatalf("GetComment(%q): %v", c.path, err)
+			}
+			if got != c.inline {
+				t.Errorf("GetComment(%q) = %q, want %q", c.path, got, c.inline)
+			}
+
+			gotLeading, err := doc.GetLeadingComments(c.path)
+			if err != nil {
+				t.Fatalf("GetLeadingComments(%q): %v", c.path, err)
+			}
+			if !slices.Equal(gotLeading, c.leading) {
+				t.Errorf("GetLeadingComments(%q) = %q, want %q", c.path, gotLeading, c.leading)
+			}
+		})
+	}
+}
+
+// The path getters answer the same normalized text the node-level getters do,
+// for a document nobody has edited: the "#" and the whitespace around it are
+// gone.
+//
+// Fails if the path getters ever start answering the raw bytes.
+func TestComments_PathGettersAnswerNormalizedText(t *testing.T) {
+	doc := parseOrFail(t, "#lead\n#  spaced out\nx = 1   #note\n")
+
+	if got, err := doc.GetComment("x"); err != nil || got != "note" {
+		t.Errorf("GetComment(\"x\") = %q, %v; want \"note\", nil", got, err)
+	}
+	got, err := doc.GetLeadingComments("x")
+	if err != nil {
+		t.Fatalf("GetLeadingComments: %v", err)
+	}
+	want := []string{"lead", "spaced out"}
+	if !slices.Equal(got, want) {
+		t.Errorf("GetLeadingComments(\"x\") = %q, want %q", got, want)
+	}
+}
+
+// A comment on an array ELEMENT is carried by the element itself, and the
+// getters reach it through the index segment.
+//
+// Fails if an index path stops resolving to the element that carries the
+// comment.
+func TestComments_GettersReadAnArrayElement(t *testing.T) {
+	doc := parseOrFail(t, "items = [\n  # about one\n  1, # one\n  2,\n]\n")
+
+	if got, err := doc.GetComment("items[0]"); err != nil || got != "one" {
+		t.Errorf("GetComment(\"items[0]\") = %q, %v; want \"one\", nil", got, err)
+	}
+	got, err := doc.GetLeadingComments("items[0]")
+	if err != nil {
+		t.Fatalf("GetLeadingComments: %v", err)
+	}
+	if want := []string{"about one"}; !slices.Equal(got, want) {
+		t.Errorf("GetLeadingComments(\"items[0]\") = %q, want %q", got, want)
+	}
+
+	// The second element carries nothing: the empty answers, not an error.
+	if got, err := doc.GetComment("items[1]"); err != nil || got != "" {
+		t.Errorf("GetComment(\"items[1]\") = %q, %v; want \"\", nil", got, err)
+	}
+	if got, err := doc.GetLeadingComments("items[1]"); err != nil || got != nil {
+		t.Errorf("GetLeadingComments(\"items[1]\") = %#v, %v; want nil, nil", got, err)
+	}
+}
+
+// A node with no comments answers the empty string and nil, not an error.
+//
+// Fails if the getters ever report absence as a failure.
+func TestComments_GettersAnswerEmptyForNone(t *testing.T) {
+	doc := parseOrFail(t, "x = 1\n")
+
+	if got, err := doc.GetComment("x"); err != nil || got != "" {
+		t.Errorf("GetComment(\"x\") = %q, %v; want \"\", nil", got, err)
+	}
+	if got, err := doc.GetLeadingComments("x"); err != nil || got != nil {
+		t.Errorf("GetLeadingComments(\"x\") = %#v, %v; want nil, nil", got, err)
+	}
+}
+
+// The getters navigate exactly as the setters do, so they refuse exactly what
+// the setters refuse, with the same kind on the same case.
+//
+// Fails if a getter ever reports a different kind than the setter for the same
+// path, or stops reporting one at all.
+func TestComments_GetterNavigationErrorsMatchTheSetters(t *testing.T) {
+	const src = "title = \"t\"\npoint = { x = 1 }\n\n[server]\nhost = \"localhost\"\n"
+
+	cases := []struct {
+		name string
+		path string
+		kind ErrorKind
+		sent error
+	}{
+		{name: "missing key", path: "server.port", kind: KindNotFound, sent: ErrNotFound},
+		{name: "member of an inline table", path: "point.x", kind: KindWrongContainer, sent: ErrWrongContainer},
+		{name: "key under a scalar", path: "title.nested", kind: KindWrongContainer, sent: ErrWrongContainer},
+		{name: "malformed path", path: "title[", kind: KindBadPath, sent: ErrBadPath},
+	}
+	for _, c := range cases {
+		t.Run(c.name, func(t *testing.T) {
+			doc := parseOrFail(t, src)
+
+			setterErr := doc.SetComment(c.path, "x")
+			if setterErr == nil {
+				t.Fatalf("SetComment(%q) succeeded; the case no longer refuses anything", c.path)
+			}
+
+			for _, probe := range []struct {
+				name string
+				err  error
+			}{
+				{name: "GetComment", err: func() error { _, err := doc.GetComment(c.path); return err }()},
+				{name: "GetLeadingComments", err: func() error { _, err := doc.GetLeadingComments(c.path); return err }()},
+				{name: "SetComment", err: setterErr},
+			} {
+				if probe.err == nil {
+					t.Fatalf("%s(%q) returned no error", probe.name, c.path)
+				}
+				var e *Error
+				if !errors.As(probe.err, &e) {
+					t.Fatalf("%s(%q) error is not an *Error: %v", probe.name, c.path, probe.err)
+				}
+				if e.Kind != c.kind {
+					t.Errorf("%s(%q) kind = %v, want %v", probe.name, c.path, e.Kind, c.kind)
+				}
+				if !errors.Is(probe.err, c.sent) {
+					t.Errorf("%s(%q) does not match %v", probe.name, c.path, c.sent)
+				}
+				if e.Path != c.path {
+					t.Errorf("%s(%q) reports path %q", probe.name, c.path, e.Path)
+				}
+			}
+		})
+	}
+}
+
+// A document read from disk names the file on the getters' diagnostics, just as
+// it does on the setters'.
+//
+// Fails if the getters ever return a diagnostic that does not carry the
+// document's origin.
+func TestComments_GetterDiagnosticsNameTheFile(t *testing.T) {
+	path := writeTOML(t, "config.toml", "[server]\nhost = \"localhost\"\n")
+	doc, err := ParseFile(path)
+	if err != nil {
+		t.Fatalf("ParseFile: %v", err)
+	}
+
+	// Reading what is there works the same through a file-backed document.
+	if err := doc.SetComment("server.host", "bind address"); err != nil {
+		t.Fatalf("SetComment: %v", err)
+	}
+	if got, err := doc.GetComment("server.host"); err != nil || got != "bind address" {
+		t.Errorf("GetComment = %q, %v; want \"bind address\", nil", got, err)
+	}
+
+	for _, probe := range []struct {
+		name string
+		err  error
+	}{
+		{name: "GetComment", err: func() error { _, err := doc.GetComment("server.port"); return err }()},
+		{name: "GetLeadingComments", err: func() error { _, err := doc.GetLeadingComments("server.port"); return err }()},
+	} {
+		var e *Error
+		if !errors.As(probe.err, &e) {
+			t.Fatalf("%s error is not an *Error: %v", probe.name, probe.err)
+		}
+		if e.File != path {
+			t.Errorf("%s reports file %q, want %q", probe.name, e.File, path)
+		}
+		if !strings.Contains(probe.err.Error(), "config.toml") {
+			t.Errorf("%s message does not name the file: %s", probe.name, probe.err)
+		}
 	}
 }

@@ -365,9 +365,18 @@ go-toml-edit preserves all comments through its trivia system, which attaches le
 
 ### Reading comments
 
-`Comment()` returns the inline comment written on the node's own line, and `LeadingComments()` the comment lines written above it. Both are **normalized**: they answer the content without the `#` and the whitespace around it, so a node written `x = 1 # note` answers `"note"`. That is exactly the text the setters take, so content read from one document and written into another is written as it was read.
+The path-based getters are the direct route, and they mirror the setters exactly:
 
-Reading comments is **node-level** while writing them is **path-level**. `SetComment` and `SetLeadingComments` take a path and resolve it themselves to the node that owns the comments; there is no path-based getter, so a reader has to hold that node. Which node owns them depends on the construct:
+```go
+inline, err := doc.GetComment("server.host")           // "the hostname"
+leading, err := doc.GetLeadingComments("server.host")  // []string{"where to bind"}
+```
+
+`GetComment` and `GetLeadingComments` resolve a path to the same node `SetComment` and `SetLeadingComments` write to, so what one writes the other reads back, and they refuse the same paths with the same error kinds -- `KindNotFound` for a path naming nothing, `KindWrongContainer` for a member of an inline table (TOML gives an inline table nowhere to put a comment, so nothing there can carry one), `KindBadPath` for a malformed path. A node with no inline comment answers the empty string; a node with no leading comments answers `nil`. Neither is an error.
+
+Both answers are **normalized**: the content without the `#` and the whitespace around it, so a node written `x = 1 # note` answers `"note"`. That is exactly the text the setters take, so content read from one document and written into another is written as it was read.
+
+The node-level getters are the general mechanism underneath. `Comment()` returns the inline comment written on a node's own line and `LeadingComments()` the comment lines written above it, normalized the same way -- which is what a traversal (`Walk`, `Children()`) reads, since it holds nodes rather than paths. Which node owns the comments depends on the construct:
 
 | Construct | Node the comments are on |
 | --- | --- |
@@ -375,7 +384,7 @@ Reading comments is **node-level** while writing them is **path-level**. `SetCom
 | A table or an array-of-tables entry | Its header node (`*TableNode`, `*ArrayTableNode`) |
 | An array element | The element node itself |
 
-The key-bound case is the one that catches a reader out: `Resolve("server.host")` answers the *value* node, and a value node carries no comments of its own, so both getters answer empty on it. Reach the pair by iterating the enclosing container's `Children()` and matching on the key:
+The key-bound case is the one that surprises a reader working from nodes: `Resolve("server.host")` answers the *value* node, and a value node carries no comments of its own, so both node-level getters answer empty on it. (`GetComment("server.host")` has no such problem -- it resolves the pair, as `SetComment` does.) From a node, reach the pair by iterating the enclosing container's `Children()` and matching on the key:
 
 ```go
 tbl, err := doc.Resolve("server")

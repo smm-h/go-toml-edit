@@ -624,6 +624,35 @@ func ExampleDocument_SetComment() {
 	// port = 8080 # default HTTP port
 }
 
+func ExampleDocument_GetComment() {
+	doc, err := tomledit.Parse([]byte(
+		"# The port to bind to.\n" +
+			"# Any value above 1024 needs no privileges.\n" +
+			"port = 8080  # default HTTP port\n"))
+	if err != nil {
+		panic(err)
+	}
+
+	inline, err := doc.GetComment("port")
+	if err != nil {
+		panic(err)
+	}
+	leading, err := doc.GetLeadingComments("port")
+	if err != nil {
+		panic(err)
+	}
+
+	fmt.Printf("inline: %q\n", inline)
+	for _, line := range leading {
+		fmt.Printf("leading: %q\n", line)
+	}
+
+	// Output:
+	// inline: "default HTTP port"
+	// leading: "The port to bind to."
+	// leading: "Any value above 1024 needs no privileges."
+}
+
 func ExampleQuoteString() {
 	fmt.Println(tomledit.QuoteString(`say "hi"`))
 	fmt.Println(tomledit.QuoteString("tab\there"))

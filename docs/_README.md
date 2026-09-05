@@ -167,7 +167,17 @@ doc.SetLeadingComments("server", []string{
 	"Server configuration",
 	"See docs for all options",
 })
+
+inline, err := doc.GetComment("server.port")           // "default: 8080"
+leading, err := doc.GetLeadingComments("server")       // the two lines above
 ```
+
+The getters resolve a path to the same node the setters write to, so what one
+writes the other reads back, and they refuse the same paths with the same error
+kinds. Both answer normalized text -- the content without the `#` and the
+whitespace around it -- which is exactly what the setters take. A node with no
+inline comment answers the empty string, one with no leading comments answers
+`nil`, and neither is an error.
 
 ### Fluent Cursor
 
