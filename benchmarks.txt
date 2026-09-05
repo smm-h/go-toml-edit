@@ -1,36 +1,36 @@
 goos: linux
 goarch: amd64
 pkg: github.com/smm-h/go-toml-edit
-cpu: 13th Gen Intel(R) Core(TM) i7-13620H
-BenchmarkParse-16                   	   75999	     16134 ns/op	   30808 B/op	     320 allocs/op
-BenchmarkParse-16                   	   75074	     15713 ns/op	   30808 B/op	     320 allocs/op
-BenchmarkParse-16                   	   73946	     15775 ns/op	   30808 B/op	     320 allocs/op
-BenchmarkBytes-16                   	 1644684	       734.7 ns/op	    2152 B/op	      20 allocs/op
-BenchmarkBytes-16                   	 1665840	       728.2 ns/op	    2152 B/op	      20 allocs/op
-BenchmarkBytes-16                   	 1625883	       722.3 ns/op	    2152 B/op	      20 allocs/op
-BenchmarkGet-16                     	 1900432	       634.0 ns/op	     432 B/op	      16 allocs/op
-BenchmarkGet-16                     	 1945608	       615.6 ns/op	     432 B/op	      16 allocs/op
-BenchmarkGet-16                     	 1937463	       621.1 ns/op	     432 B/op	      16 allocs/op
-BenchmarkSetExisting-16             	   64357	     18467 ns/op	   33433 B/op	     356 allocs/op
-BenchmarkSetExisting-16             	   64400	     18009 ns/op	   33433 B/op	     356 allocs/op
-BenchmarkSetExisting-16             	   66931	     17374 ns/op	   33433 B/op	     356 allocs/op
-BenchmarkFormat-16                  	  413904	      2582 ns/op	    1736 B/op	      73 allocs/op
-BenchmarkFormat-16                  	  474782	      2535 ns/op	    1736 B/op	      73 allocs/op
-BenchmarkFormat-16                  	  468848	      2543 ns/op	    1736 B/op	      73 allocs/op
-BenchmarkParseLarge-16              	    4162	    275269 ns/op	  595115 B/op	    5613 allocs/op
-BenchmarkParseLarge-16              	    4261	    275013 ns/op	  595115 B/op	    5613 allocs/op
-BenchmarkParseLarge-16              	    4558	    273510 ns/op	  595115 B/op	    5613 allocs/op
-BenchmarkUnmarshal-16               	   50847	     24946 ns/op	   37075 B/op	     439 allocs/op
-BenchmarkUnmarshal-16               	   50746	     24553 ns/op	   37075 B/op	     439 allocs/op
-BenchmarkUnmarshal-16               	   49597	     23939 ns/op	   37075 B/op	     439 allocs/op
-BenchmarkBurntSushiParse-16         	   66394	     17929 ns/op	   15400 B/op	     173 allocs/op
-BenchmarkBurntSushiParse-16         	   64327	     18533 ns/op	   15400 B/op	     173 allocs/op
-BenchmarkBurntSushiParse-16         	   64656	     18103 ns/op	   15400 B/op	     173 allocs/op
-BenchmarkBurntSushiUnmarshal-16     	   55128	     21817 ns/op	   17528 B/op	     229 allocs/op
-BenchmarkBurntSushiUnmarshal-16     	   55195	     21918 ns/op	   17528 B/op	     229 allocs/op
-BenchmarkBurntSushiUnmarshal-16     	   53952	     21792 ns/op	   17528 B/op	     229 allocs/op
-BenchmarkBurntSushiParseLarge-16    	    4506	    245993 ns/op	  171464 B/op	    2245 allocs/op
-BenchmarkBurntSushiParseLarge-16    	    4838	    247345 ns/op	  171464 B/op	    2245 allocs/op
-BenchmarkBurntSushiParseLarge-16    	    5224	    246237 ns/op	  171464 B/op	    2245 allocs/op
+cpu: AMD Ryzen 7 6800HS with Radeon Graphics        
+BenchmarkParse-16                   	   33272	     36055 ns/op	   44704 B/op	     483 allocs/op
+BenchmarkParse-16                   	   33765	     36101 ns/op	   44704 B/op	     483 allocs/op
+BenchmarkParse-16                   	   33714	     36338 ns/op	   44704 B/op	     483 allocs/op
+BenchmarkBytes-16                   	 1304289	       925.2 ns/op	    2152 B/op	      20 allocs/op
+BenchmarkBytes-16                   	 1321075	       886.7 ns/op	    2152 B/op	      20 allocs/op
+BenchmarkBytes-16                   	 1351376	       991.6 ns/op	    2152 B/op	      20 allocs/op
+BenchmarkGet-16                     	 2355872	       469.3 ns/op	     264 B/op	       7 allocs/op
+BenchmarkGet-16                     	 2573607	       453.2 ns/op	     264 B/op	       7 allocs/op
+BenchmarkGet-16                     	 2615564	       465.6 ns/op	     264 B/op	       7 allocs/op
+BenchmarkSetExisting-16             	   27508	     42483 ns/op	   56504 B/op	     554 allocs/op
+BenchmarkSetExisting-16             	   27184	     42534 ns/op	   56504 B/op	     554 allocs/op
+BenchmarkSetExisting-16             	   27906	     42858 ns/op	   56504 B/op	     554 allocs/op
+BenchmarkFormat-16                  	  357241	      3373 ns/op	    1712 B/op	      70 allocs/op
+BenchmarkFormat-16                  	  351740	      3355 ns/op	    1712 B/op	      70 allocs/op
+BenchmarkFormat-16                  	  358592	      3404 ns/op	    1712 B/op	      70 allocs/op
+BenchmarkParseLarge-16              	    2002	    588143 ns/op	  864469 B/op	    8612 allocs/op
+BenchmarkParseLarge-16              	    2132	    598304 ns/op	  864469 B/op	    8612 allocs/op
+BenchmarkParseLarge-16              	    2072	    598590 ns/op	  864469 B/op	    8612 allocs/op
+BenchmarkUnmarshal-16               	   21570	     55648 ns/op	   61296 B/op	     674 allocs/op
+BenchmarkUnmarshal-16               	   21368	     60505 ns/op	   61296 B/op	     674 allocs/op
+BenchmarkUnmarshal-16               	   19545	     61099 ns/op	   61296 B/op	     674 allocs/op
+BenchmarkBurntSushiParse-16         	   46298	     27185 ns/op	   15400 B/op	     173 allocs/op
+BenchmarkBurntSushiParse-16         	   41618	     26365 ns/op	   15400 B/op	     173 allocs/op
+BenchmarkBurntSushiParse-16         	   44224	     25988 ns/op	   15400 B/op	     173 allocs/op
+BenchmarkBurntSushiUnmarshal-16     	   38337	     35037 ns/op	   17528 B/op	     229 allocs/op
+BenchmarkBurntSushiUnmarshal-16     	   37945	     33119 ns/op	   17528 B/op	     229 allocs/op
+BenchmarkBurntSushiUnmarshal-16     	   38115	     33515 ns/op	   17528 B/op	     229 allocs/op
+BenchmarkBurntSushiParseLarge-16    	    3092	    376034 ns/op	  159561 B/op	    2246 allocs/op
+BenchmarkBurntSushiParseLarge-16    	    3414	    376197 ns/op	  159561 B/op	    2246 allocs/op
+BenchmarkBurntSushiParseLarge-16    	    3186	    367276 ns/op	  159561 B/op	    2246 allocs/op
 PASS
-ok  	github.com/smm-h/go-toml-edit	44.210s
+ok  	github.com/smm-h/go-toml-edit	50.049s

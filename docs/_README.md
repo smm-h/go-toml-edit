@@ -329,13 +329,15 @@ base.Merge(defaults)
 
 ## Performance
 
-go-toml-edit retains the full AST for comment-preserving round-trip editing, so
-it allocates more memory than decode-only libraries: a decode-only library can
-discard source positions, trivia, and comment nodes that go-toml-edit must
-retain. Parse speed is in the same range.
+go-toml-edit retains the full AST -- source positions, trivia, comment nodes,
+and the lexeme every value was written as -- because that is what
+comment-preserving round-trip editing needs. A decode-only library discards all
+of it, so it parses faster and allocates less. Reach for a decode-only library
+when you only need Go values out of a TOML file; reach for this one when the
+comments have to survive the write-back.
 
-Run `go test -bench .` to measure on your own machine; `benchmarks.txt` holds a
-captured run against BurntSushi/toml.
+Run `go test -bench .` to measure on your own machine. `benchmarks.txt` holds a
+captured run beside BurntSushi/toml.
 
 ## API Reference
 
