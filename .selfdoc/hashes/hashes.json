@@ -1,7 +1,7 @@
 {
   "_hash_version": 3,
   "en/design.md": {
-    "content": "07a13a31ed4692f265535202e576592ecba1f15c96a2c37ae96b65184c948c86",
+    "content": "adbabd0c0b0aff84fd0e28c786a96cac5e425fc3e7fc84c727c31630f71ea100",
     "description": "20d4c1fc9ec0b2acdd9ac7e8606455719bb7ba423a4033a0c262da0aba3b8251"
   },
   "en/gen-index.md": {
@@ -26,7 +26,7 @@
     "source_docstring": "71941bd01427cd94f683932c99444a3eaec5cf167570a6755a5c1df59b5003d2"
   },
   "en/usage-guide.md": {
-    "content": "2d9a55a0b0b9d4edf633097727da6842c71bffd809c506ae23093af5fd9485a6",
+    "content": "26d917cd07feb05182f484a04cd604c581cc513d14710ea4ae63df0210a814b6",
     "description": "c114e8e047daae6704706bb49729c9e3dc33bb481de448ff100c94569d124c4c"
   }
 }
