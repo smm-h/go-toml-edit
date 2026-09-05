@@ -67,8 +67,12 @@ type Node interface {
     Raw() []byte
     Comment() string
     LeadingComments() []string
+
+    // ... plus unexported methods, which seal the interface
 }
 ```
+
+`Node` is **sealed**: alongside the exported methods above it declares unexported ones (the dirtiness marks, the parent link, the trivia handle and the raw-byte and span setters the parser and the mutators drive), so only this package can implement it. A caller cannot write a `Node` of its own, and a test cannot substitute a double for one -- the way to obtain a node is to parse a document or to edit one. `Scalar`, which embeds `Node`, is sealed by the same declarations.
 
 `Type()` returns an enum (`NodeDocument`, `NodeTable`, `NodeKeyValue`, `NodeString`, `NodeInteger`, ...). `Span()` returns the source range. `Raw()` returns a *copy* of the original source bytes, so writing into it changes neither the node nor what the document renders. `Comment()` and `LeadingComments()` are the normalized comment getters: they answer the content without the `#` and the whitespace around it, in the same text the path-based setters take.
 
@@ -211,9 +215,9 @@ The read-layer synthesizes one span the AST has no node for: an array-of-tables 
 
 ### Format
 
-`Format()` produces normalized TOML bytes by re-rendering every node from its semantic value, ignoring all raw bytes. It applies consistent formatting: a configurable indentation width, a line width for array wrapping, and an optional blank line before table headers. `Format` does not mutate the document -- it returns a new byte slice.
+`Format()` produces normalized TOML bytes by re-rendering every node from its semantic value, ignoring all raw bytes. It applies consistent formatting: a configurable indentation width, a line width for array wrapping, and a blank line before table headers that is on by default. `Format` does not mutate the document -- it returns a new byte slice.
 
-The writer's blank-line grouping survives at document and table-body level: a run of blank lines becomes exactly one, and where the writer left no gap the formatter opens none. The output never begins with a blank line and always ends with exactly one newline, so blank lines at either end of the document are dropped. The table-blank-line option is insertion-only. Arrays are restructured wholesale (inline or multi-line from the configured line width), so blank lines *between array elements* do not survive formatting -- `Bytes` preserves them, and that difference is the distance between the two exits.
+The writer's blank-line grouping survives at document and table-body level: a run of blank lines becomes exactly one. The output never begins with a blank line and always ends with exactly one newline, so blank lines at either end of the document are dropped. The table-blank-line option is the one gap the formatter opens itself, and it is on by default (`TableBlankLine: true`), so a plain `Format()` separates every table header from what stands above it. The option is insertion-only -- it never removes a blank line, and never doubles one already there -- and only under `WithTableBlankLine(false)` does the formatter open no gap the writer did not. Arrays are restructured wholesale (inline or multi-line from the configured line width), so blank lines *between array elements* do not survive formatting -- `Bytes` preserves them, and that difference is the distance between the two exits.
 
 ### Walk
 

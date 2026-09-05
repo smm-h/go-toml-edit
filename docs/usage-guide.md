@@ -365,15 +365,42 @@ go-toml-edit preserves all comments through its trivia system, which attaches le
 
 ### Reading comments
 
-`Comment()` returns the inline comment on the same line after the value, and `LeadingComments()` the comment lines above the node. Both are **normalized**: they answer the content without the `#` and the whitespace around it, so a node written `x = 1 # note` answers `"note"`. That is exactly the text the setters take, so content read from one document and written into another is written as it was read.
+`Comment()` returns the inline comment written on the node's own line, and `LeadingComments()` the comment lines written above it. Both are **normalized**: they answer the content without the `#` and the whitespace around it, so a node written `x = 1 # note` answers `"note"`. That is exactly the text the setters take, so content read from one document and written into another is written as it was read.
+
+Reading comments is **node-level** while writing them is **path-level**. `SetComment` and `SetLeadingComments` take a path and resolve it themselves to the node that owns the comments; there is no path-based getter, so a reader has to hold that node. Which node owns them depends on the construct:
+
+| Construct | Node the comments are on |
+| --- | --- |
+| A key-bound value (`host = "localhost"`) | The enclosing `*KeyValueNode` -- the pair, not the value |
+| A table or an array-of-tables entry | Its header node (`*TableNode`, `*ArrayTableNode`) |
+| An array element | The element node itself |
+
+The key-bound case is the one that catches a reader out: `Resolve("server.host")` answers the *value* node, and a value node carries no comments of its own, so both getters answer empty on it. Reach the pair by iterating the enclosing container's `Children()` and matching on the key:
 
 ```go
-node, err := doc.Resolve("server.host")
-if err == nil {
-    fmt.Println("inline:", node.Comment())
-    fmt.Println("leading:", node.LeadingComments())
+tbl, err := doc.Resolve("server")
+if err != nil {
+    return err
+}
+table, ok := tbl.(*tomledit.TableNode)
+if !ok {
+    return fmt.Errorf("server is not a [table]")
+}
+for _, child := range table.Children() {
+    kv, ok := child.(*tomledit.KeyValueNode)
+    if !ok {
+        continue
+    }
+    parts := kv.Key().Parts()
+    if len(parts) != 1 || parts[0] != "host" {
+        continue
+    }
+    fmt.Println("inline:", kv.Comment())
+    fmt.Println("leading:", kv.LeadingComments())
 }
 ```
+
+For a pair standing under no header at all, `doc.Children()` is the same route. The array element is the asymmetric case: an element's comments sit on the element, so `Resolve("ports[0]")` answers a node whose `Comment()` is the element's own inline comment and needs no such detour.
 
 Two inputs do not survive that round trip, both because content and marker stop being separable once the marker is gone: content that itself begins with `#` (`## section` reads as `# section`, and the setter puts its own marker in front), and the empty comment (`#` reads as `""`, which the setters take to mean removal). `Raw()` is the byte-exact read for a caller that needs the bytes as written.
 
@@ -409,7 +436,7 @@ This produces:
 host = "localhost"
 ```
 
-A nil or empty slice removes the leading comments. An empty *string element* is not removal: it writes a `#` line with no content.
+A nil or empty slice removes the leading comments. An empty *string element* is not removal: the setter puts its `"# "` marker in front of whatever it is given, so an empty element writes the line `"# "` -- a hash and a trailing space, with no content after it.
 
 ### What a comment may carry
 
@@ -488,13 +515,15 @@ A round-trip failure is an `*Error` of kind `KindRoundTrip` whose `Offset` names
 
 ```go
 output := doc.Format(
-    tomledit.WithIndentWidth(2),       // indent values under tables
-    tomledit.WithLineWidth(100),       // line width before arrays wrap
-    tomledit.WithTableBlankLine(true), // blank line before tables
+    tomledit.WithIndentWidth(2),        // indent values under tables; default 0
+    tomledit.WithLineWidth(100),        // line width before arrays wrap; default 80
+    tomledit.WithTableBlankLine(false), // blank line before tables; default TRUE
 )
 ```
 
-The writer's blank-line grouping survives at document and table-body level: a run of blank lines becomes exactly one, and where the writer left no gap the formatter opens none. The output never begins with a blank line and always ends with exactly one newline, so blank lines at either end of the document are dropped. The table-blank-line option is insertion-only -- it never removes a blank line, and never doubles one already there.
+The writer's blank-line grouping survives at document and table-body level: a run of blank lines becomes exactly one. The output never begins with a blank line and always ends with exactly one newline, so blank lines at either end of the document are dropped.
+
+The one gap the formatter opens itself is the table-blank-line option, and it is **on by default**: a plain `doc.Format()` inserts a blank line before every table header that has none. Pass `WithTableBlankLine(false)` to stop it, and then the formatter opens no gap the writer did not leave. The option is insertion-only either way -- it never removes a blank line, and never doubles one already there.
 
 Arrays are restructured wholesale (inline or multi-line from the configured line width), so blank lines *between array elements* do not survive `Format`. `Bytes` preserves them; that difference is the distance between the two exits.
 
@@ -562,9 +591,11 @@ Decoding is strict, and strictness is the only mode. An unknown key, an unknown 
 
 Every independent violation is collected and reported together, in document order: validation continues across sibling keys and tables but never descends below a construct it has already refused.
 
+A missing key is the one diagnostic the document cannot place, since it is about something the document does not contain. Missing required keys are reported after the entries of the record they belong to, and among themselves in lexicographic key order -- a map has no order of its own to report them in.
+
 ### The entry points
 
-Every decode entry point **returns the value it builds**, so a failed decode leaves no caller-owned target to observe:
+Every decode entry point **returns the value it builds** -- a `*T`, pointing at memory the decode allocated -- so a failed decode leaves no caller-owned target to observe:
 
 ```go
 type Config struct {
