@@ -152,7 +152,9 @@ func DecodeOver[T any](d *Document, seed func() T) (*T, []string, error) {
 	}
 	out := new(T)
 	*out = seed()
-	written := []string{}
+	// A decode that writes nothing reports no paths rather than an empty list:
+	// the two say the same thing, and one of them needs no allocation.
+	var written []string
 	if err := decodeDocument(d, reflect.ValueOf(out).Elem(), &written); err != nil {
 		return nil, nil, err
 	}
