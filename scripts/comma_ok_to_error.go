@@ -47,9 +47,13 @@ import (
 	"strings"
 )
 
+// methodList collects a repeatable -method flag into an ordered list.
 type methodList []string
 
-func (m *methodList) String() string     { return strings.Join(*m, ",") }
+// String renders the collected methods, as flag.Value requires.
+func (m *methodList) String() string { return strings.Join(*m, ",") }
+
+// Set appends one -method occurrence, as flag.Value requires.
 func (m *methodList) Set(s string) error { *m = append(*m, s); return nil }
 
 // edit is one byte-range replacement in one file.

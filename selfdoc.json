@@ -7,6 +7,11 @@
       "language": "go"
     }
   ],
+  "gen": {
+    "exclude": [
+      "scripts"
+    ]
+  },
   "docs": "docs/",
   "output": "docs/_build/",
   "versions": [
