@@ -503,5 +503,61 @@ c = 3
 	}
 }
 
+// Fails if Walk stops being the syntactic traversal -- if it folds spellings
+// away the way the read-layer does. Two documents saying the same thing in
+// different forms must give Walk different node sequences, and Root the same
+// entries.
+func TestWalkIsTheSyntacticTraversal(t *testing.T) {
+	header := parseWalkDoc(t, "[a]\nb = 1\n")
+	inline := parseWalkDoc(t, "a = {b = 1}\n")
+
+	walked := func(doc *Document) []string {
+		t.Helper()
+		var seen []string
+		err := doc.Walk(func(path string, node Node) error {
+			seen = append(seen, path+":"+node.Type().String())
+			return nil
+		}, WalkAll)
+		if err != nil {
+			t.Fatalf("Walk: %v", err)
+		}
+		return seen
+	}
+
+	gotHeader, gotInline := walked(header), walked(inline)
+	if len(gotHeader) != 1 || gotHeader[0] != "a.b:Integer" {
+		t.Errorf("the header spelling walked %v, want [a.b:Integer]", gotHeader)
+	}
+	if len(gotInline) != 2 || gotInline[0] != "a:InlineTable" || gotInline[1] != "a.b:Integer" {
+		t.Errorf("the inline spelling walked %v, want [a:InlineTable a.b:Integer]", gotInline)
+	}
+
+	// The read-layer, by contrast, cannot tell the two apart.
+	folded := func(doc *Document) []string {
+		var seen []string
+		for e := range doc.Root().Entries() {
+			seen = append(seen, e.Key()+":"+e.Kind().String())
+			rec, ok := e.Record()
+			if !ok {
+				continue
+			}
+			for inner := range rec.Entries() {
+				seen = append(seen, e.Key()+"."+inner.Key()+":"+inner.Kind().String())
+			}
+		}
+		return seen
+	}
+	foldedHeader, foldedInline := folded(header), folded(inline)
+	if len(foldedHeader) != len(foldedInline) {
+		t.Fatalf("the read-layer answered %v and %v", foldedHeader, foldedInline)
+	}
+	for i := range foldedHeader {
+		if foldedHeader[i] != foldedInline[i] {
+			t.Errorf("the read-layer answered %v and %v", foldedHeader, foldedInline)
+			break
+		}
+	}
+}
+
 // Prevent unused import warning for fmt
 var _ = fmt.Sprintf

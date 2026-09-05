@@ -11,7 +11,9 @@ import (
 // ErrSkipTable on a scalar node is a no-op.
 var ErrSkipTable = errors.New("skip table")
 
-// WalkMode controls which nodes the Walk visitor function is called for.
+// WalkMode controls which nodes the Walk visitor function is called for. Both
+// modes traverse the syntax tree; they differ only in whether the container
+// nodes standing between the keys and the scalars are handed to the visitor.
 type WalkMode int
 
 const (
@@ -25,10 +27,24 @@ const (
 	WalkAll
 )
 
+// Walk is the SYNTACTIC traversal: it walks the syntax tree, in the order the
+// file writes it, and hands the visitor the concrete nodes it finds -- each
+// with the spelling, the trivia and the span it was written with. A value
+// written as an inline table arrives as an *InlineTableNode and one written
+// under a header arrives as the header's children, because that is what the
+// two files contain.
+//
+// The LOGICAL traversal is the read-layer: Root returns the document's records
+// and entries with the spellings folded away, and a consumer walks it by
+// recursing over Record.Entries. Use Walk to ask what the file contains and
+// how it is written; use the read-layer to ask what the document means.
+//
 // Walk visits every key-value pair in the document in order, calling fn with
 // the dot-path and the value node. Tables and array-of-tables are walked into
 // (their children are visited), not yielded as standalone entries. Inline
 // tables and arrays are yielded first, then their children are recursed into.
+// Comment nodes are not visited: a comment reaches the visitor as the trivia of
+// the node it is attached to.
 //
 // The mode parameter controls which nodes are visited:
 //   - WalkLeaves: only scalar values (containers are recursed but not yielded)
