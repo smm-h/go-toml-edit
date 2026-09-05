@@ -1,6 +1,7 @@
 package tomledit
 
 import (
+	"math"
 	"reflect"
 	"sort"
 	"time"
@@ -44,6 +45,15 @@ type Change struct {
 // them. Container nodes (inline tables, arrays) are not compared directly;
 // instead their individual elements are compared. Changes are sorted by path
 // (alphabetical), then by kind (Removed, Modified, Added).
+//
+// The comparison reads values, never spellings. Two documents writing one
+// value differently -- 0x2A against 42, 1_000 against 1000, one instant in two
+// zone offsets, a literal string against a basic one, an array-of-tables
+// against an inline array of inline tables -- report no difference. A document
+// therefore always compares equal to itself.
+//
+// Types are not bridged: an integer and a float never compare equal, so 1 and
+// 1.0 are a modification.
 func Diff(a, b *Document) []Change {
 	aLeaves := collectLeaves(a)
 	bLeaves := collectLeaves(b)
@@ -108,14 +118,27 @@ func collectLeaves(doc *Document) map[string]any {
 	return leaves
 }
 
-// valuesEqual compares two values from Node.Value().
-// Uses time.Time.Equal for time comparison, reflect.DeepEqual otherwise.
+// valuesEqual compares two leaf values.
+//
+// Two values of different Go types are never equal, which is what keeps an
+// integer and a float apart. Within a type, the comparison is by value and not
+// by spelling: two offset date-times naming one instant are equal whatever
+// zones they were written in, and two not-a-numbers are equal because a
+// document must compare equal to itself and IEEE inequality would deny it.
 func valuesEqual(a, b any) bool {
-	if ta, ok := a.(time.Time); ok {
-		if tb, ok := b.(time.Time); ok {
-			return ta.Equal(tb)
+	switch va := a.(type) {
+	case time.Time:
+		tb, ok := b.(time.Time)
+		return ok && va.Equal(tb)
+	case float64:
+		fb, ok := b.(float64)
+		if !ok {
+			return false
 		}
-		return false
+		if math.IsNaN(va) && math.IsNaN(fb) {
+			return true
+		}
+		return va == fb
 	}
 	return reflect.DeepEqual(a, b)
 }
