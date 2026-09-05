@@ -1,24 +1,9 @@
-# go-toml-edit: remaining scope from the founding document
+# Publicity and v2 roadmap: remaining scope from the founding document
 
-> Split from the founding document (todo/original-idea.md); the built scope was
-> verified against the code on disk and moved to todo/.done/original-idea.md.
-> The sections below, preserved verbatim, describe work not yet done: the
-> error-handling promises are only partially implemented (typed edit errors do
-> not exist; parser-stage errors carry line/column but no byte offset or
-> snippet), and the publicity plan and v2 roadmap were never executed.
-
-## Error Handling
-
-Parse errors include:
-- Line and column number
-- Byte offset
-- Snippet of offending source (a few chars of context)
-- Clear description of expected vs found
-
-Edit errors:
-- `Set` with incompatible path (e.g., setting child of a scalar) returns a typed error
-- `Delete` on non-existent path is a silent no-op
-- Type validation on `Set`: reject Go types with no TOML representation
+> Split from todo/original-idea-remaining.md; the error-handling section is
+> done and moved to todo/.done/error-handling-founding-scope.md. The sections
+> below stay active and unscheduled. Text preserved verbatim from the founding
+> document.
 
 ## Distribution and Publicity
 
