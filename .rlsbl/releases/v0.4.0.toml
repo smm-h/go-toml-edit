@@ -32,3 +32,7 @@ migration for every removed or renamed surface.
 # blog = false
 include = ["go"]
 exclude = []
+candidate_sha = "152ccafa83d10a55d4dfd65f9053b88fb9067918"
+
+[tree_hashes]
+"." = "0f153e6c6185f3ec69f9a9e7382d801a21fa2ebe"
