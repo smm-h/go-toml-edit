@@ -90,7 +90,7 @@ only through a structural operation or an explicit `Delete`.
 | Set/Delete/RenameKey API | Yes | No | No |
 | Unmarshal to struct | Yes (strict-only) | Yes | Yes |
 | Marshal from Go values | No | Yes | Yes |
-| Position spans on AST nodes | Yes | No | No |
+| Position spans on AST nodes | Yes | No | Unstable parser only |
 | TOML 1.0 compliance | Full | Full | Full |
 | Formatter | Yes | No | No |
 | Document diffing | Yes | No | No |
