@@ -112,7 +112,7 @@ type Node interface {
 	Raw() []byte
 
 	// Span returns the source range the node covered in the most recent
-	// Parse. Nodes created programmatically (edits, Marshal) return the
+	// Parse. Nodes created programmatically by an edit return the
 	// zero Span (IsValid reports false). Edits do not update spans; see
 	// the Span type documentation for the exact policy.
 	Span() Span

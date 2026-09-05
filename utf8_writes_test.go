@@ -128,31 +128,6 @@ func TestRenameKey_RefusesATargetThatIsNotUTF8(t *testing.T) {
 	refuseWrite(t, doc, src, "RenameKey", doc.RenameKey("x", badUTF8))
 }
 
-// Fails if Marshal writes a key that is not valid UTF-8: the bytes it produces
-// are a document, and a document is UTF-8.
-func TestMarshal_RefusesAKeyThatIsNotUTF8(t *testing.T) {
-	cases := []struct {
-		name string
-		in   map[string]any
-	}{
-		{"top-level key", map[string]any{badUTF8: 1}},
-		{"section key", map[string]any{badUTF8: map[string]any{"a": 1}}},
-		{"key inside a section", map[string]any{"s": map[string]any{badUTF8: 1}}},
-		{"value", map[string]any{"k": badUTF8}},
-	}
-	for _, tc := range cases {
-		t.Run(tc.name, func(t *testing.T) {
-			out, err := Marshal(tc.in)
-			if err == nil {
-				t.Fatalf("Marshal was accepted, producing %q", out)
-			}
-			if !errors.Is(err, ErrBadInput) {
-				t.Errorf("Marshal reported %v, want a bad-input diagnostic", err)
-			}
-		})
-	}
-}
-
 // pathOfKey spells one key as a path ParsePath reads back as that single key,
 // through the package's own path-quoting authority -- so the invalid bytes
 // reach the write verbatim rather than being rewritten by the test.

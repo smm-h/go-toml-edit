@@ -28,7 +28,7 @@ type Span struct {
 }
 
 // IsValid reports whether the span was populated by Parse. The zero Span is
-// invalid; it is returned by nodes created programmatically (edits, Marshal).
+// invalid; it is returned by nodes created programmatically by an edit.
 func (s Span) IsValid() bool { return s.Start.IsValid() }
 
 // advancePos returns the position after consuming raw, using the same

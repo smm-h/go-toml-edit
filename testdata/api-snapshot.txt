@@ -109,7 +109,6 @@ func Diff(a *Document, b *Document) []Change
 func FieldAny() Field
 func FormatFloat(f float64) string
 func JoinPath(segs []PathSegment) string
-func Marshal(v any) ([]byte, error)
 func Parse(src []byte) (*Document, error)
 func ParseFile(path string) (*Document, error)
 func ParsePath(path string) ([]PathSegment, error)
