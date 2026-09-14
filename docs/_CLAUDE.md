@@ -1,6 +1,6 @@
----
-title: CLAUDE.md
----
++++
+title = "CLAUDE.md"
++++
 # go-toml-edit
 
 Comment-preserving TOML parser and editor library for Go. Single `tomledit` package, no CLI.

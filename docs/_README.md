@@ -1,6 +1,6 @@
----
-title: README.md
----
++++
+title = "README.md"
++++
 # go-toml-edit
 
 go-toml-edit is a Go library that parses TOML into a lossless syntax tree, edits

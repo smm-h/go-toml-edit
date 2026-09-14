@@ -1,6 +1,6 @@
----
-description: "Go library that parses TOML into a lossless syntax tree, edits values and structure, and writes it back with every comment and untouched byte intact."
----
++++
+description = "Go library that parses TOML into a lossless syntax tree, edits values and structure, and writes it back with every comment and untouched byte intact."
++++
 
 # go-toml-edit
 
