@@ -193,6 +193,21 @@
         },
         {
           "level": 3,
+          "text": "Two surfaces, two questions",
+          "anchor": "two-surfaces-two-questions"
+        },
+        {
+          "level": 3,
+          "text": "Strictness and diagnostics",
+          "anchor": "strictness-and-diagnostics"
+        },
+        {
+          "level": 3,
+          "text": "Capabilities",
+          "anchor": "capabilities"
+        },
+        {
+          "level": 3,
           "text": "`Added`",
           "anchor": "added"
         },
@@ -1772,6 +1787,21 @@
           "level": 2,
           "text": "`.`",
           "anchor": ""
+        },
+        {
+          "level": 3,
+          "text": "Two surfaces, two questions",
+          "anchor": "two-surfaces-two-questions"
+        },
+        {
+          "level": 3,
+          "text": "Strictness and diagnostics",
+          "anchor": "strictness-and-diagnostics"
+        },
+        {
+          "level": 3,
+          "text": "Capabilities",
+          "anchor": "capabilities"
         },
         {
           "level": 3,
@@ -3584,6 +3614,6 @@
     }
   ],
   "posts": [],
-  "last_gen": "2026-09-14T14:58:09.180731+00:00",
+  "last_gen": "2026-09-14T16:20:12.247378+00:00",
   "theme": "minimal"
 }
