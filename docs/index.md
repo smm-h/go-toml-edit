@@ -1,10 +1,10 @@
 ---
-description: "Go library for parsing, editing, and serializing TOML documents while preserving comments, whitespace, and formatting with round-trip fidelity."
+description: "Go library that parses TOML into a lossless syntax tree, edits values and structure, and writes it back with every comment and untouched byte intact."
 ---
 
 # go-toml-edit
 
-Comment-preserving TOML editing library for Go.
+go-toml-edit is a Go library that parses TOML into a lossless syntax tree, edits values and structure, and writes it back with every comment and untouched byte intact.
 
 ## API Reference
 

@@ -1,10 +1,10 @@
-// Package tomledit provides a comment-preserving TOML parser and editor.
+// Package tomledit parses TOML into a lossless syntax tree, edits values and
+// structure, and writes it back with every comment and untouched byte intact.
 //
-// It parses TOML documents into a lossless AST that preserves comments,
-// whitespace and formatting. Values can be read, set, deleted and renamed
-// without disturbing unrelated parts of the file. A document is serialized
-// back with [Document.Bytes] (round-trip fidelity) or reformatted with
-// [Document.Format].
+// The tree preserves comments, whitespace and formatting. Values can be read,
+// set, deleted and renamed without disturbing unrelated parts of the file. A
+// document is serialized back with [Document.Bytes] (round-trip fidelity) or
+// reformatted with [Document.Format].
 //
 // # Two surfaces, two questions
 //

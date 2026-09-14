@@ -1,6 +1,8 @@
 //go:build ignore
 
-// Comma-ok to error conversion sweep.
+// Command comma_ok_to_error rewrites call sites of accessors that changed from
+// (T, bool) to (T, error), using the type checker to find the variable each
+// converted call binds.
 //
 // Converting an accessor from (T, bool) to (T, error) leaves every call site
 // binding a variable that is now an error and using it as a boolean. A textual
