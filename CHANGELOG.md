@@ -2,6 +2,15 @@
 
 # Changelog
 
+## 0.4.1
+
+The library describes itself consistently in its README and package documentation, and its documentation base is the unified site.
+
+### Fixes
+
+- **The project describes itself consistently in its README and package documentation.** The README opened with a tagline instead of a definition, the package doc comment said something different again, and the project metadata carried no description at all.
+- **Documentation links point at the unified site.** The declared docs base was the retired per-project host; it is `https://smmh.dev/go-toml-edit/` now, so generated sitemaps, feeds and llms.txt name the address that serves the pages.
+
 ## 0.4.0
 
 The strictness-and-fidelity redesign: a logical read-layer, strict-only decoding with value-returning entry points, a unified diagnostic contract, fragment-based rendering with canonical spellings, and a hardened edit surface that refuses to corrupt a document.

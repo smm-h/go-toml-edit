@@ -1,5 +1,5 @@
 {
-  "version": "0.4.0",
+  "version": "0.4.1",
   "description": "Go library that parses TOML into a lossless syntax tree, edits values and structure, and writes it back with every comment and untouched byte intact",
   "repo": "https://github.com/smm-h/go-toml-edit",
   "base_url": "https://smmh.dev/go-toml-edit",
@@ -18,7 +18,7 @@
   "output": "docs/_build/",
   "versions": [
     {
-      "version": "0.4.0"
+      "version": "0.4.1"
     }
   ],
   "locales": [
