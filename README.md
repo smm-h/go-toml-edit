@@ -2,7 +2,13 @@
 
 # go-toml-edit
 
-Comment-preserving TOML editing for Go.
+go-toml-edit is a Go library that parses TOML into a lossless syntax tree, edits
+values and structure through paths, and writes it back with every comment intact
+and untouched regions unchanged byte for byte. It is for Go programs that rewrite
+human-maintained config files -- CLI tools, installers, release automation --
+where a lost comment or a reflowed table is a bug. Only the fragments you edit
+are re-rendered; everything else is spliced from the original source, so
+`Parse(x).Bytes()` equals `x` for any valid TOML.
 
 ## Why
 
