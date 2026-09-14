@@ -1,6 +1,6 @@
 ---
 title: go-toml-edit
-description: "Package tomledit parses TOML into a lossless syntax tree, edits values and structure through paths, and writes it back with every comment intact and untouched regions unchanged byte for byte."
+description: "Package tomledit parses TOML into a lossless syntax tree, edits values and structure, and writes it back with every comment and untouched byte intact."
 generated: true
 nav_group: "API Reference"
 nav_order: 1
