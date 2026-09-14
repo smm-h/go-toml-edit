@@ -2,6 +2,14 @@
 
 # Changelog
 
+## 0.4.2
+
+Documentation frontmatter converted to TOML for the current selfdoc; no user-facing change.
+
+### Infrastructure
+
+- Documentation frontmatter converted to TOML for the current selfdoc; no user-facing change.
+
 ## 0.4.1
 
 The library describes itself consistently in its README and package documentation, and its documentation base is the unified site.
