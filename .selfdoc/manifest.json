@@ -2,8 +2,8 @@
   "schema_version": 1,
   "name": "go-toml-edit",
   "slug": "go-toml-edit",
-  "version": "0.4.1",
-  "description": "Go library that parses TOML into a lossless syntax tree, edits values and structure, and writes it back with every comment and untouched byte intact",
+  "version": "0.4.2",
+  "description": "Zero-dep TOML editing library for Go with comment preservation",
   "language": "go",
   "base_url": "https://smmh.dev/go-toml-edit",
   "pages": [
@@ -3614,6 +3614,6 @@
     }
   ],
   "posts": [],
-  "last_gen": "2026-09-14T17:13:54.335069+00:00",
+  "last_gen": "2026-09-15T20:39:54.877397+00:00",
   "theme": "minimal"
 }
