@@ -17,3 +17,7 @@ context = ""
 # blog = false
 include = ["go"]
 exclude = []
+candidate_sha = "8b07c9d13745f5d6cba4ca53ecf86fdd51c508ee"
+
+[tree_hashes]
+"." = "62a6e748091ef3b49d81f7ff9005650806bd7902"
