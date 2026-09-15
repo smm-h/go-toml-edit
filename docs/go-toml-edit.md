@@ -1,7 +1,8 @@
 +++
 title = "go-toml-edit"
-description = "Package tomledit parses TOML into a lossless syntax tree, edits values and structure, and writes it back with every comment and untouched byte intact."
+description = "Package tomledit: Zero-dep TOML editing library for Go with comment preservation."
 generated = true
+seeded = true
 nav_group = "API Reference"
 nav_order = 1
 +++
