@@ -1,1 +1,2 @@
 {"format_version":1,"id":"18d5526f5592936904ecb743699242b793ab320ae536242d","commits":["6c716cd4bd3fc32b712e8a4a6f97edd1c9ba3f9f"],"user_facing":false}
+{"format_version":1,"id":"18d59937fd7b89fa93c26328258b49e4a1c44d7533208668","commits":["2ebc48bd73cf549f030326f9a1add1c9f287e49e"],"user_facing":true,"description":"**The library describes itself with one sentence everywhere.** The README, docs site and package metadata now carry the same line as the package doc comment.","type":"fix"}
