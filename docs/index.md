@@ -1,10 +1,10 @@
 +++
-description = "Go library that parses TOML into a lossless syntax tree, edits values and structure, and writes it back with every comment and untouched byte intact."
+description = "Zero-dep TOML editing library for Go with comment preservation"
 +++
 
 # go-toml-edit
 
-go-toml-edit is a Go library that parses TOML into a lossless syntax tree, edits values and structure, and writes it back with every comment and untouched byte intact.
+Zero-dep TOML editing library for Go with comment preservation
 
 ## API Reference
 

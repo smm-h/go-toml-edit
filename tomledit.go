@@ -1,5 +1,4 @@
-// Package tomledit parses TOML into a lossless syntax tree, edits values and
-// structure, and writes it back with every comment and untouched byte intact.
+// Package tomledit: Zero-dep TOML editing library for Go with comment preservation.
 //
 // The tree preserves comments, whitespace and formatting. Values can be read,
 // set, deleted and renamed without disturbing unrelated parts of the file. A
